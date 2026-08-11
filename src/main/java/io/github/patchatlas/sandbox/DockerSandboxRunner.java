@@ -88,15 +88,31 @@ public final class DockerSandboxRunner implements SandboxRunner {
         }
 
         String containerName = containerNameSupplier.get();
-        List<String> dockerCommand = buildDockerCommand(
+        List<String> createCommand = buildDockerCreateCommand(
                 normalizedWorkspace, cacheDirectory, userSpec, containerName, command);
-        CommandExecution process = commandExecutor.execute(
-                dockerCommand, config.timeout(), config.maxOutputBytes());
-        if (process.timedOut()) {
-            CommandExecution cleanup = commandExecutor.execute(
+        CommandExecution creation = commandExecutor.execute(
+                createCommand, PREFLIGHT_TIMEOUT, config.maxOutputBytes());
+        if (!isSuccessful(creation)) {
+            commandExecutor.execute(
                     List.of("docker", "rm", "-f", containerName),
                     CLEANUP_TIMEOUT,
                     config.maxOutputBytes());
+            return fromProcess(
+                    SandboxExecutionStatus.CONTAINER_SETUP_FAILED,
+                    creation,
+                    command.arguments(),
+                    command);
+        }
+
+        CommandExecution process = commandExecutor.execute(
+                List.of("docker", "start", "-a", containerName),
+                config.timeout(),
+                config.maxOutputBytes());
+        CommandExecution cleanup = commandExecutor.execute(
+                List.of("docker", "rm", "-f", containerName),
+                CLEANUP_TIMEOUT,
+                config.maxOutputBytes());
+        if (process.timedOut()) {
             SandboxExecutionStatus status = isSuccessful(cleanup)
                     ? SandboxExecutionStatus.TIMED_OUT
                     : SandboxExecutionStatus.TIMEOUT_CLEANUP_FAILED;
@@ -105,6 +121,13 @@ public final class DockerSandboxRunner implements SandboxRunner {
         if (process.startFailure() != null) {
             return fromProcess(
                     SandboxExecutionStatus.PROCESS_START_FAILED,
+                    process,
+                    command.arguments(),
+                    command);
+        }
+        if (!isSuccessful(cleanup)) {
+            return fromProcess(
+                    SandboxExecutionStatus.CLEANUP_FAILED,
                     process,
                     command.arguments(),
                     command);
@@ -131,7 +154,7 @@ public final class DockerSandboxRunner implements SandboxRunner {
                 SandboxExecutionStatus.IMAGE_UNAVAILABLE, pull, List.of(), command);
     }
 
-    private List<String> buildDockerCommand(
+    private List<String> buildDockerCreateCommand(
             Path workspace,
             Path cacheDirectory,
             String userSpec,
@@ -140,8 +163,7 @@ public final class DockerSandboxRunner implements SandboxRunner {
         SandboxLimits limits = config.limits();
         List<String> arguments = new ArrayList<>(List.of(
                 "docker",
-                "run",
-                "--rm",
+                "create",
                 "--name",
                 containerName,
                 "--pull=never",

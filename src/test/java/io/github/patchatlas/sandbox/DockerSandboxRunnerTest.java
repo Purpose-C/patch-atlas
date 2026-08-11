@@ -19,7 +19,9 @@ class DockerSandboxRunnerTest {
         FakeCommandExecutor executor = new FakeCommandExecutor(
                 completed(0, "Docker ready"),
                 completed(0, "image ready"),
-                completed(7, "test failed"));
+                completed(0, "container created"),
+                completed(7, "test failed"),
+                completed(0, "removed"));
         DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
 
         SandboxExecution execution = runner.execute(
@@ -45,7 +47,7 @@ class DockerSandboxRunnerTest {
 
         List<String> dockerCommand = executor.commands.get(2);
         assertThat(dockerCommand)
-                .containsSubsequence("docker", "run", "--rm", "--name", "patch-atlas-test");
+                .containsSubsequence("docker", "create", "--name", "patch-atlas-test");
         assertThat(dockerCommand).contains("--user", "501:20");
         assertThat(dockerCommand).contains(
                 "--cap-drop=ALL",
@@ -70,6 +72,10 @@ class DockerSandboxRunnerTest {
                 .doesNotContain(home + ":/workspace:rw", home + ":/maven-cache:rw");
         assertThat(dockerCommand).noneMatch(argument -> argument.contains("docker.sock"));
         assertThat(dockerCommand).noneMatch(argument -> argument.contains("OPENAI"));
+        assertThat(executor.commands.get(3))
+                .isEqualTo(List.of("docker", "start", "-a", "patch-atlas-test"));
+        assertThat(executor.commands.get(4))
+                .isEqualTo(List.of("docker", "rm", "-f", "patch-atlas-test"));
     }
 
     @Test
@@ -77,7 +83,9 @@ class DockerSandboxRunnerTest {
         FakeCommandExecutor executor = new FakeCommandExecutor(
                 completed(0, "Docker ready"),
                 completed(0, "image ready"),
-                completed(0, "BUILD SUCCESS"));
+                completed(0, "container created"),
+                completed(0, "BUILD SUCCESS"),
+                completed(0, "removed"));
         DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
 
         SandboxExecution execution = runner.execute(
@@ -220,6 +228,7 @@ class DockerSandboxRunnerTest {
         FakeCommandExecutor executor = new FakeCommandExecutor(
                 completed(0, "Docker ready"),
                 completed(0, "image ready"),
+                completed(0, "container created"),
                 timedOut("partial output"),
                 completed(0, "removed"));
         DockerSandboxRunner runner = runner(workspace, executor, Duration.ofMillis(100));
@@ -231,7 +240,11 @@ class DockerSandboxRunnerTest {
         assertThat(execution.status()).isEqualTo(SandboxExecutionStatus.TIMED_OUT);
         assertThat(execution.timedOut()).isTrue();
         assertThat(execution.exitCode()).isNull();
+        assertThat(executor.commands.get(2))
+                .containsSubsequence("docker", "create", "--name", "patch-atlas-test");
         assertThat(executor.commands.get(3))
+                .isEqualTo(List.of("docker", "start", "-a", "patch-atlas-test"));
+        assertThat(executor.commands.get(4))
                 .isEqualTo(List.of("docker", "rm", "-f", "patch-atlas-test"));
     }
 
@@ -240,6 +253,7 @@ class DockerSandboxRunnerTest {
         FakeCommandExecutor executor = new FakeCommandExecutor(
                 completed(0, "Docker ready"),
                 completed(0, "image ready"),
+                completed(0, "container created"),
                 timedOut("partial output"),
                 completed(1, "cannot remove container"));
         DockerSandboxRunner runner = runner(workspace, executor, Duration.ofMillis(100));
@@ -250,6 +264,43 @@ class DockerSandboxRunnerTest {
 
         assertThat(execution.status()).isEqualTo(SandboxExecutionStatus.TIMEOUT_CLEANUP_FAILED);
         assertThat(execution.timedOut()).isTrue();
+    }
+
+    @Test
+    void reportsContainerCreationFailureAndAttemptsCleanup(@TempDir Path workspace) {
+        FakeCommandExecutor executor = new FakeCommandExecutor(
+                completed(0, "Docker ready"),
+                completed(0, "image ready"),
+                completed(1, "create failed"),
+                completed(1, "container not found"));
+        DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
+
+        SandboxExecution execution = runner.execute(
+                workspace,
+                new MavenTestCommand("", "fixtures.StringUtilsTest", MavenNetworkMode.OFFLINE));
+
+        assertThat(execution.status()).isEqualTo(SandboxExecutionStatus.CONTAINER_SETUP_FAILED);
+        assertThat(execution.logSummary()).isEqualTo("create failed");
+        assertThat(executor.commands.get(3))
+                .isEqualTo(List.of("docker", "rm", "-f", "patch-atlas-test"));
+    }
+
+    @Test
+    void reportsCleanupFailureAfterCompletedExecution(@TempDir Path workspace) {
+        FakeCommandExecutor executor = new FakeCommandExecutor(
+                completed(0, "Docker ready"),
+                completed(0, "image ready"),
+                completed(0, "container created"),
+                completed(0, "BUILD SUCCESS"),
+                completed(1, "cannot remove container"));
+        DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
+
+        SandboxExecution execution = runner.execute(
+                workspace,
+                new MavenTestCommand("", "fixtures.StringUtilsTest", MavenNetworkMode.OFFLINE));
+
+        assertThat(execution.status()).isEqualTo(SandboxExecutionStatus.CLEANUP_FAILED);
+        assertThat(execution.logSummary()).isEqualTo("BUILD SUCCESS");
     }
 
     private static DockerSandboxRunner runner(
