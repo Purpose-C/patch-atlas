@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: patch-atlas
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

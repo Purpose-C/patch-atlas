@@ -1,0 +1,20 @@
+target/
+**/target/
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+.env
+.env.*
+.idea/
+.vscode/
+*.iml
+*.log
+*.orig
+.DS_Store
+graphify-out/
+.patch-atlas-cache/
+
+# 第三方仓库源码只保存在本地工作区，公开仓库仅提交案例元数据。
+samples/
