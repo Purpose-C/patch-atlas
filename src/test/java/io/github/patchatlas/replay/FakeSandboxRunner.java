@@ -14,20 +14,20 @@ import java.util.List;
 import java.util.Objects;
 
 /** 测试用沙箱：按队列返回执行事实，并可写入 Surefire XML。 */
-final class FakeSandboxRunner implements SandboxRunner {
+public final class FakeSandboxRunner implements SandboxRunner {
 
     private final Deque<ScriptedExecution> scripts = new ArrayDeque<>();
     private final List<Path> executedWorkspaces = new ArrayList<>();
 
-    void enqueue(SandboxExecution execution, String reportXml) {
+    public void enqueue(SandboxExecution execution, String reportXml) {
         scripts.addLast(new ScriptedExecution(execution, reportXml));
     }
 
-    int remaining() {
+    public int remaining() {
         return scripts.size();
     }
 
-    List<Path> executedWorkspaces() {
+    public List<Path> executedWorkspaces() {
         return List.copyOf(executedWorkspaces);
     }
 
