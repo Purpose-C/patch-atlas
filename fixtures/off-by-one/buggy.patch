@@ -1,0 +1,9 @@
+--- a/src/main/java/fixtures/StringUtils.java
++++ b/src/main/java/fixtures/StringUtils.java
+@@ -9,5 +9,5 @@
+     /** 返回非空字符串的最后一个字符。 */
+     public static char lastChar(String s) {
+-        return s.charAt(s.length() - 1);
++        return s.charAt(s.length() - 2);
+     }
+ }
