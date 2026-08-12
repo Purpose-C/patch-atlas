@@ -1,15 +1,21 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.GenerationFeedback;
+import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.GenerationRequest;
+import io.github.patchatlas.agent.GenerationResult;
+import io.github.patchatlas.agent.GeneratorIdentity;
+import io.github.patchatlas.agent.ModelUsage;
+import io.github.patchatlas.agent.PatchGate;
+import io.github.patchatlas.agent.PatchPreparationResult;
+import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.replay.SideExecutionResult;
+import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
-import io.github.patchatlas.run.CandidateWorkspaceFactory;
-import io.github.patchatlas.run.ClaimedRun;
-import io.github.patchatlas.run.FailureCategory;
-import io.github.patchatlas.run.FailureStage;
-import io.github.patchatlas.run.GatedCandidate;
-import io.github.patchatlas.run.GenerationRunSession;
-import io.github.patchatlas.run.RunDetails;
-import io.github.patchatlas.run.RunFailure;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -30,21 +36,39 @@ public final class CandidateGenerationCoordinator {
     private final TestGenerator generator;
     private final PatchGate patchGate;
     private final CandidateWorkspaceFactory workspaceFactory;
+    private final DependencyWarmupRunner dependencyWarmupRunner;
     private final SideReplayRunner sideReplayRunner;
 
     public CandidateGenerationCoordinator(
             TestGenerator generator,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
+            DependencyWarmupRunner dependencyWarmupRunner,
             SideReplayRunner sideReplayRunner) {
         this.generator = Objects.requireNonNull(generator, "generator");
         this.patchGate = Objects.requireNonNull(patchGate, "patchGate");
         this.workspaceFactory = Objects.requireNonNull(workspaceFactory, "workspaceFactory");
+        this.dependencyWarmupRunner =
+                Objects.requireNonNull(dependencyWarmupRunner, "dependencyWarmupRunner");
         this.sideReplayRunner = Objects.requireNonNull(sideReplayRunner, "sideReplayRunner");
     }
 
     public Result run(GenerationInput generationInput, GenerationRunSession session) {
+        String javaVersion = generationInput.generatorContext().javaVersion() == null
+                ? MavenExecutionPolicy.DEFAULT_JAVA_VERSION
+                : generationInput.generatorContext().javaVersion();
+        return run(
+                generationInput,
+                new MavenExecutionPolicy(javaVersion, MavenNetworkMode.OFFLINE),
+                session);
+    }
+
+    public Result run(
+            GenerationInput generationInput,
+            MavenExecutionPolicy executionPolicy,
+            GenerationRunSession session) {
         Objects.requireNonNull(generationInput, "generationInput");
+        Objects.requireNonNull(executionPolicy, "executionPolicy");
         Objects.requireNonNull(session, "session");
 
         Optional<CandidateDraft> previousDraft = Optional.empty();
@@ -100,12 +124,22 @@ public final class CandidateGenerationCoordinator {
                             CandidateDraft draft = draftResult.draft();
                             // 使用预占后的 claim，避免 currentClaim 与心跳竞态
                             try (CandidateWorkspaceFactory.WorkspaceSession workspace =
-                                    workspaceFactory.open(claimAfterReserve, generationInput)) {
+                                    workspaceFactory.open(
+                                            claimAfterReserve, generationInput, executionPolicy)) {
+                                MavenTestCommand command = commandForDraft(workspace, draft);
+                                Optional<String> warmupFailure = dependencyWarmupRunner.warm(
+                                        workspace.workspace(), command);
+                                if (warmupFailure.isPresent()) {
+                                    return new Result.RunFailed(session.fail(new RunFailure(
+                                            FailureStage.REPLAY,
+                                            FailureCategory.REPLAY_SYSTEM_ERROR,
+                                            warmupFailure.orElseThrow())));
+                                }
                                 PatchPreparationResult prepared = patchGate.prepare(
                                         workspace.workspace(),
                                         workspace.modulePath(),
                                         draft,
-                                        workspace.networkMode());
+                                        workspace.executionPolicy());
                                 if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
                                     PatchGateOutcomeMapper.Outcome gateOutcome =
                                             PatchGateOutcomeMapper.map(
@@ -142,12 +176,12 @@ public final class CandidateGenerationCoordinator {
                                         feedback = Optional.of(correctable.feedback());
                                         continue;
                                     }
+                                    case PrevalidationFeedbackMapper.Outcome.Terminal terminal -> {
+                                        return new Result.RunFailed(session.fail(terminal.failure()));
+                                    }
                                 }
-                            } catch (RuntimeException ex) {
-                                return new Result.RunFailed(session.fail(new RunFailure(
-                                        FailureStage.WORKSPACE,
-                                        FailureCategory.WORKSPACE_UNSAFE,
-                                        bound("workspace: " + ex.getClass().getSimpleName()))));
+                            } catch (StaleClaimException stale) {
+                                throw stale;
                             } catch (Exception ex) {
                                 return new Result.RunFailed(session.fail(new RunFailure(
                                         FailureStage.WORKSPACE,
@@ -167,6 +201,15 @@ public final class CandidateGenerationCoordinator {
 
     private static void recordUsageIfPresent(GenerationRunSession session, Optional<ModelUsage> usage) {
         usage.ifPresent(session::recordModelUsage);
+    }
+
+    private static MavenTestCommand commandForDraft(
+            CandidateWorkspaceFactory.WorkspaceSession workspace, CandidateDraft draft) {
+        return new MavenTestCommand(
+                workspace.modulePath(),
+                draft.targetTest().className() + "#" + draft.targetTest().methodName(),
+                workspace.executionPolicy().networkMode(),
+                workspace.executionPolicy().javaVersion());
     }
 
     private static String bound(String s) {

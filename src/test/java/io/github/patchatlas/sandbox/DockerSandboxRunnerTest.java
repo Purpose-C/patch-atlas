@@ -99,6 +99,28 @@ class DockerSandboxRunnerTest {
     }
 
     @Test
+    void selectsControlledImageFromCommandJavaVersion(@TempDir Path workspace) {
+        FakeCommandExecutor executor = new FakeCommandExecutor(
+                completed(0, "Docker ready"),
+                completed(0, "image ready"),
+                completed(0, "container created"),
+                completed(0, "BUILD SUCCESS"),
+                completed(0, "removed"));
+        DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
+
+        SandboxExecution execution = runner.execute(
+                workspace,
+                new MavenTestCommand(
+                        "", "fixtures.StringUtilsTest", MavenNetworkMode.OFFLINE, "17"));
+
+        assertThat(execution.image()).isEqualTo("maven:3.9-eclipse-temurin-17");
+        assertThat(executor.commands.get(1))
+                .isEqualTo(List.of(
+                        "docker", "image", "inspect", "maven:3.9-eclipse-temurin-17"));
+        assertThat(executor.commands.get(2)).contains("maven:3.9-eclipse-temurin-17");
+    }
+
+    @Test
     void reportsDockerUnavailableBeforeBuildingContainerCommand(@TempDir Path workspace) {
         FakeCommandExecutor executor = new FakeCommandExecutor(completed(1, "daemon unavailable"));
         DockerSandboxRunner runner = runner(workspace, executor, Duration.ofSeconds(5));
@@ -167,7 +189,6 @@ class DockerSandboxRunnerTest {
         Path cacheFile = Files.writeString(cacheRoot.resolve("cache-file"), "not a directory");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         DockerSandboxConfig config = new DockerSandboxConfig(
-                "maven:3.9-eclipse-temurin-21",
                 Duration.ofSeconds(5),
                 64 * 1024,
                 workspace,
@@ -193,7 +214,6 @@ class DockerSandboxRunnerTest {
         Files.createSymbolicLink(cacheLink, outside);
         FakeCommandExecutor executor = new FakeCommandExecutor();
         DockerSandboxConfig config = new DockerSandboxConfig(
-                "maven:3.9-eclipse-temurin-21",
                 Duration.ofSeconds(5),
                 64 * 1024,
                 workspace,
@@ -306,7 +326,6 @@ class DockerSandboxRunnerTest {
     private static DockerSandboxRunner runner(
             Path workspace, FakeCommandExecutor executor, Duration timeout) {
         DockerSandboxConfig config = new DockerSandboxConfig(
-                "maven:3.9-eclipse-temurin-21",
                 timeout,
                 64 * 1024,
                 workspace,

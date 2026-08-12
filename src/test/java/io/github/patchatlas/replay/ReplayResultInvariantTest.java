@@ -88,12 +88,9 @@ class ReplayResultInvariantTest {
     }
 
     @Test
-    void sideResultRejectsStableEvidenceInconsistentWithAttempts() {
+    void sideResultRejectsWrongAttemptCount() {
         AttemptRecord pre = AttemptRecord.preExecutionFailure("x");
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new SideExecutionResult(
-                        java.util.List.of(pre, pre),
-                        StableSideEvidence.TARGET_PASSED,
-                        Optional.empty()));
+                .isThrownBy(() -> new SideExecutionResult(java.util.List.of(pre)));
     }
 }

@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.HistoricalReplayEngine;
 import io.github.patchatlas.replay.HistoricalReplayRequest;
+import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.SideExecutionResult;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.replay.StableSideEvidence;
+import io.github.patchatlas.run.CandidateGenerationCoordinator;
 import io.github.patchatlas.run.ClaimedRun;
 import io.github.patchatlas.run.InMemoryGenerationRunSession;
 import io.github.patchatlas.run.LocalGitFixture;
@@ -18,7 +20,7 @@ import io.github.patchatlas.run.PersistedCandidatePatch;
 import io.github.patchatlas.run.RunLease;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.TempCandidateWorkspaceFactory;
-import io.github.patchatlas.run.VerificationMode;
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
@@ -61,7 +63,6 @@ import org.springframework.ai.chat.model.ChatModel;
 @Tag("model")
 class OpenAiModelSmokeTest {
 
-    private static final String IMAGE = "maven:3.9-eclipse-temurin-21";
 
     private static final String BUG_STRING_UTILS =
             """
@@ -121,7 +122,6 @@ class OpenAiModelSmokeTest {
         Path cache = Path.of(".patch-atlas-cache/maven-model-smoke").toAbsolutePath();
         Files.createDirectories(cache);
         DockerSandboxRunner docker = new DockerSandboxRunner(new DockerSandboxConfig(
-                IMAGE,
                 Duration.ofMinutes(5),
                 64 * 1024,
                 workspaceRoot,
@@ -172,11 +172,15 @@ class OpenAiModelSmokeTest {
 
         var factory = new TempCandidateWorkspaceFactory(
                 workspaceRoot,
-                LocalGitFixture.fetcher(hist.originDir()),
-                MavenNetworkMode.OFFLINE);
+                LocalGitFixture.fetcher(hist.originDir()));
         SideReplayRunner side = new SideReplayRunner(docker, workspaceRoot);
         CandidateGenerationCoordinator coordinator =
-                new CandidateGenerationCoordinator(generator, new PatchGate(workspaceRoot), factory, side);
+                new CandidateGenerationCoordinator(
+                        generator,
+                        new PatchGate(workspaceRoot),
+                        factory,
+                        new DependencyWarmupRunner(docker, workspaceRoot),
+                        side);
 
         ClaimedRun claim = new ClaimedRun(
                 UUID.randomUUID(),

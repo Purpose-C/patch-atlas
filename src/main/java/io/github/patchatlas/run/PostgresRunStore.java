@@ -1,6 +1,7 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.AttemptPhase;
 import io.github.patchatlas.replay.AttemptRecord;
@@ -9,8 +10,10 @@ import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
 import io.github.patchatlas.replay.SingleAttemptEvidence;
-import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.replay.TargetTest;
+import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,6 +36,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>领取使用短事务 + {@code FOR UPDATE SKIP LOCKED}；不在模型/Git/Docker 调用期间持有事务。
  */
 public final class PostgresRunStore {
+
+    public record ReservedGenerationAttempt(ClaimedRun claim, int ordinal) {}
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
@@ -71,12 +76,12 @@ public final class PostgresRunStore {
                         INSERT INTO verification_run (
                           id, mode, case_id, repository_url, license, issue_url,
                           issue_title, issue_body, buggy_revision, fixed_revision,
-                          module_path, java_version, source_snapshots, input_schema_version,
+                          module_path, java_version, network_mode, source_snapshots, input_schema_version,
                           state, version, recovery_count, replay_round
                         ) VALUES (
                           :id, :mode, :caseId, :repositoryUrl, :license, :issueUrl,
                           :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
-                          :modulePath, :javaVersion, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
+                          :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
                           :state, 0, 0, 0
                         )
                         """)
@@ -92,6 +97,7 @@ public final class PostgresRunStore {
                 .param("fixedRevision", submission.fixedRevision())
                 .param("modulePath", submission.modulePath())
                 .param("javaVersion", submission.javaVersion())
+                .param("networkMode", submission.networkMode().name())
                 .param("sourceSnapshots", snapshotsJson)
                 .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
                 .param("state", RunState.QUEUED.name())
@@ -152,6 +158,23 @@ public final class PostgresRunStore {
                 .orElseThrow(() -> new IllegalArgumentException("run not found: " + runId));
     }
 
+    /** 生成与 Replay 共用的执行策略投影；不读取 Fixed revision 或其他 Oracle 数据。 */
+    public MavenExecutionPolicy loadExecutionPolicy(UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        return jdbc.sql(
+                        """
+                        SELECT java_version, network_mode
+                          FROM verification_run
+                         WHERE id = :id
+                        """)
+                .param("id", runId)
+                .query((rs, rowNum) -> new MavenExecutionPolicy(
+                        rs.getString("java_version"),
+                        MavenNetworkMode.valueOf(rs.getString("network_mode"))))
+                .optional()
+                .orElseThrow(() -> new IllegalArgumentException("run not found: " + runId));
+    }
+
     /**
      * Replay/workspace 投影：可含 Fixed revision；仅 run 包使用，不得交给 TestGenerator。
      */
@@ -159,7 +182,8 @@ public final class PostgresRunStore {
         Objects.requireNonNull(runId, "runId");
         return jdbc.sql(
                         """
-                        SELECT mode, repository_url, buggy_revision, fixed_revision, module_path
+                        SELECT mode, repository_url, buggy_revision, fixed_revision, module_path,
+                               java_version, network_mode
                           FROM verification_run
                          WHERE id = :id
                         """)
@@ -172,13 +196,18 @@ public final class PostgresRunStore {
                     if (modulePath == null) {
                         modulePath = "";
                     }
+                    MavenExecutionPolicy executionPolicy = new MavenExecutionPolicy(
+                            rs.getString("java_version"),
+                            MavenNetworkMode.valueOf(rs.getString("network_mode")));
                     return switch (mode) {
-                        case LIVE -> new ReplayWorkspaceProjection.Live(repositoryUrl, buggy, modulePath);
+                        case LIVE -> new ReplayWorkspaceProjection.Live(
+                                repositoryUrl, buggy, modulePath, executionPolicy);
                         case HISTORICAL -> new ReplayWorkspaceProjection.Historical(
                                 repositoryUrl,
                                 buggy,
                                 rs.getString("fixed_revision"),
-                                modulePath);
+                                modulePath,
+                                executionPolicy);
                     };
                 })
                 .optional()
@@ -262,7 +291,7 @@ public final class PostgresRunStore {
      *
      * <p>第四次预占抛 {@link GenerationAttemptsExhaustedException}。
      */
-    public ClaimedRun reserveGenerationAttempt(
+    public ReservedGenerationAttempt reserveGenerationAttempt(
             ClaimHandle handle, String provider, String modelName) {
         Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(provider, "provider");
@@ -272,9 +301,10 @@ public final class PostgresRunStore {
         }
         long newVersion = RunLeaseRules.nextVersion(handle.version());
         return tx.execute(status -> {
-            Integer current = jdbc.sql(
+            GenerationReservationRow current = jdbc.sql(
                             """
-                            SELECT generation_attempt_count
+                            SELECT mode, generation_attempt_count, recovery_count, replay_round,
+                                   lease_owner, lease_expires_at
                               FROM verification_run
                              WHERE id = :id
                                AND state = 'GENERATING'
@@ -284,16 +314,22 @@ public final class PostgresRunStore {
                     .param("id", handle.runId())
                     .param("token", handle.leaseToken())
                     .param("expectedVersion", handle.version())
-                    .query(Integer.class)
+                    .query((rs, rowNum) -> new GenerationReservationRow(
+                            VerificationMode.valueOf(rs.getString("mode")),
+                            rs.getInt("generation_attempt_count"),
+                            rs.getInt("recovery_count"),
+                            rs.getInt("replay_round"),
+                            rs.getString("lease_owner"),
+                            rs.getTimestamp("lease_expires_at").toInstant()))
                     .optional()
                     .orElse(null);
             if (current == null) {
                 throw new StaleClaimException(handle.runId(), "stale reserve on " + handle.runId());
             }
-            if (current >= 3) {
+            if (current.attemptCount() >= GenerationRequest.MAX_ATTEMPTS) {
                 throw new GenerationAttemptsExhaustedException(handle.runId());
             }
-            int next = current + 1;
+            int next = current.attemptCount() + 1;
             int updated = jdbc.sql(
                             """
                             UPDATE verification_run
@@ -319,33 +355,23 @@ public final class PostgresRunStore {
                     .param("id", handle.runId())
                     .param("token", handle.leaseToken())
                     .param("expectedVersion", handle.version())
-                    .param("current", current)
+                    .param("current", current.attemptCount())
                     .update();
             if (updated != 1) {
                 throw new StaleClaimException(handle.runId(), "stale reserve update on " + handle.runId());
             }
-            ClaimRow row = loadClaimRow(handle.runId());
-            Instant expiresAt = loadLeaseExpiry(handle.runId());
-            return new ClaimedRun(
+            ClaimedRun claim = new ClaimedRun(
                     handle.runId(),
-                    row.mode,
+                    current.mode(),
                     RunState.GENERATING,
                     newVersion,
-                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
-                    row.recoveryCount,
-                    row.replayRound,
+                    new RunLease(
+                            handle.leaseToken(), current.leaseOwner(), current.leaseExpiresAt()),
+                    current.recoveryCount(),
+                    current.replayRound(),
                     Optional.empty());
+            return new ReservedGenerationAttempt(claim, next);
         });
-    }
-
-    public int loadGenerationAttemptCount(UUID runId) {
-        return jdbc.sql(
-                        """
-                        SELECT generation_attempt_count FROM verification_run WHERE id = :id
-                        """)
-                .param("id", runId)
-                .query(Integer.class)
-                .single();
     }
 
     public ClaimedRun recordModelUsage(ClaimHandle handle, io.github.patchatlas.agent.ModelUsage usage) {
@@ -643,10 +669,8 @@ public final class PostgresRunStore {
                 .optional()
                 .orElse(null);
 
-        io.github.patchatlas.replay.VerificationMode mode =
-                io.github.patchatlas.replay.VerificationMode.valueOf(details.mode().name());
         return new ReplayResult(
-                mode,
+                details.mode(),
                 details.verdict().orElseThrow(),
                 target,
                 primary,
@@ -1061,27 +1085,11 @@ public final class PostgresRunStore {
         attempts.add(attemptCodec.decode(sideRows.get(0), target));
         attempts.add(attemptCodec.decode(sideRows.get(1), target));
 
-        // 稳定证据与聚合 outcome 由 SideExecutionResult 构造器从 attempts 重算校验
-        List<io.github.patchatlas.replay.SingleAttemptEvidence> evidences =
-                attempts.stream().map(AttemptRecord::targetEvidence).toList();
-        StableSideEvidence stable = new io.github.patchatlas.replay.SideEvidenceStabilizer().stabilize(evidences);
-        Optional<RunOutcome> first = attempts.get(0).outcome();
-        Optional<RunOutcome> second = attempts.get(1).outcome();
-        Optional<RunOutcome> aggregated;
-        if (first.isEmpty() || second.isEmpty()) {
-            aggregated = Optional.empty();
-        } else {
-            RunOutcome agg = first.get() == second.get() ? first.get() : RunOutcome.FLAKY_FAILURE;
-            aggregated = Optional.of(agg);
-            if (agg == RunOutcome.FLAKY_FAILURE) {
-                stable = StableSideEvidence.OTHER_OR_INVALID;
-            }
-        }
-        return new SideExecutionResult(attempts, stable, aggregated);
+        return new SideExecutionResult(attempts);
     }
 
     private static void requireModeAlignment(VerificationMode runMode, ReplayResult result) {
-        if (!runMode.name().equals(result.mode().name())) {
+        if (runMode != result.mode()) {
             throw new IllegalArgumentException(
                     "ReplayResult mode " + result.mode() + " does not match run mode " + runMode);
         }
@@ -1156,4 +1164,12 @@ public final class PostgresRunStore {
             long version,
             int recoveryCount,
             int replayRound) {}
+
+    private record GenerationReservationRow(
+            VerificationMode mode,
+            int attemptCount,
+            int recoveryCount,
+            int replayRound,
+            String leaseOwner,
+            Instant leaseExpiresAt) {}
 }

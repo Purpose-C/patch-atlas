@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.replay.VerificationMode;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;

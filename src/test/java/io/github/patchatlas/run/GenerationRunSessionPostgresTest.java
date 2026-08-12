@@ -3,6 +3,7 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import java.sql.Connection;
@@ -55,7 +56,7 @@ class GenerationRunSessionPostgresTest {
     }
 
     @Test
-    void reserveUsageAndFourthReject() {
+    void reserveUsageAndFourthReject() throws Exception {
         store.submit(live("res-1"));
         ClaimedRun claimed = store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow();
 
@@ -65,7 +66,7 @@ class GenerationRunSessionPostgresTest {
                 "w1",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(store, beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
 
             var r1 = session.reserveGenerationAttempt("fake", "fixture-v1");
             assertThat(r1).isInstanceOf(GenerationRunSession.ReserveResult.Reserved.class);
@@ -89,7 +90,7 @@ class GenerationRunSessionPostgresTest {
             assertThat(details.state()).isEqualTo(RunState.FAILED);
             assertThat(details.failure().orElseThrow().category())
                     .isEqualTo(FailureCategory.GENERATION_EXHAUSTED);
-            assertThat(store.loadGenerationAttemptCount(claimed.runId())).isEqualTo(3);
+            assertThat(generationAttemptCount(claimed.runId())).isEqualTo(3);
         }
     }
 
@@ -113,17 +114,13 @@ class GenerationRunSessionPostgresTest {
                 "new",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(store, beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
             var reserved = session.reserveGenerationAttempt("fake", "m");
             assertThat(reserved).isInstanceOf(GenerationRunSession.ReserveResult.Reserved.class);
             assertThat(((GenerationRunSession.ReserveResult.Reserved) reserved).attemptOrdinal())
                     .isEqualTo(1);
-            ClaimedRun current = session.currentClaim();
-            assertThat(current.version())
-                    .isEqualTo(
-                            ((GenerationRunSession.ReserveResult.Reserved) reserved)
-                                    .claim()
-                                    .version());
+            assertThat(((GenerationRunSession.ReserveResult.Reserved) reserved).claim().version())
+                    .isGreaterThan(recovered.version());
         }
     }
 
@@ -138,18 +135,18 @@ class GenerationRunSessionPostgresTest {
                 "a",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(store, beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
             session.reserveGenerationAttempt("fake", "m");
             session.reserveGenerationAttempt("fake", "m");
         }
 
         expireLease(claimed.runId());
         ClaimedRun b = store.claimNext("b", Duration.ofMinutes(5)).orElseThrow();
-        assertThat(store.loadGenerationAttemptCount(b.runId())).isEqualTo(2);
+        assertThat(generationAttemptCount(b.runId())).isEqualTo(2);
 
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(b), "b", Duration.ofMinutes(5), Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(store, beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
             var r3 = session.reserveGenerationAttempt("fake", "m");
             assertThat(((GenerationRunSession.ReserveResult.Reserved) r3).attemptOrdinal())
                     .isEqualTo(3);
@@ -169,6 +166,19 @@ class GenerationRunSessionPostgresTest {
                      WHERE id = '%s'
                     """
                             .formatted(runId));
+        }
+    }
+
+    private int generationAttemptCount(UUID runId) throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                        POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+                var statement = connection.prepareStatement(
+                        "SELECT generation_attempt_count FROM verification_run WHERE id = ?")) {
+            statement.setObject(1, runId);
+            try (var result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
         }
     }
 

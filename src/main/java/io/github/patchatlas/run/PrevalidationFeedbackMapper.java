@@ -1,6 +1,9 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.GenerationFeedback;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.replay.AttemptRecord;
+import io.github.patchatlas.replay.AttemptPhase;
 import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
 import io.github.patchatlas.replay.SingleAttemptEvidence;
@@ -9,12 +12,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Buggy 预验证聚合事实 → 可修正反馈（或成功信号）。 */
-public final class PrevalidationFeedbackMapper {
+final class PrevalidationFeedbackMapper {
 
-    public sealed interface Outcome permits Outcome.Success, Outcome.Correctable {
+    public sealed interface Outcome permits Outcome.Success, Outcome.Correctable, Outcome.Terminal {
         record Success() implements Outcome {}
 
         record Correctable(GenerationFeedback feedback) implements Outcome {}
+
+        record Terminal(RunFailure failure) implements Outcome {}
     }
 
     private PrevalidationFeedbackMapper() {}
@@ -27,6 +32,15 @@ public final class PrevalidationFeedbackMapper {
         if (side.stableEvidence() == StableSideEvidence.TARGET_PASSED) {
             return new Outcome.Correctable(new GenerationFeedback(
                     GenerationFeedbackCategory.TARGET_TEST_PASSED, "target test stable passed on buggy"));
+        }
+
+        if (side.attempts().stream()
+                .allMatch(attempt -> attempt.phase() == AttemptPhase.PRE_EXECUTION_FAILURE)) {
+            String detail = side.attempts().getFirst().diagnostic().orElse("pre-execution failure");
+            return new Outcome.Terminal(new RunFailure(
+                    FailureStage.REPLAY,
+                    FailureCategory.REPLAY_SYSTEM_ERROR,
+                    detail));
         }
 
         Optional<RunOutcome> agg = side.aggregatedOutcome();

@@ -37,10 +37,16 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据
 - 仓库 URL、目标目录和 Revision 输入边界校验；
 - 强类型 Maven 测试与依赖预热命令；
 - Docker 沙箱、超时清理、有界日志与 Maven 缓存复用；
+- Surefire XML 解析、七类执行结果与 flaky 归约；
+- Live/Historical Replay、Candidate Patch Gate 与 PostgreSQL Run 恢复；
+- Fake/真实模型 adapter，以及最多三轮 Buggy-only 生成修正；
+- 可恢复的 Java/网络执行策略、生产 Docker/Replay adapter 与 Worker 完整装配；
 - 受控 off-by-one 校准案例；
 - spring-cloud-openfeign #1326 真实历史案例与缓存数据。
 
-目前尚未实现候选测试生成、Surefire 失败分类、跨 Revision 自动编排、持久化任务与完整 Benchmark。README 只陈述已经存在且能够验证的能力。
+目前尚未实现 Run REST/结果界面、完整可观测性、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。
+
+Worker 默认将 Maven 缓存放在 `<workspace-root>/.patch-atlas-cache/maven`。单次 Run 清理只删除其独立工作区，不删除共享缓存；若部署时重建整个 workspace root，缓存也会随之失效。
 
 ## 技术栈
 
@@ -58,7 +64,7 @@ patch-atlas/
 ├── frontend/            Vue 控制台
 ├── fixtures/            可控的缺陷校准仓库
 ├── benchmark-cases/     真实历史案例元数据与执行证据
-├── docs/                产品架构与领域模型
+├── docs/                产品架构与工程决策
 ├── graphify-out/        可交互代码知识图与结构报告
 ├── .github/workflows/   持续集成
 ├── pom.xml
@@ -112,7 +118,7 @@ RUNNER=docker bash fixtures/off-by-one/run-replay.sh
 ## 文档
 
 - [系统架构与设计决策](docs/architecture.md)
-- [领域模型](docs/domain-model.md)
+- [领域语言](CONTEXT.md)
 - [Benchmark 方法与指标](benchmark-cases/README.md)
 - [spring-cloud-openfeign #1326 案例](benchmark-cases/spring-cloud-openfeign-1326.md)
 - [代码知识图报告](graphify-out/GRAPH_REPORT.md)

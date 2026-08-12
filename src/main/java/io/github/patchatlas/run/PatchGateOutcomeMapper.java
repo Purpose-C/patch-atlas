@@ -1,15 +1,15 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
-import io.github.patchatlas.run.FailureCategory;
-import io.github.patchatlas.run.FailureStage;
-import io.github.patchatlas.run.RunFailure;
+import io.github.patchatlas.agent.GenerationFeedback;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
+import io.github.patchatlas.agent.PatchRejectionCategory;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * PatchRejectionCategory → 可修正反馈 / 立即终态 的封闭映射（规格表冻结）。
  */
-public final class PatchGateOutcomeMapper {
+final class PatchGateOutcomeMapper {
 
     public sealed interface Outcome permits Outcome.Correctable, Outcome.Terminal {
         record Correctable(GenerationFeedback feedback) implements Outcome {}

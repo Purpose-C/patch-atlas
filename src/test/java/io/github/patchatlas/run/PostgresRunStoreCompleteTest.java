@@ -3,11 +3,11 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
-import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
 import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.replay.TargetTest;
@@ -24,7 +24,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
@@ -130,7 +129,7 @@ class PostgresRunStoreCompleteTest {
 
         ReplayResult loaded = store.loadReplayResult(opened.runId());
         assertThat(loaded.verdict()).isEqualTo(result.verdict());
-        assertThat(loaded.mode()).isEqualTo(io.github.patchatlas.replay.VerificationMode.LIVE);
+        assertThat(loaded.mode()).isEqualTo(VerificationMode.LIVE);
         assertThat(loaded.primarySide().stableEvidence())
                 .isEqualTo(StableSideEvidence.TARGET_ASSERTION_FAILURE);
         assertThat(loaded.fixedSide()).isEmpty();
@@ -256,17 +255,13 @@ class PostgresRunStoreCompleteTest {
     private static SideExecutionResult targetPassedSide() {
         AttemptRecord a = AttemptRecord.executed(
                 completed(0), new TestReport(List.of(passed())), TARGET);
-        return new SideExecutionResult(
-                List.of(a, a), StableSideEvidence.TARGET_PASSED, Optional.of(RunOutcome.PASS));
+        return new SideExecutionResult(List.of(a, a));
     }
 
     private static SideExecutionResult targetAssertionFailureSide() {
         AttemptRecord a = AttemptRecord.executed(
                 completed(1), new TestReport(List.of(failed())), TARGET);
-        return new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
+        return new SideExecutionResult(List.of(a, a));
     }
 
     private static SandboxExecution completed(int exit) {

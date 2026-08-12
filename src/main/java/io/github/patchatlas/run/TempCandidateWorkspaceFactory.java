@@ -1,6 +1,6 @@
 package io.github.patchatlas.run;
 
-import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -22,22 +22,15 @@ public final class TempCandidateWorkspaceFactory implements CandidateWorkspaceFa
 
     private final Path allowedRoot;
     private final RepositoryWorkspaceFetcher fetcher;
-    private final MavenNetworkMode networkMode;
 
     public TempCandidateWorkspaceFactory(Path allowedRoot) {
-        this(allowedRoot, new GitCloneWorkspaceFetcher(), MavenNetworkMode.OFFLINE);
+        this(allowedRoot, new GitCloneWorkspaceFetcher());
     }
 
     public TempCandidateWorkspaceFactory(Path allowedRoot, RepositoryWorkspaceFetcher fetcher) {
-        this(allowedRoot, fetcher, MavenNetworkMode.OFFLINE);
-    }
-
-    public TempCandidateWorkspaceFactory(
-            Path allowedRoot, RepositoryWorkspaceFetcher fetcher, MavenNetworkMode networkMode) {
         this.allowedRoot =
                 Objects.requireNonNull(allowedRoot, "allowedRoot").toAbsolutePath().normalize();
         this.fetcher = Objects.requireNonNull(fetcher, "fetcher");
-        this.networkMode = Objects.requireNonNull(networkMode, "networkMode");
         if (!Files.isDirectory(this.allowedRoot)) {
             throw new IllegalArgumentException("workspace root must be an existing directory");
         }
@@ -45,12 +38,17 @@ public final class TempCandidateWorkspaceFactory implements CandidateWorkspaceFa
 
     @Override
     public WorkspaceSession openForRevision(
-            ClaimedRun run, String repositoryUrl, String revision, String modulePath)
+            ClaimedRun run,
+            String repositoryUrl,
+            String revision,
+            String modulePath,
+            MavenExecutionPolicy executionPolicy)
             throws Exception {
         Objects.requireNonNull(run, "run");
         Objects.requireNonNull(repositoryUrl, "repositoryUrl");
         Objects.requireNonNull(revision, "revision");
         Objects.requireNonNull(modulePath, "modulePath");
+        Objects.requireNonNull(executionPolicy, "executionPolicy");
 
         String directoryName = uniqueDirectoryName(run.runId());
         Path workspace =
@@ -74,8 +72,8 @@ public final class TempCandidateWorkspaceFactory implements CandidateWorkspaceFa
             }
 
             @Override
-            public MavenNetworkMode networkMode() {
-                return networkMode;
+            public MavenExecutionPolicy executionPolicy() {
+                return executionPolicy;
             }
 
             @Override

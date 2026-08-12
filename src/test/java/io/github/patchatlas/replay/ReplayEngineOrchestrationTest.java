@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.MavenSandboxCommand;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
@@ -56,6 +57,41 @@ class ReplayEngineOrchestrationTest {
         assertThat(result.fixedSide()).isEmpty();
         assertThat(fake.remaining()).isZero();
         assertThat(fake.executedWorkspaces()).containsExactly(live, live);
+    }
+
+    @Test
+    void offlineSideWarmsDependenciesOnlineOnceBeforeTwoEvidenceAttempts() {
+        fake.enqueue(completed(0, "pristine revision warmed"), null);
+        enqueueFailure(fake);
+        enqueueFailure(fake);
+        MavenTestCommand java17 =
+                new MavenTestCommand("", "fixtures.StringUtilsTest#lastChar", MavenNetworkMode.OFFLINE, "17");
+
+        assertThat(new DependencyWarmupRunner(fake, tempDir).warm(live, java17)).isEmpty();
+        SideExecutionResult result = new SideReplayRunner(fake, tempDir).runSide(live, java17, target);
+
+        assertThat(result.attempts()).hasSize(2);
+        assertThat(fake.executedCommands()).hasSize(3);
+        assertThat(fake.executedCommands().getFirst())
+                .isInstanceOf(MavenDependencyWarmupCommand.class);
+        MavenDependencyWarmupCommand warmup =
+                (MavenDependencyWarmupCommand) fake.executedCommands().getFirst();
+        assertThat(warmup.networkMode()).isEqualTo(MavenNetworkMode.ONLINE);
+        assertThat(warmup.javaVersion()).isEqualTo("17");
+        assertThat(fake.executedCommands().subList(1, 3)).containsExactly(java17, java17);
+    }
+
+    @Test
+    void onlineSideDoesNotAddWarmupExecution() {
+        enqueuePass(fake);
+        enqueuePass(fake);
+        MavenTestCommand online =
+                new MavenTestCommand("", "fixtures.StringUtilsTest#lastChar", MavenNetworkMode.ONLINE, "11");
+
+        assertThat(new DependencyWarmupRunner(fake, tempDir).warm(live, online)).isEmpty();
+        new SideReplayRunner(fake, tempDir).runSide(live, online, target);
+
+        assertThat(fake.executedCommands()).containsExactly(online, online);
     }
 
     @Test

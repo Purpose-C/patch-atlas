@@ -1,10 +1,13 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.repository.CommitId;
 import io.github.patchatlas.repository.RepositoryUrls;
 import io.github.patchatlas.sandbox.MavenCommandValidation;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
 import java.util.List;
 import java.util.Objects;
 
@@ -26,6 +29,7 @@ public record RunSubmission(
         String fixedRevision,
         String modulePath,
         String javaVersion,
+        MavenNetworkMode networkMode,
         List<SourceSnapshot> sourceSnapshots) {
 
     public static final int MAX_CASE_ID_CHARS = 128;
@@ -42,6 +46,7 @@ public record RunSubmission(
         Objects.requireNonNull(issueBody, "issueBody");
         Objects.requireNonNull(buggyRevision, "buggyRevision");
         Objects.requireNonNull(modulePath, "modulePath");
+        networkMode = Objects.requireNonNull(networkMode, "networkMode");
         sourceSnapshots = List.copyOf(Objects.requireNonNull(sourceSnapshots, "sourceSnapshots"));
 
         if (repositoryUrl.length() > MAX_REPOSITORY_URL_CHARS) {
@@ -63,9 +68,11 @@ public record RunSubmission(
             throw new IllegalArgumentException("issueUrl exceeds limit");
         }
         RepositoryUrls.requireNoCredentialUserInfo(issueUrl, "issueUrl");
-        if (javaVersion != null && javaVersion.length() > MAX_JAVA_VERSION_CHARS) {
+        javaVersion = javaVersion == null ? MavenExecutionPolicy.DEFAULT_JAVA_VERSION : javaVersion;
+        if (javaVersion.length() > MAX_JAVA_VERSION_CHARS) {
             throw new IllegalArgumentException("javaVersion exceeds limit");
         }
+        new MavenExecutionPolicy(javaVersion, networkMode);
         if (modulePath.length() > MAX_MODULE_PATH_CHARS) {
             throw new IllegalArgumentException("modulePath exceeds limit");
         }
@@ -100,6 +107,39 @@ public record RunSubmission(
             }
             fixedRevision = normalizeSha(fixedRevision);
         }
+    }
+
+    public RunSubmission(
+            VerificationMode mode,
+            String caseId,
+            String repositoryUrl,
+            String license,
+            String issueUrl,
+            String issueTitle,
+            String issueBody,
+            String buggyRevision,
+            String fixedRevision,
+            String modulePath,
+            String javaVersion,
+            List<SourceSnapshot> sourceSnapshots) {
+        this(
+                mode,
+                caseId,
+                repositoryUrl,
+                license,
+                issueUrl,
+                issueTitle,
+                issueBody,
+                buggyRevision,
+                fixedRevision,
+                modulePath,
+                javaVersion,
+                MavenNetworkMode.OFFLINE,
+                sourceSnapshots);
+    }
+
+    public MavenExecutionPolicy executionPolicy() {
+        return new MavenExecutionPolicy(javaVersion, networkMode);
     }
 
     private static String normalizeSha(String sha) {

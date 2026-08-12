@@ -30,7 +30,6 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("docker")
 class HistoricalReplayEngineDockerTest {
 
-    private static final String IMAGE = "maven:3.9-eclipse-temurin-21";
 
     @TempDir
     Path tempDir;
@@ -48,7 +47,6 @@ class HistoricalReplayEngineDockerTest {
         Path cache = Path.of(".patch-atlas-cache/maven-replay-it").toAbsolutePath();
         Files.createDirectories(cache);
         DockerSandboxRunner runner = new DockerSandboxRunner(new DockerSandboxConfig(
-                IMAGE,
                 Duration.ofMinutes(5),
                 64 * 1024,
                 tempDir,

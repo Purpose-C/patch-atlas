@@ -13,4 +13,10 @@ public sealed interface MavenSandboxCommand
     List<String> arguments();
 
     MavenNetworkMode networkMode();
+
+    String javaVersion();
+
+    default String image() {
+        return new MavenExecutionPolicy(javaVersion(), networkMode()).image();
+    }
 }

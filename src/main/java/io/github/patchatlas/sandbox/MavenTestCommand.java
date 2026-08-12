@@ -6,13 +6,22 @@ import java.util.Objects;
 
 /** 固定的 Maven 单测命令模板。空 modulePath 表示仓库根模块。 */
 public record MavenTestCommand(
-        String modulePath, String testSelector, MavenNetworkMode networkMode)
+        String modulePath,
+        String testSelector,
+        MavenNetworkMode networkMode,
+        String javaVersion)
         implements MavenSandboxCommand {
 
     public MavenTestCommand {
         MavenCommandValidation.requireSafeModulePath(modulePath);
         MavenCommandValidation.requireSafeTestSelector(testSelector);
         Objects.requireNonNull(networkMode, "networkMode");
+        new MavenExecutionPolicy(javaVersion, networkMode);
+    }
+
+    public MavenTestCommand(
+            String modulePath, String testSelector, MavenNetworkMode networkMode) {
+        this(modulePath, testSelector, networkMode, MavenExecutionPolicy.DEFAULT_JAVA_VERSION);
     }
 
     @Override

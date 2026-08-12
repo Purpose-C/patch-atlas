@@ -1,11 +1,10 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.replay.AttemptRecord;
-import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
-import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.TestCaseResult;
 import io.github.patchatlas.replay.TestCaseStatus;
@@ -16,7 +15,6 @@ import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class PrevalidationFeedbackMapperTest {
@@ -26,10 +24,7 @@ class PrevalidationFeedbackMapperTest {
     @Test
     void targetAssertionFailureIsSuccess() {
         AttemptRecord fail = AttemptRecord.executed(completed(1), failedReport(), TARGET);
-        SideExecutionResult side = new SideExecutionResult(
-                List.of(fail, fail),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
+        SideExecutionResult side = new SideExecutionResult(List.of(fail, fail));
         assertThat(PrevalidationFeedbackMapper.map(side))
                 .isInstanceOf(PrevalidationFeedbackMapper.Outcome.Success.class);
     }
@@ -37,10 +32,7 @@ class PrevalidationFeedbackMapperTest {
     @Test
     void targetPassedMapsToCorrectable() {
         AttemptRecord pass = AttemptRecord.executed(completed(0), passedReport(), TARGET);
-        SideExecutionResult side = new SideExecutionResult(
-                List.of(pass, pass),
-                StableSideEvidence.TARGET_PASSED,
-                Optional.of(RunOutcome.PASS));
+        SideExecutionResult side = new SideExecutionResult(List.of(pass, pass));
         var outcome = PrevalidationFeedbackMapper.map(side);
         assertThat(outcome).isInstanceOf(PrevalidationFeedbackMapper.Outcome.Correctable.class);
         assertThat(((PrevalidationFeedbackMapper.Outcome.Correctable) outcome).feedback().category())
@@ -53,10 +45,7 @@ class PrevalidationFeedbackMapperTest {
         TestReport other = new TestReport(List.of(new TestCaseResult(
                 "fixtures.Other", "x", Duration.ofMillis(1), TestCaseStatus.PASSED, null, null)));
         AttemptRecord a = AttemptRecord.executed(completed(0), other, TARGET);
-        SideExecutionResult side = new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.OTHER_OR_INVALID,
-                Optional.of(RunOutcome.PASS));
+        SideExecutionResult side = new SideExecutionResult(List.of(a, a));
         var outcome = PrevalidationFeedbackMapper.map(side);
         assertThat(outcome).isInstanceOf(PrevalidationFeedbackMapper.Outcome.Correctable.class);
         assertThat(((PrevalidationFeedbackMapper.Outcome.Correctable) outcome).feedback().category())
@@ -67,14 +56,23 @@ class PrevalidationFeedbackMapperTest {
     void compileFailureMapsToCompilationFailed() {
         AttemptRecord a = AttemptRecord.executed(
                 completed(1, "[ERROR] COMPILATION ERROR"), TestReport.empty(), TARGET);
-        SideExecutionResult side = new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.OTHER_OR_INVALID,
-                Optional.of(RunOutcome.COMPILE_FAILURE));
+        SideExecutionResult side = new SideExecutionResult(List.of(a, a));
         var outcome = PrevalidationFeedbackMapper.map(side);
         assertThat(outcome).isInstanceOf(PrevalidationFeedbackMapper.Outcome.Correctable.class);
         assertThat(((PrevalidationFeedbackMapper.Outcome.Correctable) outcome).feedback().category())
                 .isEqualTo(GenerationFeedbackCategory.COMPILATION_FAILED);
+    }
+
+    @Test
+    void preExecutionFailuresAreTerminalInfrastructureFailures() {
+        AttemptRecord failure = AttemptRecord.preExecutionFailure("dependency warmup failed: TIMED_OUT");
+        SideExecutionResult side = new SideExecutionResult(List.of(failure, failure));
+
+        var outcome = PrevalidationFeedbackMapper.map(side);
+
+        assertThat(outcome).isInstanceOf(PrevalidationFeedbackMapper.Outcome.Terminal.class);
+        assertThat(((PrevalidationFeedbackMapper.Outcome.Terminal) outcome).failure().category())
+                .isEqualTo(FailureCategory.REPLAY_SYSTEM_ERROR);
     }
 
     private static SandboxExecution completed(int exit) {

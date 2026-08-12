@@ -18,6 +18,7 @@ public final class FakeSandboxRunner implements SandboxRunner {
 
     private final Deque<ScriptedExecution> scripts = new ArrayDeque<>();
     private final List<Path> executedWorkspaces = new ArrayList<>();
+    private final List<MavenSandboxCommand> executedCommands = new ArrayList<>();
 
     public void enqueue(SandboxExecution execution, String reportXml) {
         scripts.addLast(new ScriptedExecution(execution, reportXml));
@@ -31,6 +32,10 @@ public final class FakeSandboxRunner implements SandboxRunner {
         return List.copyOf(executedWorkspaces);
     }
 
+    public List<MavenSandboxCommand> executedCommands() {
+        return List.copyOf(executedCommands);
+    }
+
     @Override
     public SandboxExecution execute(Path workspace, MavenSandboxCommand command) {
         Objects.requireNonNull(workspace, "workspace");
@@ -40,6 +45,7 @@ public final class FakeSandboxRunner implements SandboxRunner {
         }
         ScriptedExecution script = scripts.removeFirst();
         executedWorkspaces.add(workspace);
+        executedCommands.add(command);
         if (command instanceof MavenTestCommand testCommand) {
             try {
                 Path reportsDir =

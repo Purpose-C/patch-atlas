@@ -39,13 +39,13 @@ Vue 控制台
 Spring Boot 模块化单体
     ├── repository：仓库获取、Revision 与 Diff
     ├── sandbox：受限 Maven/JUnit 执行
-    ├── replay：跨版本编排与失败分类
-    ├── analysis：代码定位与影响证据
-    ├── agent：候选测试生成
-    └── report：证据报告与 Benchmark
+    ├── replay：执行事实、稳定性归约与 Live/Historical 裁决
+    ├── agent：模型 adapter、Candidate Draft 解析与 Patch Gate
+    ├── run：Verification Run 编排、租约恢复与 PostgreSQL 持久化
+    └── shared：当前状态接口等薄入口
 ```
 
-当前代码已经实现 `repository` 和 `sandbox` 两个模块。其余模块会在出现真实调用链时建立，不提前创建空接口或微服务。
+依赖方向保持为 `run → agent / replay / repository / sandbox`；`agent` 不依赖 `run`，也无法取得 Fixed Revision 等 Oracle Data。尚未出现真实调用链的 `analysis` 与 `report` 不提前创建空接口或模块。
 
 ## 设计决策
 
@@ -81,7 +81,17 @@ Spring 项目包含接口多实现、AOP、反射、事件与条件 Bean，因�
 
 Maven 本地仓库使用 gitignored 缓存目录跨容器复用。预热通过联网执行精确目标测试完成，而不是对大型多模块项目运行全仓 `dependency:go-offline`；后者既可能遗漏 Surefire 动态 provider，也可能下载大量无关插件。
 
+生产默认缓存位于 `<workspace-root>/.patch-atlas-cache/maven`。它与每次 Run 创建的 `w<run-id>...` 工作区是同级目录，因此关闭单次 workspace session 不会删除缓存；只有部署方清理或替换整个 `workspace-root` 时缓存才会失效。缓存放在可信根内是为了保持 Docker bind mount 边界可校验，同时不挂载用户级 `~/.m2`。
+
 正式执行优先使用 `OFFLINE + --network=none`。包含 SNAPSHOT 等无法离线依赖的案例必须显式选择 `ONLINE`，并在执行结果中记录。
+
+Java 版本与网络模式属于 Verification Run 的不可变执行策略。Java 仅允许 `8/11/17/21`，由强类型 Maven 命令映射到项目控制的 Maven 镜像；恢复执行时从数据库重新加载策略，不读取进程默认值。生产编排器对 OFFLINE 单侧先在尚未应用 Candidate Test Patch 的 revision 上做一次 ONLINE 精确目标预热，再应用候选补丁并产生两次 OFFLINE 证据；模型生成的测试代码不会在联网容器中执行。`SideReplayRunner` 只负责证据双跑，不隐式改变网络模式；ONLINE 单侧直接双跑。
+
+### Run 编排边界
+
+`Issue2TestWorker` 只负责领取 Run 和按状态分发。`CandidateGenerationCoordinator` 拥有生成、预热、Gate 与 Buggy 预验证；`FormalReplayCoordinator` 拥有工作区重建、预热、再次 Gate、正式 Replay 与终态写入。两条路径共用生产 `DependencyWarmupRunner` 与 `SideReplayRunner`，持久化写入只经带 claim fence 的 Run Store 动作。
+
+启用 Worker 时，项目默认装配 `DockerSandboxRunner` 与基于 Replay Engine 的 `RunReplayer`；部署可用自定义 adapter 覆盖默认 fallback。workspace 根目录缺失或无效时启动立即失败。
 
 ## 安全模型
 
@@ -118,11 +128,15 @@ Maven 本地仓库使用 gitignored 缓存目录跨容器复用。预热通过�
 - Spring Boot 与 Vue 基础纵向阶段；
 - 公开 GitHub 仓库和完整 Commit SHA 校验；
 - Docker Maven Runner、资源限制、超时清理与缓存复用；
+- Surefire XML 解析、失败分类与稳定性归约；
+- Live/Historical Replay 与机械裁决；
+- Candidate Draft 生成、Patch Gate 和最多三轮 Buggy-only 修正；
+- PostgreSQL Verification Run、租约 fencing 与崩溃恢复；
 - 受控校准案例和一个真实 Spring 历史案例。
 
 尚未实现：
 
-- Surefire XML 失败分类；
-- Buggy/Fixed 自动差分编排；
-- 候选测试生成与 Patch 校验；
-- 持久化任务、执行时间线与完整 Benchmark 看板。
+- Verification Run 的 REST API 与结果界面；
+- 完整可观测性与费用指标；
+- 3–5 个真实历史 Bug 的 Agent Benchmark；
+- 示例报告、演示 Tag 与一条命令启动的交付包装。

@@ -1,9 +1,11 @@
 package io.github.patchatlas.run;
 
-import io.github.patchatlas.agent.CandidateGenerationCoordinator;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.replay.SideReplayRunner;
+import io.github.patchatlas.replay.DependencyWarmupRunner;
+import io.github.patchatlas.sandbox.DockerSandboxConfig;
+import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Fallback;
 
 /**
  * 可选 Worker 装配与启动恢复。
@@ -23,7 +26,6 @@ import org.springframework.context.annotation.Configuration;
  * <pre>
  * patchatlas.worker.enabled=true
  * patchatlas.worker.workspace-root=/path/to/root
- * # TestGenerator + RunReplayer + SandboxRunner Beans
  * </pre>
  */
 @Configuration
@@ -60,28 +62,69 @@ public class RunWorkerConfiguration {
     }
 
     @Bean
+    @Fallback
+    SandboxRunner defaultSandboxRunner(RunWorkerProperties properties) {
+        Path root = requireWorkspaceRoot(properties);
+        return new DockerSandboxRunner(
+                DockerSandboxConfig.defaults(root, root.resolve(".patch-atlas-cache/maven")));
+    }
+
+    @Bean
     SideReplayRunner sideReplayRunner(SandboxRunner sandboxRunner, RunWorkerProperties properties) {
-        Path root = Objects.requireNonNull(properties.getWorkspaceRoot(), "workspace-root")
-                .toAbsolutePath()
-                .normalize();
-        return new SideReplayRunner(sandboxRunner, root);
+        return new SideReplayRunner(sandboxRunner, requireWorkspaceRoot(properties));
+    }
+
+    @Bean
+    DependencyWarmupRunner dependencyWarmupRunner(
+            SandboxRunner sandboxRunner, RunWorkerProperties properties) {
+        return new DependencyWarmupRunner(sandboxRunner, requireWorkspaceRoot(properties));
+    }
+
+    @Bean
+    @Fallback
+    RunReplayer defaultRunReplayer(SideReplayRunner sideReplayRunner) {
+        return new EngineRunReplayer(sideReplayRunner);
+    }
+
+    @Bean
+    CandidateGenerationCoordinator candidateGenerationCoordinator(
+            TestGenerator generator,
+            PatchGate patchGate,
+            CandidateWorkspaceFactory workspaceFactory,
+            DependencyWarmupRunner dependencyWarmupRunner,
+            SideReplayRunner sideReplayRunner) {
+        return new CandidateGenerationCoordinator(
+                generator, patchGate, workspaceFactory, dependencyWarmupRunner, sideReplayRunner);
+    }
+
+    @Bean
+    FormalReplayCoordinator formalReplayCoordinator(
+            PostgresRunStore store,
+            PatchGate patchGate,
+            CandidateWorkspaceFactory workspaceFactory,
+            DependencyWarmupRunner dependencyWarmupRunner,
+            RunReplayer replayer,
+            RunWorkerProperties properties) {
+        return new FormalReplayCoordinator(
+                store,
+                patchGate,
+                workspaceFactory,
+                dependencyWarmupRunner,
+                replayer,
+                properties.getLeaseDuration(),
+                properties.getHeartbeatInterval());
     }
 
     @Bean
     Issue2TestWorker issue2TestWorker(
             PostgresRunStore store,
-            TestGenerator generator,
-            PatchGate patchGate,
-            CandidateWorkspaceFactory workspaceFactory,
-            SideReplayRunner sideReplayRunner,
-            RunReplayer replayer,
+            CandidateGenerationCoordinator generationCoordinator,
+            FormalReplayCoordinator replayCoordinator,
             RunWorkerProperties properties) {
         return new Issue2TestWorker(
                 store,
-                new CandidateGenerationCoordinator(generator, patchGate, workspaceFactory, sideReplayRunner),
-                patchGate,
-                workspaceFactory,
-                replayer,
+                generationCoordinator,
+                replayCoordinator,
                 properties.getLeaseDuration(),
                 properties.getHeartbeatInterval());
     }
@@ -109,5 +152,16 @@ public class RunWorkerConfiguration {
                 log.info("startup recovery: no claimable runs (owner={})", owner);
             }
         };
+    }
+
+    private static Path requireWorkspaceRoot(RunWorkerProperties properties) {
+        Path root = Objects.requireNonNull(properties.getWorkspaceRoot(), "workspace-root")
+                .toAbsolutePath()
+                .normalize();
+        if (!Files.isDirectory(root)) {
+            throw new IllegalStateException(
+                    "patchatlas.worker.workspace-root must be an existing directory: " + root);
+        }
+        return root;
     }
 }

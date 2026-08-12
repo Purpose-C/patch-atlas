@@ -14,6 +14,10 @@ public final class LiveReplayEngine {
         this(new SideReplayRunner(sandboxRunner, allowedWorkspaceRoot), new ReplayVerdictMachine());
     }
 
+    public LiveReplayEngine(SideReplayRunner sideRunner) {
+        this(sideRunner, new ReplayVerdictMachine());
+    }
+
     LiveReplayEngine(SideReplayRunner sideRunner, ReplayVerdictMachine verdictMachine) {
         this.sideRunner = Objects.requireNonNull(sideRunner, "sideRunner");
         this.verdictMachine = Objects.requireNonNull(verdictMachine, "verdictMachine");

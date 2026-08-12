@@ -1,7 +1,9 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.replay.ReplayVerdict;
+import io.github.patchatlas.replay.VerificationMode;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -10,8 +12,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** 默认测试用内存 GenerationRunSession（无 PostgreSQL）。 */
 public final class InMemoryGenerationRunSession implements GenerationRunSession {
-
-    public static final int MAX_ATTEMPTS = 3;
 
     private ClaimedRun claim;
     private int generationAttemptCount;
@@ -38,7 +38,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
         if (terminal != null) {
             return new ReserveResult.Stale(new StaleClaimException(claim.runId(), "already terminal"));
         }
-        if (generationAttemptCount >= MAX_ATTEMPTS) {
+        if (generationAttemptCount >= GenerationRequest.MAX_ATTEMPTS) {
             RunDetails failed = failInternal(new RunFailure(
                     FailureStage.GENERATION,
                     FailureCategory.GENERATION_EXHAUSTED,
@@ -86,11 +86,6 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
     @Override
     public synchronized RunDetails fail(RunFailure failure) {
         return failInternal(failure);
-    }
-
-    @Override
-    public synchronized ClaimedRun currentClaim() {
-        return claim;
     }
 
     public int generationAttemptCount() {

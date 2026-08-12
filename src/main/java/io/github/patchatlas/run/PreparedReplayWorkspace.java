@@ -1,7 +1,7 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.replay.WorkspaceTrust;
-import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -15,14 +15,14 @@ public sealed interface PreparedReplayWorkspace
 
     String modulePath();
 
-    MavenNetworkMode networkMode();
+    MavenExecutionPolicy executionPolicy();
 
-    record Live(Path workspace, String modulePath, MavenNetworkMode networkMode)
+    record Live(Path workspace, String modulePath, MavenExecutionPolicy executionPolicy)
             implements PreparedReplayWorkspace {
         public Live {
             Objects.requireNonNull(workspace, "workspace");
             Objects.requireNonNull(modulePath, "modulePath");
-            Objects.requireNonNull(networkMode, "networkMode");
+            Objects.requireNonNull(executionPolicy, "executionPolicy");
         }
     }
 
@@ -30,13 +30,13 @@ public sealed interface PreparedReplayWorkspace
             Path buggyWorkspace,
             Path fixedWorkspace,
             String modulePath,
-            MavenNetworkMode networkMode)
+            MavenExecutionPolicy executionPolicy)
             implements PreparedReplayWorkspace {
         public Historical {
             Objects.requireNonNull(buggyWorkspace, "buggyWorkspace");
             Objects.requireNonNull(fixedWorkspace, "fixedWorkspace");
             Objects.requireNonNull(modulePath, "modulePath");
-            Objects.requireNonNull(networkMode, "networkMode");
+            Objects.requireNonNull(executionPolicy, "executionPolicy");
             WorkspaceTrust.requireDistinctWorkspaces(buggyWorkspace, fixedWorkspace);
         }
     }

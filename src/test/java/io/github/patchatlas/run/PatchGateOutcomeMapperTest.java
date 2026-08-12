@@ -1,7 +1,8 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.agent.PatchRejectionCategory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 

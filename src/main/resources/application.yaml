@@ -47,7 +47,7 @@ spring:
 # Worker 默认关闭；启用示例：
 #   patchatlas.worker.enabled=true
 #   patchatlas.worker.workspace-root=/var/patchatlas/workspaces
-#   并提供 TestGenerator + RunReplayer + SandboxRunner Bean
+# 项目会装配 Docker Sandbox、共享预热 Replay 与 RunReplayer；可用自定义 Bean 覆盖 adapter。
 #
 # 生成器：默认 FAKE（CI）；OPENAI 需环境变量注入密钥与模型（绝不明文写 key）
 #   OPENAI_API_KEY

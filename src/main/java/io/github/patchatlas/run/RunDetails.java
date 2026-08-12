@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.replay.ReplayVerdict;
 import java.time.Instant;
 import java.util.Objects;

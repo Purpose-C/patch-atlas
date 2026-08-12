@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Timeout;
 @Tag("docker")
 class DockerSandboxRunnerIntegrationTest {
 
-    private static final String IMAGE = "maven:3.9-eclipse-temurin-21";
 
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
@@ -74,7 +73,6 @@ class DockerSandboxRunnerIntegrationTest {
     private static DockerSandboxConfig config(
             Path workspaceRoot, Path cache, Duration timeout) {
         return new DockerSandboxConfig(
-                IMAGE,
                 timeout,
                 64 * 1024,
                 workspaceRoot,

@@ -5,11 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.FakeTestGenerator;
-import io.github.patchatlas.agent.GenerationRequest;
-import io.github.patchatlas.agent.GenerationResult;
-import io.github.patchatlas.replay.SideReplayRunner;
-import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
 import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.SourceSnapshot;
@@ -17,17 +14,19 @@ import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
-import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
-import io.github.patchatlas.replay.StableSideEvidence;
+import io.github.patchatlas.replay.SideReplayRunner;
+import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.TestCaseResult;
 import io.github.patchatlas.replay.TestCaseStatus;
 import io.github.patchatlas.replay.TestReport;
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
+import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +36,6 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.flywaydb.core.Flyway;
@@ -230,8 +228,13 @@ class Issue2TestWorkerRecoveryTest {
 
         SideReplayRunner side = new SideReplayRunner(
                 ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
-        Issue2TestWorker worker = new Issue2TestWorker(
-                store, generator, new PatchGate(workspaceRoot), cloningFactory(), side,
+        Issue2TestWorker worker = configuredWorker(
+                store,
+                generator,
+                new PatchGate(workspaceRoot),
+                cloningFactory(),
+                successfulWarmup(workspaceRoot),
+                side,
                 Issue2TestWorkerRecoveryTest::fakeLiveReplay);
 
         RunDetails details = worker.processNext("w").orElseThrow();
@@ -247,11 +250,12 @@ class Issue2TestWorkerRecoveryTest {
     private Issue2TestWorker worker(PostgresRunStore store, AtomicInteger generateCalls) {
         SideReplayRunner side = new SideReplayRunner(
                 ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
-        return new Issue2TestWorker(
+        return configuredWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(workspaceRoot),
                 cloningFactory(),
+                successfulWarmup(workspaceRoot),
                 side,
                 Issue2TestWorkerRecoveryTest::fakeLiveReplay);
     }
@@ -323,10 +327,7 @@ class Issue2TestWorkerRecoveryTest {
                         "org.opentest4j.AssertionFailedError",
                         "x"))),
                 candidate.targetTest());
-        SideExecutionResult primary = new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
+        SideExecutionResult primary = new SideExecutionResult(List.of(a, a));
         return ReplayResult.live(ReplayVerdict.REPRODUCTION_CANDIDATE, candidate.targetTest(), primary);
     }
 
@@ -351,14 +352,8 @@ class Issue2TestWorkerRecoveryTest {
                         null,
                         null))),
                 candidate.targetTest());
-        SideExecutionResult buggy = new SideExecutionResult(
-                List.of(fail, fail),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
-        SideExecutionResult fixed = new SideExecutionResult(
-                List.of(pass, pass),
-                StableSideEvidence.TARGET_PASSED,
-                Optional.of(RunOutcome.PASS));
+        SideExecutionResult buggy = new SideExecutionResult(List.of(fail, fail));
+        SideExecutionResult fixed = new SideExecutionResult(List.of(pass, pass));
         return ReplayResult.historicalWithFixed(
                 ReplayVerdict.VALID_REPRODUCTION, candidate.targetTest(), buggy, fixed);
     }
@@ -407,11 +402,12 @@ class Issue2TestWorkerRecoveryTest {
         AtomicInteger generateCalls = new AtomicInteger();
         SideReplayRunner side = new SideReplayRunner(
                 ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), histRoot);
-        Issue2TestWorker worker = new Issue2TestWorker(
+        Issue2TestWorker worker = configuredWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(histRoot),
                 new TempCandidateWorkspaceFactory(histRoot, histFetcher),
+                successfulWarmup(histRoot),
                 side,
                 Issue2TestWorkerRecoveryTest::fakeLiveReplay);
 
@@ -438,11 +434,12 @@ class Issue2TestWorkerRecoveryTest {
         AtomicInteger generateCalls = new AtomicInteger();
         SideReplayRunner side = new SideReplayRunner(
                 ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
-        Issue2TestWorker worker = new Issue2TestWorker(
+        Issue2TestWorker worker = configuredWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(workspaceRoot),
                 cloningFactory(),
+                successfulWarmup(workspaceRoot),
                 side,
                 (claimed, candidate, ws) -> {
                     throw new RuntimeException("docker boom");
@@ -455,6 +452,37 @@ class Issue2TestWorkerRecoveryTest {
         assertThat(details.failure().orElseThrow().category())
                 .isEqualTo(FailureCategory.REPLAY_SYSTEM_ERROR);
         assertThat(generateCalls.get()).isEqualTo(1);
+    }
+
+    private static Issue2TestWorker configuredWorker(
+            PostgresRunStore store,
+            TestGenerator generator,
+            PatchGate gate,
+            CandidateWorkspaceFactory workspaceFactory,
+            DependencyWarmupRunner dependencyWarmupRunner,
+            SideReplayRunner sideReplayRunner,
+            RunReplayer replayer) {
+        CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
+                generator, gate, workspaceFactory, dependencyWarmupRunner, sideReplayRunner);
+        FormalReplayCoordinator replay = new FormalReplayCoordinator(
+                store,
+                gate,
+                workspaceFactory,
+                dependencyWarmupRunner,
+                replayer,
+                Issue2TestWorker.DEFAULT_LEASE,
+                Issue2TestWorker.DEFAULT_HEARTBEAT);
+        return new Issue2TestWorker(
+                store,
+                generation,
+                replay,
+                Issue2TestWorker.DEFAULT_LEASE,
+                Issue2TestWorker.DEFAULT_HEARTBEAT);
+    }
+
+    private static DependencyWarmupRunner successfulWarmup(Path workspaceRoot) {
+        return new DependencyWarmupRunner(
+                (workspace, command) -> ScriptedSandboxRunner.completed(0), workspaceRoot);
     }
 
     private RunSubmission liveSubmission(String caseId) {

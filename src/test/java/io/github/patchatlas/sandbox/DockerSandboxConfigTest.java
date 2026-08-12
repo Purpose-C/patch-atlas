@@ -13,7 +13,6 @@ class DockerSandboxConfigTest {
     void rejectsCacheOutsideDedicatedPatchAtlasDirectory(@TempDir Path workspaceRoot) {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> new DockerSandboxConfig(
-                        "maven:3.9-eclipse-temurin-21",
                         Duration.ofMinutes(1),
                         1024,
                         workspaceRoot,
@@ -25,7 +24,6 @@ class DockerSandboxConfigTest {
     void rejectsUserHomeAsAllowedWorkspaceRoot(@TempDir Path cacheParent) {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> new DockerSandboxConfig(
-                        "maven:3.9-eclipse-temurin-21",
                         Duration.ofMinutes(1),
                         1024,
                         Path.of(System.getProperty("user.home")),

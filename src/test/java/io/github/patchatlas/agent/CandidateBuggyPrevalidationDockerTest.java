@@ -35,7 +35,6 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("docker")
 class CandidateBuggyPrevalidationDockerTest {
 
-    private static final String IMAGE = "maven:3.9-eclipse-temurin-21";
 
     /**
      * Agent 风格新测试方法（非 fixture 自带的 lastCharReturnsFinalCharacter）。
@@ -89,7 +88,6 @@ class CandidateBuggyPrevalidationDockerTest {
         Path cache = Path.of(".patch-atlas-cache/maven-preval-it").toAbsolutePath();
         Files.createDirectories(cache);
         DockerSandboxRunner runner = new DockerSandboxRunner(new DockerSandboxConfig(
-                IMAGE,
                 Duration.ofMinutes(5),
                 64 * 1024,
                 tempDir,
@@ -117,8 +115,6 @@ class CandidateBuggyPrevalidationDockerTest {
                 .isEqualTo(StableSideEvidence.TARGET_ASSERTION_FAILURE);
         assertThat(result.attempts()).hasSize(2);
 
-        PrevalidationFeedbackMapper.Outcome mapped = PrevalidationFeedbackMapper.map(result);
-        assertThat(mapped).isInstanceOf(PrevalidationFeedbackMapper.Outcome.Success.class);
     }
 
     private static void applyBuggyPatch(Path patchFile, Path workspace) throws Exception {

@@ -8,7 +8,6 @@ import java.util.Objects;
 
 /** Docker Runner 的可信应用配置，不接收模型或仓库内容。 */
 public record DockerSandboxConfig(
-        String image,
         Duration timeout,
         int maxOutputBytes,
         Path workspaceRoot,
@@ -18,9 +17,6 @@ public record DockerSandboxConfig(
     private static final Duration MAX_TIMEOUT = Duration.ofMinutes(30);
 
     public DockerSandboxConfig {
-        if (image == null || !image.matches("maven:[A-Za-z0-9][A-Za-z0-9._-]{0,127}")) {
-            throw new IllegalArgumentException("image must be an allowlisted Maven image tag");
-        }
         Objects.requireNonNull(timeout, "timeout");
         if (timeout.isZero() || timeout.isNegative() || timeout.compareTo(MAX_TIMEOUT) > 0) {
             throw new IllegalArgumentException("timeout must be in (0, 30 minutes]");
@@ -64,7 +60,6 @@ public record DockerSandboxConfig(
 
     public static DockerSandboxConfig defaults(Path workspaceRoot, Path mavenCacheDirectory) {
         return new DockerSandboxConfig(
-                "maven:3.9-eclipse-temurin-21",
                 Duration.ofMinutes(10),
                 64 * 1024,
                 workspaceRoot,

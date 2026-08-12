@@ -137,14 +137,14 @@ public final class DockerSandboxRunner implements SandboxRunner {
     }
 
     private SandboxExecution ensureImage(MavenSandboxCommand command) {
-        List<String> inspectCommand = List.of("docker", "image", "inspect", config.image());
+        List<String> inspectCommand = List.of("docker", "image", "inspect", command.image());
         CommandExecution inspect = commandExecutor.execute(
                 inspectCommand, PREFLIGHT_TIMEOUT, config.maxOutputBytes());
         if (isSuccessful(inspect)) {
             return null;
         }
 
-        List<String> pullCommand = List.of("docker", "pull", config.image());
+        List<String> pullCommand = List.of("docker", "pull", command.image());
         CommandExecution pull = commandExecutor.execute(
                 pullCommand, config.timeout(), config.maxOutputBytes());
         if (isSuccessful(pull)) {
@@ -187,7 +187,7 @@ public final class DockerSandboxRunner implements SandboxRunner {
                 cacheDirectory + ":/maven-cache:rw",
                 "-w",
                 "/workspace",
-                config.image()));
+                command.image()));
         arguments.addAll(command.arguments());
         return List.copyOf(arguments);
     }
@@ -248,7 +248,7 @@ public final class DockerSandboxRunner implements SandboxRunner {
                 false,
                 List.of(),
                 message,
-                config.image(),
+                command.image(),
                 config.limits(),
                 command.networkMode());
     }
@@ -266,7 +266,7 @@ public final class DockerSandboxRunner implements SandboxRunner {
                 process.timedOut(),
                 actualCommand,
                 log,
-                config.image(),
+                command.image(),
                 config.limits(),
                 command.networkMode());
     }

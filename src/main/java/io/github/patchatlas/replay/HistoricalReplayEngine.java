@@ -16,6 +16,10 @@ public final class HistoricalReplayEngine {
         this(new SideReplayRunner(sandboxRunner, allowedWorkspaceRoot), new ReplayVerdictMachine());
     }
 
+    public HistoricalReplayEngine(SideReplayRunner sideRunner) {
+        this(sideRunner, new ReplayVerdictMachine());
+    }
+
     HistoricalReplayEngine(SideReplayRunner sideRunner, ReplayVerdictMachine verdictMachine) {
         this.sideRunner = Objects.requireNonNull(sideRunner, "sideRunner");
         this.verdictMachine = Objects.requireNonNull(verdictMachine, "verdictMachine");

@@ -6,7 +6,6 @@ import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 
 /** 测试用一致 SideExecutionResult 构造（经 AttemptRecord 工厂从原始事实计算）。 */
 final class ReplayTestFixtures {
@@ -17,24 +16,19 @@ final class ReplayTestFixtures {
 
     static SideExecutionResult preExecutionFailureSide() {
         AttemptRecord a = AttemptRecord.preExecutionFailure("test");
-        return new SideExecutionResult(
-                List.of(a, a), StableSideEvidence.OTHER_OR_INVALID, Optional.empty());
+        return new SideExecutionResult(List.of(a, a));
     }
 
     static SideExecutionResult targetPassedSide() {
         AttemptRecord a = AttemptRecord.executed(
                 completed(0), new TestReport(List.of(passed())), TARGET);
-        return new SideExecutionResult(
-                List.of(a, a), StableSideEvidence.TARGET_PASSED, Optional.of(RunOutcome.PASS));
+        return new SideExecutionResult(List.of(a, a));
     }
 
     static SideExecutionResult targetAssertionFailureSide() {
         AttemptRecord a = AttemptRecord.executed(
                 completed(1), new TestReport(List.of(failed())), TARGET);
-        return new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
+        return new SideExecutionResult(List.of(a, a));
     }
 
     private static SandboxExecution completed(int exit) {

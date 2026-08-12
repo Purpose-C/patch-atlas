@@ -1,12 +1,12 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
-import io.github.patchatlas.run.FailureCategory;
-import io.github.patchatlas.run.FailureStage;
-import io.github.patchatlas.run.RunFailure;
+import io.github.patchatlas.agent.CallFailureCategory;
+import io.github.patchatlas.agent.GenerationFeedback;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import java.util.Objects;
 
 /** 单次调用失败 → 可修正反馈或终态 RunFailure。 */
-public final class CallFailureMapper {
+final class CallFailureMapper {
 
     public sealed interface Outcome permits Outcome.Correctable, Outcome.Terminal {
         record Correctable(GenerationFeedback feedback) implements Outcome {}

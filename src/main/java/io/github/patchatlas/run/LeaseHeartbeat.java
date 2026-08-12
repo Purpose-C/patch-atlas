@@ -76,8 +76,25 @@ public final class LeaseHeartbeat implements AutoCloseable {
         return runTransition(h -> store.commitCandidate(h, gated));
     }
 
-    public ClaimedRun reserveGenerationAttempt(String provider, String modelName) {
-        return runTransition(h -> store.reserveGenerationAttempt(h, provider, modelName));
+    public PostgresRunStore.ReservedGenerationAttempt reserveGenerationAttempt(
+            String provider, String modelName) {
+        lock.lock();
+        try {
+            throwIfFailed();
+            PostgresRunStore.ReservedGenerationAttempt reserved =
+                    store.reserveGenerationAttempt(handle, provider, modelName);
+            handle = ClaimHandle.from(reserved.claim());
+            return reserved;
+        } catch (GenerationAttemptsExhaustedException exhausted) {
+            throw exhausted;
+        } catch (RuntimeException ex) {
+            if (failure == null) {
+                failure = ex;
+            }
+            throw ex;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public ClaimedRun recordModelUsage(io.github.patchatlas.agent.ModelUsage usage) {
@@ -94,17 +111,6 @@ public final class LeaseHeartbeat implements AutoCloseable {
 
     public RunDetails complete(ReplayResult result) {
         return runTerminal(h -> store.complete(h, result));
-    }
-
-    /** 当前 claim handle（编排器只读快照；写必须走本类领域方法）。 */
-    public ClaimHandle currentHandle() {
-        lock.lock();
-        try {
-            throwIfFailed();
-            return handle;
-        } finally {
-            lock.unlock();
-        }
     }
 
     /**

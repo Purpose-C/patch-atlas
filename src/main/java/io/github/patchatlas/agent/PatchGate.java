@@ -3,6 +3,7 @@ package io.github.patchatlas.agent;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.WorkspaceTrust;
 // CandidateDraft in same package
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.io.IOException;
@@ -36,10 +37,22 @@ public final class PatchGate {
             String modulePath,
             CandidateDraft candidate,
             MavenNetworkMode networkMode) {
+        return prepare(
+                workspace,
+                modulePath,
+                candidate,
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode));
+    }
+
+    public PatchPreparationResult prepare(
+            Path workspace,
+            String modulePath,
+            CandidateDraft candidate,
+            MavenExecutionPolicy executionPolicy) {
         Objects.requireNonNull(workspace, "workspace");
         Objects.requireNonNull(modulePath, "modulePath");
         Objects.requireNonNull(candidate, "candidate");
-        Objects.requireNonNull(networkMode, "networkMode");
+        Objects.requireNonNull(executionPolicy, "executionPolicy");
 
         final Path trustedWorkspace;
         try {
@@ -88,7 +101,11 @@ public final class PatchGate {
         try {
             String selector =
                     candidate.targetTest().className() + "#" + candidate.targetTest().methodName();
-            command = new MavenTestCommand(modulePath, selector, networkMode);
+            command = new MavenTestCommand(
+                    modulePath,
+                    selector,
+                    executionPolicy.networkMode(),
+                    executionPolicy.javaVersion());
         } catch (IllegalArgumentException ex) {
             return reject(PatchRejectionCategory.TARGET_NOT_CHANGED_BY_PATCH, "unsafe target test selector");
         }

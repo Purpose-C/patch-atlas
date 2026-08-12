@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.TestGenerator;
 import java.lang.reflect.Method;
 import java.util.Arrays;

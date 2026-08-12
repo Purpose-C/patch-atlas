@@ -1,5 +1,8 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.sandbox.MavenExecutionPolicy;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
 import java.util.Objects;
 
 /**
@@ -19,13 +22,29 @@ public sealed interface ReplayWorkspaceProjection
 
     String modulePath();
 
+    MavenExecutionPolicy executionPolicy();
+
     /** Live：仅 Buggy/current 一侧。 */
-    record Live(String repositoryUrl, String buggyRevision, String modulePath)
+    record Live(
+            String repositoryUrl,
+            String buggyRevision,
+            String modulePath,
+            MavenExecutionPolicy executionPolicy)
             implements ReplayWorkspaceProjection {
         public Live {
             Objects.requireNonNull(repositoryUrl, "repositoryUrl");
             Objects.requireNonNull(buggyRevision, "buggyRevision");
             Objects.requireNonNull(modulePath, "modulePath");
+            Objects.requireNonNull(executionPolicy, "executionPolicy");
+        }
+
+        public Live(String repositoryUrl, String buggyRevision, String modulePath) {
+            this(
+                    repositoryUrl,
+                    buggyRevision,
+                    modulePath,
+                    new MavenExecutionPolicy(
+                            MavenExecutionPolicy.DEFAULT_JAVA_VERSION, MavenNetworkMode.OFFLINE));
         }
 
         @Override
@@ -36,16 +55,35 @@ public sealed interface ReplayWorkspaceProjection
 
     /** Historical：Buggy + Fixed 两侧 revision。 */
     record Historical(
-            String repositoryUrl, String buggyRevision, String fixedRevision, String modulePath)
+            String repositoryUrl,
+            String buggyRevision,
+            String fixedRevision,
+            String modulePath,
+            MavenExecutionPolicy executionPolicy)
             implements ReplayWorkspaceProjection {
         public Historical {
             Objects.requireNonNull(repositoryUrl, "repositoryUrl");
             Objects.requireNonNull(buggyRevision, "buggyRevision");
             Objects.requireNonNull(fixedRevision, "fixedRevision");
             Objects.requireNonNull(modulePath, "modulePath");
+            Objects.requireNonNull(executionPolicy, "executionPolicy");
             if (buggyRevision.equals(fixedRevision)) {
                 throw new IllegalArgumentException("buggy and fixed revisions must differ");
             }
+        }
+
+        public Historical(
+                String repositoryUrl,
+                String buggyRevision,
+                String fixedRevision,
+                String modulePath) {
+            this(
+                    repositoryUrl,
+                    buggyRevision,
+                    fixedRevision,
+                    modulePath,
+                    new MavenExecutionPolicy(
+                            MavenExecutionPolicy.DEFAULT_JAVA_VERSION, MavenNetworkMode.OFFLINE));
         }
 
         @Override

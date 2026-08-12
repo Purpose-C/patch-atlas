@@ -1,34 +1,45 @@
-package io.github.patchatlas.agent;
+package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CallFailureCategory;
+import io.github.patchatlas.agent.FakeTestGenerator;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
+import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.GenerationRequest;
+import io.github.patchatlas.agent.GenerationResult;
+import io.github.patchatlas.agent.PatchGate;
+import io.github.patchatlas.agent.PatchPreparationResult;
+import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.HistoricalReplayEngine;
 import io.github.patchatlas.replay.HistoricalReplayRequest;
+import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.replay.TargetTest;
-import io.github.patchatlas.run.ClaimedRun;
-import io.github.patchatlas.run.FailureCategory;
-import io.github.patchatlas.run.InMemoryGenerationRunSession;
-import io.github.patchatlas.run.LocalGitFixture;
-import io.github.patchatlas.run.PersistedCandidatePatch;
-import io.github.patchatlas.run.RunLease;
-import io.github.patchatlas.run.RunState;
-import io.github.patchatlas.run.TempCandidateWorkspaceFactory;
-import io.github.patchatlas.run.VerificationMode;
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.MavenTestCommand;
+import io.github.patchatlas.sandbox.SandboxExecution;
+import io.github.patchatlas.sandbox.SandboxExecutionStatus;
+import io.github.patchatlas.sandbox.SandboxLimits;
+import io.github.patchatlas.sandbox.SandboxRunner;
 import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -211,7 +222,7 @@ class CandidateGenerationCoordinatorTest {
         assertThat(failed.details().failure().orElseThrow().category())
                 .isEqualTo(FailureCategory.GENERATION_EXHAUSTED);
         assertThat(session.generationAttemptCount()).isEqualTo(3);
-        assertThat(session.currentClaim().candidate()).isEmpty();
+        assertThat(failed.details().candidate()).isEmpty();
     }
 
     @Test
@@ -251,6 +262,126 @@ class CandidateGenerationCoordinatorTest {
                 .isEqualTo(FailureCategory.MODEL_AUTHENTICATION_ERROR);
         assertThat(generator.callCount()).isEqualTo(1);
         assertThat(session.generationAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    void dependencyWarmupFailureIsTerminalWithoutRetryingModel() {
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(new SandboxExecution(
+                SandboxExecutionStatus.TIMED_OUT,
+                null,
+                Duration.ofSeconds(1),
+                true,
+                List.of("mvn", "test"),
+                "warmup timed out",
+                "maven:3.9-eclipse-temurin-21",
+                SandboxLimits.defaults(),
+                MavenNetworkMode.ONLINE));
+        AtomicInteger counter = new AtomicInteger();
+        var factory = new TempCandidateWorkspaceFactory(workspaceRoot, (url, sha, parent, name) -> {
+            Path dir = LocalGitFixture.fetcher(liveFixture.originDir())
+                    .materialize(url, sha, parent, name + "-" + counter.incrementAndGet());
+            materializeLog.add(dir);
+            return dir;
+        });
+        var gate = new PatchGate(workspaceRoot);
+        var side = new SideReplayRunner(sandbox, workspaceRoot);
+        CandidateGenerationCoordinator coordinator =
+                new CandidateGenerationCoordinator(
+                        generator,
+                        gate,
+                        factory,
+                        new DependencyWarmupRunner(sandbox, workspaceRoot),
+                        side);
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        var result = coordinator.run(input, session);
+
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+        var failed = (CandidateGenerationCoordinator.Result.RunFailed) result;
+        assertThat(failed.details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.REPLAY_SYSTEM_ERROR);
+        assertThat(generator.callCount()).isEqualTo(1);
+        assertThat(session.generationAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    void dependencyWarmupCannotExecuteCandidatePatch() throws Exception {
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET)));
+        ScriptedSandboxRunner evidence = ScriptedSandboxRunner.of(
+                ScriptedSandboxRunner.targetAssertionFailure(),
+                ScriptedSandboxRunner.targetAssertionFailure());
+        AtomicBoolean candidateVisibleDuringWarmup = new AtomicBoolean();
+        SandboxRunner sandbox = (workspace, command) -> {
+            if (command instanceof MavenDependencyWarmupCommand) {
+                Path testFile = workspace.resolve("src/test/java/fixtures/OldTest.java");
+                try {
+                    candidateVisibleDuringWarmup.set(
+                            Files.readString(testFile).contains("void added()"));
+                } catch (java.io.IOException ex) {
+                    throw new IllegalStateException(ex);
+                }
+                return ScriptedSandboxRunner.completed(0);
+            }
+            return evidence.execute(workspace, command);
+        };
+        AtomicInteger counter = new AtomicInteger();
+        var factory = new TempCandidateWorkspaceFactory(workspaceRoot, (url, sha, parent, name) ->
+                LocalGitFixture.fetcher(liveFixture.originDir())
+                        .materialize(url, sha, parent, name + "-" + counter.incrementAndGet()));
+        CandidateGenerationCoordinator coordinator = new CandidateGenerationCoordinator(
+                generator,
+                new PatchGate(workspaceRoot),
+                factory,
+                new DependencyWarmupRunner(sandbox, workspaceRoot),
+                new SideReplayRunner(sandbox, workspaceRoot));
+
+        var result = coordinator.run(input, newSession(VerificationMode.LIVE));
+
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.CandidateCommitted.class);
+        assertThat(candidateVisibleDuringWarmup).isFalse();
+    }
+
+    @Test
+    void staleClaimDuringCandidateCommitEscapesWithoutRecordingWorkspaceFailure() {
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.of(
+                ScriptedSandboxRunner.targetAssertionFailure(),
+                ScriptedSandboxRunner.targetAssertionFailure());
+        InMemoryGenerationRunSession delegate = newSession(VerificationMode.LIVE);
+        AtomicInteger failCalls = new AtomicInteger();
+        GenerationRunSession staleOnCommit = new GenerationRunSession() {
+            @Override
+            public ReserveResult reserveGenerationAttempt(String provider, String modelName) {
+                return delegate.reserveGenerationAttempt(provider, modelName);
+            }
+
+            @Override
+            public ClaimedRun recordModelUsage(io.github.patchatlas.agent.ModelUsage usage) {
+                return delegate.recordModelUsage(usage);
+            }
+
+            @Override
+            public ClaimedRun commitCandidate(GatedCandidate gated) {
+                throw new StaleClaimException(UUID.randomUUID(), "stale commit");
+            }
+
+            @Override
+            public RunDetails fail(RunFailure failure) {
+                failCalls.incrementAndGet();
+                return delegate.fail(failure);
+            }
+        };
+
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+
+        assertThatThrownBy(() -> coordinator.run(input, staleOnCommit))
+                .isInstanceOf(StaleClaimException.class)
+                .hasMessageContaining("stale commit");
+        assertThat(failCalls).hasValue(0);
     }
 
     private ReplayResult formalHistoricalReplay(
@@ -294,7 +425,18 @@ class CandidateGenerationCoordinatorTest {
         });
         var gate = new PatchGate(workspaceRoot);
         var side = new SideReplayRunner(sandbox, workspaceRoot);
-        return new CandidateGenerationCoordinator(generator, gate, factory, side);
+        return new CandidateGenerationCoordinator(
+                generator,
+                gate,
+                factory,
+                new DependencyWarmupRunner(warmupSucceeds(sandbox), workspaceRoot),
+                side);
+    }
+
+    private static SandboxRunner warmupSucceeds(ScriptedSandboxRunner evidenceRunner) {
+        return (workspace, command) -> command instanceof MavenDependencyWarmupCommand
+                ? ScriptedSandboxRunner.completed(0)
+                : evidenceRunner.execute(workspace, command);
     }
 
     private InMemoryGenerationRunSession newSession(VerificationMode mode) {

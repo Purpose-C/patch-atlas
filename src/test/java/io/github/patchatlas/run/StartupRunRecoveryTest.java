@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.PatchAtlasApplication;
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.FakeTestGenerator;
@@ -12,14 +13,13 @@ import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
-import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
-import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.TestCaseResult;
 import io.github.patchatlas.replay.TestCaseStatus;
 import io.github.patchatlas.replay.TestReport;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
@@ -34,7 +34,6 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -179,7 +178,24 @@ class StartupRunRecoveryTest {
 
         @Bean
         SandboxRunner sandboxRunner() {
-            return ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+            ScriptedSandboxRunner evidence =
+                    ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+            return (workspace, command) -> {
+                if (command instanceof MavenDependencyWarmupCommand) {
+                    Path testFile = workspace.resolve("src/test/java/fixtures/OldTest.java");
+                    try {
+                        if (Files.readString(testFile, StandardCharsets.UTF_8)
+                                .contains("void added()")) {
+                            throw new IllegalStateException(
+                                    "candidate patch must not execute during online warmup");
+                        }
+                    } catch (java.io.IOException ex) {
+                        throw new IllegalStateException(ex);
+                    }
+                    return ScriptedSandboxRunner.completed(0);
+                }
+                return evidence.execute(workspace, command);
+            };
         }
 
         @Bean
@@ -221,10 +237,7 @@ class StartupRunRecoveryTest {
                                 "org.opentest4j.AssertionFailedError",
                                 "x"))),
                         candidate.targetTest());
-                SideExecutionResult primary = new SideExecutionResult(
-                        List.of(a, a),
-                        StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                        Optional.of(RunOutcome.ASSERTION_FAILURE));
+                SideExecutionResult primary = new SideExecutionResult(List.of(a, a));
                 return ReplayResult.live(
                         ReplayVerdict.REPRODUCTION_CANDIDATE, candidate.targetTest(), primary);
             };

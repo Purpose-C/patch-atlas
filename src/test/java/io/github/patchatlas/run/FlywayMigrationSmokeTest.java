@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(2);
+        assertThat(first.migrationsExecuted).isEqualTo(3);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -197,6 +197,46 @@ class FlywayMigrationSmokeTest {
                             """
                                     .formatted(runId)))
                     .hasMessageContaining("candidate_test_patch");
+        }
+    }
+
+    @Test
+    void v3NormalizesSupportedLegacyJavaPatchVersion() throws Exception {
+        Flyway v2 = Flyway.configure()
+                .dataSource(
+                        POSTGRES_CONTAINER.getJdbcUrl(),
+                        POSTGRES_CONTAINER.getUsername(),
+                        POSTGRES_CONTAINER.getPassword())
+                .locations("classpath:db/migration")
+                .target("2")
+                .cleanDisabled(false)
+                .load();
+        v2.clean();
+        v2.migrate();
+        UUID runId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, java_version, state, version
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', '21.0.2', 'QUEUED', 0
+                    )
+                    """
+                            .formatted(runId));
+        }
+
+        migrate();
+
+        try (Connection connection = open();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(
+                        "SELECT java_version FROM verification_run WHERE id = '" + runId + "'")) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getString(1)).isEqualTo("21");
         }
     }
 

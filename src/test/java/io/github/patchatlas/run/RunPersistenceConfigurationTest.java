@@ -2,6 +2,8 @@ package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
@@ -59,9 +61,14 @@ class RunPersistenceConfigurationTest {
                     "a".repeat(40),
                     null,
                     "",
-                    null,
+                    "17",
+                    MavenNetworkMode.ONLINE,
                     java.util.List.of()));
             assertThat(store.findRun(id)).isPresent();
+            ReplayWorkspaceProjection projection = store.loadReplayWorkspaceProjection(id);
+            assertThat(projection.executionPolicy().javaVersion()).isEqualTo("17");
+            assertThat(projection.executionPolicy().networkMode())
+                    .isEqualTo(MavenNetworkMode.ONLINE);
         }
     }
 }

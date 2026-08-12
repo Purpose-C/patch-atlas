@@ -3,13 +3,12 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
-import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SideExecutionResult;
-import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.TestCaseResult;
 import io.github.patchatlas.replay.TestCaseStatus;
@@ -20,7 +19,6 @@ import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.flywaydb.core.Flyway;
@@ -190,10 +188,7 @@ class LeaseHeartbeatTest {
                         "org.opentest4j.AssertionFailedError",
                         "x"))),
                 TARGET);
-        SideExecutionResult primary = new SideExecutionResult(
-                List.of(a, a),
-                StableSideEvidence.TARGET_ASSERTION_FAILURE,
-                Optional.of(RunOutcome.ASSERTION_FAILURE));
+        SideExecutionResult primary = new SideExecutionResult(List.of(a, a));
         return ReplayResult.live(ReplayVerdict.REPRODUCTION_CANDIDATE, TARGET, primary);
     }
 

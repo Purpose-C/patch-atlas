@@ -3,8 +3,10 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.sandbox.MavenNetworkMode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +46,47 @@ class RunSubmissionAndGenerationMappingTest {
         assertThat(input.toString()).doesNotContain(FIXED_SENTINEL);
         assertThat(input.generatorContext().buggyRevision()).isEqualTo(BUG);
         assertThat(input.generatorContext().caseId()).isEqualTo("hist-1");
+    }
+
+    @Test
+    void submissionCarriesImmutableExecutionPolicy() {
+        RunSubmission submission = new RunSubmission(
+                VerificationMode.LIVE,
+                "c1",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "t",
+                "b",
+                BUG,
+                null,
+                "",
+                "17",
+                MavenNetworkMode.ONLINE,
+                List.of());
+
+        assertThat(submission.executionPolicy().javaVersion()).isEqualTo("17");
+        assertThat(submission.executionPolicy().networkMode()).isEqualTo(MavenNetworkMode.ONLINE);
+    }
+
+    @Test
+    void rejectsUnsupportedJavaVersion() {
+        assertThatThrownBy(() -> new RunSubmission(
+                        VerificationMode.LIVE,
+                        "c1",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        "t",
+                        "b",
+                        BUG,
+                        null,
+                        "",
+                        "22",
+                        MavenNetworkMode.OFFLINE,
+                        List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("javaVersion");
     }
 
     @Test

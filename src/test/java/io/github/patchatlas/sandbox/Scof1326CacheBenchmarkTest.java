@@ -31,7 +31,6 @@ class Scof1326CacheBenchmarkTest {
 
         Path cache = Path.of(".patch-atlas-cache/scof-1326").toAbsolutePath();
         DockerSandboxConfig config = new DockerSandboxConfig(
-                "maven:3.9-eclipse-temurin-17",
                 Duration.ofMinutes(10),
                 128 * 1024,
                 Path.of("samples").toRealPath(),
