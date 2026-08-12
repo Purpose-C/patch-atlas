@@ -1,7 +1,10 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CandidateGenerationCoordinator;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
+import io.github.patchatlas.replay.SideReplayRunner;
+import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -20,12 +23,8 @@ import org.springframework.context.annotation.Configuration;
  * <pre>
  * patchatlas.worker.enabled=true
  * patchatlas.worker.workspace-root=/path/to/root
- * spring.datasource.url=...
- * # 必须提供 TestGenerator 与 RunReplayer Bean
+ * # TestGenerator + RunReplayer + SandboxRunner Beans
  * </pre>
- *
- * <p>不用 {@code @ConditionalOnBean} 作类级条件——与用户配置 Bean 同时注册时会误判。
- * enabled=true 时若缺少依赖，启动直接失败并给出明确错误。
  */
 @Configuration
 @EnableConfigurationProperties(RunWorkerProperties.class)
@@ -61,16 +60,25 @@ public class RunWorkerConfiguration {
     }
 
     @Bean
+    SideReplayRunner sideReplayRunner(SandboxRunner sandboxRunner, RunWorkerProperties properties) {
+        Path root = Objects.requireNonNull(properties.getWorkspaceRoot(), "workspace-root")
+                .toAbsolutePath()
+                .normalize();
+        return new SideReplayRunner(sandboxRunner, root);
+    }
+
+    @Bean
     Issue2TestWorker issue2TestWorker(
             PostgresRunStore store,
             TestGenerator generator,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
+            SideReplayRunner sideReplayRunner,
             RunReplayer replayer,
             RunWorkerProperties properties) {
         return new Issue2TestWorker(
                 store,
-                generator,
+                new CandidateGenerationCoordinator(generator, patchGate, workspaceFactory, sideReplayRunner),
                 patchGate,
                 workspaceFactory,
                 replayer,

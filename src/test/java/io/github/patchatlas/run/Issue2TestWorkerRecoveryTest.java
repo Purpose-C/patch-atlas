@@ -2,7 +2,13 @@ package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.FakeTestGenerator;
+import io.github.patchatlas.agent.GenerationRequest;
+import io.github.patchatlas.agent.GenerationResult;
+import io.github.patchatlas.replay.SideReplayRunner;
+import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
@@ -120,19 +126,20 @@ class Issue2TestWorkerRecoveryTest {
         TestGenerator generatorA = trackingGenerator(generateCalls);
         ClaimedRun claimed = storeA.claimNext("instance-a", Duration.ofMinutes(5)).orElseThrow();
         GenerationInput input = storeA.loadGenerationInput(claimed.runId());
-        var generated = (GenerationResult.GeneratedCandidate) generatorA.generate(input);
+        CandidateDraft draft = new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET);
+        generateCalls.incrementAndGet();
         PatchGate gate = new PatchGate(workspaceRoot);
         Path firstWorkspace;
         try (var session = cloningFactory().open(claimed, input)) {
             firstWorkspace = session.workspace();
-            var prepared = gate.prepare(session.workspace(), "", generated, MavenNetworkMode.OFFLINE);
+            var prepared = gate.prepare(session.workspace(), "", draft, MavenNetworkMode.OFFLINE);
             assertThat(prepared)
                     .isInstanceOf(io.github.patchatlas.agent.PatchPreparationResult.PreparedCandidate.class);
             // 污染工作区：模拟崩溃前留下已打 patch 的文件
             assertThat(Files.readString(firstWorkspace.resolve("src/test/java/fixtures/OldTest.java")))
                     .contains("void added()");
             GatedCandidate gated = GatedCandidate.afterSuccessfulGate(
-                    generated,
+                    draft,
                     (io.github.patchatlas.agent.PatchPreparationResult.PreparedCandidate) prepared);
             ClaimedRun renewed =
                     storeA.renewLease(ClaimHandle.from(claimed), "instance-a", Duration.ofMinutes(5));
@@ -206,44 +213,47 @@ class Issue2TestWorkerRecoveryTest {
                 new file mode 100644
                 --- /dev/null
                 +++ b/src/main/java/Evil.java
-                @@ -0,0 +1,3 @@
+                @@ -0,0 +1,2 @@
                 +package x;
                 +class Evil {}
                 """;
-        FakeTestGenerator fake = new FakeTestGenerator(
-                new GenerationResult.GeneratedCandidate(mainPatch, new TargetTest("x.Evil", "nope")));
-        TestGenerator generator = input -> {
-            generateCalls.incrementAndGet();
-            return fake.generate(input);
+        TestGenerator generator = new FakeTestGenerator(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(mainPatch, new TargetTest("x.Evil", "nope")))) {
+            @Override
+            public GenerationResult generate(GenerationRequest request) {
+                generateCalls.incrementAndGet();
+                return super.generate(request);
+            }
         };
         PostgresRunStore store = new PostgresRunStore(dataSource());
         store.submit(liveSubmission("evil"));
 
+        SideReplayRunner side = new SideReplayRunner(
+                ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
         Issue2TestWorker worker = new Issue2TestWorker(
-                store,
-                generator,
-                new PatchGate(workspaceRoot),
-                cloningFactory(),
-                Issue2TestWorkerRecoveryTest::fakeLiveReplay,
-                Duration.ofMinutes(5),
-                Duration.ofSeconds(30));
+                store, generator, new PatchGate(workspaceRoot), cloningFactory(), side,
+                Issue2TestWorkerRecoveryTest::fakeLiveReplay);
 
         RunDetails details = worker.processNext("w").orElseThrow();
         assertThat(details.state()).isEqualTo(RunState.FAILED);
         assertThat(details.failure()).isPresent();
+        // 越界生产路径：立即终态，不得入库 candidate，不得耗尽 3 轮
         assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.PATCH_GATE);
+        assertThat(details.failure().orElseThrow().category()).isEqualTo(FailureCategory.PATCH_REJECTED);
         assertThat(details.candidate()).isEmpty();
+        assertThat(generateCalls.get()).isEqualTo(1);
     }
 
     private Issue2TestWorker worker(PostgresRunStore store, AtomicInteger generateCalls) {
+        SideReplayRunner side = new SideReplayRunner(
+                ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
         return new Issue2TestWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(workspaceRoot),
                 cloningFactory(),
-                Issue2TestWorkerRecoveryTest::fakeLiveReplay,
-                Duration.ofMinutes(5),
-                Duration.ofSeconds(30));
+                side,
+                Issue2TestWorkerRecoveryTest::fakeLiveReplay);
     }
 
     private TempCandidateWorkspaceFactory cloningFactory() {
@@ -263,11 +273,14 @@ class Issue2TestWorkerRecoveryTest {
     }
 
     private TestGenerator trackingGenerator(AtomicInteger generateCalls) {
-        FakeTestGenerator fake = new FakeTestGenerator(new GenerationResult.GeneratedCandidate(
-                LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET));
-        return input -> {
-            generateCalls.incrementAndGet();
-            return fake.generate(input);
+        GenerationResult draft = new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET));
+        return new FakeTestGenerator(draft) {
+            @Override
+            public GenerationResult generate(GenerationRequest request) {
+                generateCalls.incrementAndGet();
+                return super.generate(request);
+            }
         };
     }
 
@@ -392,14 +405,15 @@ class Issue2TestWorkerRecoveryTest {
                 List.of(new SourceSnapshot("src/A.java", "class A {}"))));
 
         AtomicInteger generateCalls = new AtomicInteger();
+        SideReplayRunner side = new SideReplayRunner(
+                ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), histRoot);
         Issue2TestWorker worker = new Issue2TestWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(histRoot),
                 new TempCandidateWorkspaceFactory(histRoot, histFetcher),
-                Issue2TestWorkerRecoveryTest::fakeLiveReplay,
-                Duration.ofMinutes(5),
-                Duration.ofSeconds(30));
+                side,
+                Issue2TestWorkerRecoveryTest::fakeLiveReplay);
 
         RunDetails completed = worker.processNext("hist-worker").orElseThrow();
         assertThat(completed.state()).isEqualTo(RunState.COMPLETED);
@@ -422,16 +436,17 @@ class Issue2TestWorkerRecoveryTest {
         PostgresRunStore store = new PostgresRunStore(dataSource());
         store.submit(liveSubmission("replay-err"));
         AtomicInteger generateCalls = new AtomicInteger();
+        SideReplayRunner side = new SideReplayRunner(
+                ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1)), workspaceRoot);
         Issue2TestWorker worker = new Issue2TestWorker(
                 store,
                 trackingGenerator(generateCalls),
                 new PatchGate(workspaceRoot),
                 cloningFactory(),
+                side,
                 (claimed, candidate, ws) -> {
                     throw new RuntimeException("docker boom");
-                },
-                Duration.ofMinutes(5),
-                Duration.ofSeconds(30));
+                });
 
         RunDetails details = worker.processNext("err").orElseThrow();
         assertThat(details.state()).isEqualTo(RunState.FAILED);

@@ -1,11 +1,20 @@
 package io.github.patchatlas.run;
 
 import java.util.Objects;
+import java.util.Set;
 
 /** 未得到 ReplayResult 前的终态失败摘要。 */
 public record RunFailure(FailureStage stage, FailureCategory category, String summary) {
 
     public static final int MAX_SUMMARY_CHARS = 512;
+
+    private static final Set<FailureCategory> GENERATION_CATEGORIES = Set.of(
+            FailureCategory.GENERATION_FAILURE,
+            FailureCategory.GENERATION_EXHAUSTED,
+            FailureCategory.MODEL_CONFIGURATION_ERROR,
+            FailureCategory.MODEL_AUTHENTICATION_ERROR,
+            FailureCategory.MODEL_UNAVAILABLE,
+            FailureCategory.MODEL_REFUSED);
 
     public RunFailure {
         Objects.requireNonNull(stage, "stage");
@@ -17,8 +26,21 @@ public record RunFailure(FailureStage stage, FailureCategory category, String su
         if (summary.length() > MAX_SUMMARY_CHARS) {
             summary = summary.substring(0, MAX_SUMMARY_CHARS);
         }
-        if (category == FailureCategory.RECOVERY_EXHAUSTED && stage != FailureStage.RECOVERY) {
-            throw new IllegalArgumentException("RECOVERY_EXHAUSTED requires RECOVERY stage");
+        requireStageCategory(stage, category);
+    }
+
+    static void requireStageCategory(FailureStage stage, FailureCategory category) {
+        boolean ok = switch (stage) {
+            case GENERATION -> GENERATION_CATEGORIES.contains(category);
+            case PATCH_GATE -> category == FailureCategory.PATCH_REJECTED
+                    || category == FailureCategory.WORKSPACE_UNSAFE;
+            case WORKSPACE -> category == FailureCategory.WORKSPACE_UNSAFE;
+            case REPLAY -> category == FailureCategory.REPLAY_SYSTEM_ERROR;
+            case RECOVERY -> category == FailureCategory.RECOVERY_EXHAUSTED;
+        };
+        if (!ok) {
+            throw new IllegalArgumentException(
+                    "illegal failure pair " + stage + " / " + category);
         }
     }
 }

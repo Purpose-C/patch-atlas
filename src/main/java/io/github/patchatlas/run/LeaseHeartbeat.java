@@ -76,6 +76,14 @@ public final class LeaseHeartbeat implements AutoCloseable {
         return runTransition(h -> store.commitCandidate(h, gated));
     }
 
+    public ClaimedRun reserveGenerationAttempt(String provider, String modelName) {
+        return runTransition(h -> store.reserveGenerationAttempt(h, provider, modelName));
+    }
+
+    public ClaimedRun recordModelUsage(io.github.patchatlas.agent.ModelUsage usage) {
+        return runTransition(h -> store.recordModelUsage(h, usage));
+    }
+
     public RunDetails fail(RunFailure failure) {
         return runTerminal(h -> store.fail(h, failure));
     }
@@ -86,6 +94,17 @@ public final class LeaseHeartbeat implements AutoCloseable {
 
     public RunDetails complete(ReplayResult result) {
         return runTerminal(h -> store.complete(h, result));
+    }
+
+    /** 当前 claim handle（编排器只读快照；写必须走本类领域方法）。 */
+    public ClaimHandle currentHandle() {
+        lock.lock();
+        try {
+            throwIfFailed();
+            return handle;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -109,6 +128,9 @@ public final class LeaseHeartbeat implements AutoCloseable {
             ClaimedRun next = action.apply(handle);
             handle = ClaimHandle.from(next);
             return next;
+        } catch (GenerationAttemptsExhaustedException exhausted) {
+            // 领域结果：额度用尽，不毒化心跳；由 GenerationRunSession 转 fail
+            throw exhausted;
         } catch (RuntimeException ex) {
             // stale 等：记录，避免心跳继续用旧 handle 刷库
             if (failure == null) {

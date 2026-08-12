@@ -19,13 +19,31 @@
 
     <properties>
         <java.version>21</java.version>
-        <test.excluded-groups>network,docker,benchmark,database</test.excluded-groups>
+        <spring-ai.version>2.0.0</spring-ai.version>
+        <test.excluded-groups>network,docker,benchmark,database,model</test.excluded-groups>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <!-- 仅 OpenAI chat starter；默认 FAKE 时由配置排除自动装配，不校验 key -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -112,7 +130,7 @@
                 </property>
             </activation>
             <properties>
-                <test.excluded-groups>docker,benchmark,database</test.excluded-groups>
+                <test.excluded-groups>docker,benchmark,database,model</test.excluded-groups>
             </properties>
         </profile>
         <profile>
@@ -124,7 +142,7 @@
                 </property>
             </activation>
             <properties>
-                <test.excluded-groups>network,benchmark,database</test.excluded-groups>
+                <test.excluded-groups>network,benchmark,database,model</test.excluded-groups>
             </properties>
         </profile>
         <profile>
@@ -136,7 +154,7 @@
                 </property>
             </activation>
             <properties>
-                <test.excluded-groups>network,docker,database</test.excluded-groups>
+                <test.excluded-groups>network,docker,database,model</test.excluded-groups>
             </properties>
         </profile>
         <profile>
@@ -148,7 +166,21 @@
                 </property>
             </activation>
             <properties>
-                <test.excluded-groups>network,docker,benchmark</test.excluded-groups>
+                <test.excluded-groups>network,docker,benchmark,model</test.excluded-groups>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>model-tests</id>
+            <activation>
+                <property>
+                    <name>groups</name>
+                    <value>model</value>
+                </property>
+            </activation>
+            <properties>
+                <!-- 仅启用 model；其余分组仍排除 -->
+                <test.excluded-groups>network,docker,benchmark,database</test.excluded-groups>
             </properties>
         </profile>
     </profiles>

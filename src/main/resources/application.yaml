@@ -12,6 +12,13 @@ spring:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
       - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
       - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+      # Spring AI OpenAI 自动装配会在缺 key 时失败；OPENAI 由 GeneratorConfiguration 显式创建
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
 
 management:
   endpoints:
@@ -26,7 +33,13 @@ spring:
     activate:
       on-profile: persistence
   autoconfigure:
-    exclude: []
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -34,7 +47,17 @@ spring:
 # Worker 默认关闭；启用示例：
 #   patchatlas.worker.enabled=true
 #   patchatlas.worker.workspace-root=/var/patchatlas/workspaces
-#   并提供 TestGenerator + RunReplayer Bean（/部署装配）
+#   并提供 TestGenerator + RunReplayer + SandboxRunner Bean
+#
+# 生成器：默认 FAKE（CI）；OPENAI 需环境变量注入密钥与模型（绝不明文写 key）
+#   OPENAI_API_KEY
+#   PATCHATLAS_OPENAI_MODEL
+#   PATCHATLAS_OPENAI_BASE_URL（可选；仍强制原生 JSON Schema）
 patchatlas:
   worker:
     enabled: false
+  generator:
+    type: FAKE
+    openai:
+      model: ${PATCHATLAS_OPENAI_MODEL:}
+      base-url: ${PATCHATLAS_OPENAI_BASE_URL:https://api.openai.com}

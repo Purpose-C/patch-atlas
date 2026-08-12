@@ -258,6 +258,143 @@ public final class PostgresRunStore {
     }
 
     /**
+     * 预占全局 Generation Attempt：count N→N+1，返回 ordinal。
+     *
+     * <p>第四次预占抛 {@link GenerationAttemptsExhaustedException}。
+     */
+    public ClaimedRun reserveGenerationAttempt(
+            ClaimHandle handle, String provider, String modelName) {
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(provider, "provider");
+        Objects.requireNonNull(modelName, "modelName");
+        if (handle.state() != RunState.GENERATING) {
+            throw new IllegalArgumentException("reserve requires GENERATING");
+        }
+        long newVersion = RunLeaseRules.nextVersion(handle.version());
+        return tx.execute(status -> {
+            Integer current = jdbc.sql(
+                            """
+                            SELECT generation_attempt_count
+                              FROM verification_run
+                             WHERE id = :id
+                               AND state = 'GENERATING'
+                               AND lease_token = :token
+                               AND version = :expectedVersion
+                            """)
+                    .param("id", handle.runId())
+                    .param("token", handle.leaseToken())
+                    .param("expectedVersion", handle.version())
+                    .query(Integer.class)
+                    .optional()
+                    .orElse(null);
+            if (current == null) {
+                throw new StaleClaimException(handle.runId(), "stale reserve on " + handle.runId());
+            }
+            if (current >= 3) {
+                throw new GenerationAttemptsExhaustedException(handle.runId());
+            }
+            int next = current + 1;
+            int updated = jdbc.sql(
+                            """
+                            UPDATE verification_run
+                               SET generation_attempt_count = :next,
+                                   model_provider = COALESCE(model_provider, :provider),
+                                   model_name = COALESCE(model_name, :modelName),
+                                   version = :version,
+                                   updated_at = CURRENT_TIMESTAMP
+                             WHERE id = :id
+                               AND state = 'GENERATING'
+                               AND lease_token = :token
+                               AND version = :expectedVersion
+                               AND generation_attempt_count = :current
+                               AND (
+                                     (generation_attempt_count = 0)
+                                  OR (model_provider = :provider AND model_name = :modelName)
+                               )
+                            """)
+                    .param("next", next)
+                    .param("provider", provider)
+                    .param("modelName", modelName)
+                    .param("version", newVersion)
+                    .param("id", handle.runId())
+                    .param("token", handle.leaseToken())
+                    .param("expectedVersion", handle.version())
+                    .param("current", current)
+                    .update();
+            if (updated != 1) {
+                throw new StaleClaimException(handle.runId(), "stale reserve update on " + handle.runId());
+            }
+            ClaimRow row = loadClaimRow(handle.runId());
+            Instant expiresAt = loadLeaseExpiry(handle.runId());
+            return new ClaimedRun(
+                    handle.runId(),
+                    row.mode,
+                    RunState.GENERATING,
+                    newVersion,
+                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
+                    row.recoveryCount,
+                    row.replayRound,
+                    Optional.empty());
+        });
+    }
+
+    public int loadGenerationAttemptCount(UUID runId) {
+        return jdbc.sql(
+                        """
+                        SELECT generation_attempt_count FROM verification_run WHERE id = :id
+                        """)
+                .param("id", runId)
+                .query(Integer.class)
+                .single();
+    }
+
+    public ClaimedRun recordModelUsage(ClaimHandle handle, io.github.patchatlas.agent.ModelUsage usage) {
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(usage, "usage");
+        if (handle.state() != RunState.GENERATING) {
+            throw new IllegalArgumentException("recordModelUsage requires GENERATING");
+        }
+        long newVersion = RunLeaseRules.nextVersion(handle.version());
+        return tx.execute(status -> {
+            int updated = jdbc.sql(
+                            """
+                            UPDATE verification_run
+                               SET model_input_tokens = model_input_tokens + :inTok,
+                                   model_output_tokens = model_output_tokens + :outTok,
+                                   model_total_tokens = model_total_tokens + :totTok,
+                                   version = :version,
+                                   updated_at = CURRENT_TIMESTAMP
+                             WHERE id = :id
+                               AND state = 'GENERATING'
+                               AND lease_token = :token
+                               AND version = :expectedVersion
+                            """)
+                    .param("inTok", usage.inputTokens())
+                    .param("outTok", usage.outputTokens())
+                    .param("totTok", usage.totalTokens())
+                    .param("version", newVersion)
+                    .param("id", handle.runId())
+                    .param("token", handle.leaseToken())
+                    .param("expectedVersion", handle.version())
+                    .update();
+            if (updated != 1) {
+                throw new StaleClaimException(handle.runId(), "stale usage on " + handle.runId());
+            }
+            ClaimRow row = loadClaimRow(handle.runId());
+            Instant expiresAt = loadLeaseExpiry(handle.runId());
+            return new ClaimedRun(
+                    handle.runId(),
+                    row.mode,
+                    RunState.GENERATING,
+                    newVersion,
+                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
+                    row.recoveryCount,
+                    row.replayRound,
+                    Optional.empty());
+        });
+    }
+
+    /**
      * Gate 通过后原子提交 candidate 并进入 {@link RunState#REPLAYING}。
      *
      * <p>仅接受 {@link GatedCandidate}，避免绕过 Patch Gate 入库。
@@ -730,6 +867,36 @@ public final class PostgresRunStore {
                 .param("id", row.id)
                 .param("expectedVersion", row.version)
                 .update();
+    }
+
+    /** 从当前 handle 重建 ClaimedRun（含 candidate）。 */
+    public Optional<ClaimedRun> findClaimed(ClaimHandle handle) {
+        Objects.requireNonNull(handle, "handle");
+        ClaimRow row = loadClaimRow(handle.runId());
+        if (row == null || row.state != handle.state() || row.version != handle.version()) {
+            return Optional.empty();
+        }
+        Instant expiresAt;
+        String owner;
+        try {
+            expiresAt = loadLeaseExpiry(handle.runId());
+            owner = loadLeaseOwner(handle.runId());
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
+        Optional<PersistedCandidatePatch> candidate = Optional.empty();
+        if (row.state == RunState.REPLAYING) {
+            candidate = Optional.of(loadCandidateRequired(handle.runId()));
+        }
+        return Optional.of(new ClaimedRun(
+                row.id,
+                row.mode,
+                row.state,
+                row.version,
+                new RunLease(handle.leaseToken(), owner, expiresAt),
+                row.recoveryCount,
+                row.replayRound,
+                candidate));
     }
 
     private ClaimRow loadClaimRow(UUID id) {

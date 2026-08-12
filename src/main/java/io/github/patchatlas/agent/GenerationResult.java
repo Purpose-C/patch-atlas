@@ -1,33 +1,50 @@
 package io.github.patchatlas.agent;
 
-import io.github.patchatlas.replay.TargetTest;
 import java.util.Objects;
+import java.util.Optional;
 
-/** {@link TestGenerator} 的一次生成结果。 */
-public sealed interface GenerationResult permits GenerationResult.GeneratedCandidate, GenerationResult.GenerationFailure {
+/**
+ * 单次 {@link TestGenerator} 调用结果：草稿或调用失败（含可选 usage）。
+ */
+public sealed interface GenerationResult
+        permits GenerationResult.GeneratedDraft, GenerationResult.GenerationCallFailure {
 
-    /**
-     * 候选补丁载体。越界/NUL/畸形文本不在此抛系统异常，由 Patch Gate 解析后返回
-     * {@link PatchPreparationResult.RejectedCandidate}（不可信模型输出）。
-     */
-    record GeneratedCandidate(String patchText, TargetTest targetTest) implements GenerationResult {
-        public GeneratedCandidate {
-            Objects.requireNonNull(patchText, "patchText");
-            Objects.requireNonNull(targetTest, "targetTest");
+    Optional<ModelUsage> usage();
+
+    record GeneratedDraft(CandidateDraft draft, Optional<ModelUsage> usage) implements GenerationResult {
+        public GeneratedDraft {
+            Objects.requireNonNull(draft, "draft");
+            Objects.requireNonNull(usage, "usage");
+        }
+
+        public GeneratedDraft(CandidateDraft draft) {
+            this(draft, Optional.empty());
+        }
+
+        public GeneratedDraft(CandidateDraft draft, ModelUsage usage) {
+            this(draft, Optional.of(usage));
         }
     }
 
-    record GenerationFailure(String reason) implements GenerationResult {
-        public static final int MAX_REASON_CHARS = 512;
+    record GenerationCallFailure(
+            CallFailureCategory category, String summary, Optional<ModelUsage> usage)
+            implements GenerationResult {
+        public static final int MAX_SUMMARY_CHARS = 512;
 
-        public GenerationFailure {
-            Objects.requireNonNull(reason, "reason");
-            if (reason.isBlank()) {
-                throw new IllegalArgumentException("reason must not be blank");
+        public GenerationCallFailure {
+            Objects.requireNonNull(category, "category");
+            Objects.requireNonNull(summary, "summary");
+            Objects.requireNonNull(usage, "usage");
+            if (summary.isBlank()) {
+                throw new IllegalArgumentException("summary must not be blank");
             }
-            if (reason.length() > MAX_REASON_CHARS) {
-                reason = reason.substring(0, MAX_REASON_CHARS);
+            if (summary.length() > MAX_SUMMARY_CHARS) {
+                summary = summary.substring(0, MAX_SUMMARY_CHARS);
             }
+        }
+
+        public GenerationCallFailure(CallFailureCategory category, String summary) {
+            this(category, summary, Optional.empty());
         }
     }
 }

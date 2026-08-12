@@ -1,11 +1,13 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CandidateGenerationCoordinator;
 import io.github.patchatlas.agent.GenerationInput;
-import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.PatchRejectionCategory;
 import io.github.patchatlas.agent.TestGenerator;
+import io.github.patchatlas.replay.SideReplayRunner;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,10 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * 最小 Issue2Test 协调：claim → generate → 真实 Patch Gate → commit → replay → complete。
- *
- * <p>REPLAYING（含恢复）用 {@link ReplayWorkspaceProjection} 准备 Live 单侧或 Historical 双侧
- * workspace，再次应用同一 candidate，再交给 {@link RunReplayer}。
+ * Issue2Test 协调：GENERATING 委托 {@link CandidateGenerationCoordinator}；REPLAYING 自管。
  */
 public final class Issue2TestWorker {
 
@@ -24,7 +23,7 @@ public final class Issue2TestWorker {
     public static final Duration DEFAULT_HEARTBEAT = Duration.ofMinutes(2);
 
     private final PostgresRunStore store;
-    private final TestGenerator generator;
+    private final CandidateGenerationCoordinator generationCoordinator;
     private final PatchGate patchGate;
     private final CandidateWorkspaceFactory workspaceFactory;
     private final RunReplayer replayer;
@@ -36,20 +35,29 @@ public final class Issue2TestWorker {
             TestGenerator generator,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
+            SideReplayRunner sideReplayRunner,
             RunReplayer replayer) {
-        this(store, generator, patchGate, workspaceFactory, replayer, DEFAULT_LEASE, DEFAULT_HEARTBEAT);
+        this(
+                store,
+                new CandidateGenerationCoordinator(generator, patchGate, workspaceFactory, sideReplayRunner),
+                patchGate,
+                workspaceFactory,
+                replayer,
+                DEFAULT_LEASE,
+                DEFAULT_HEARTBEAT);
     }
 
     public Issue2TestWorker(
             PostgresRunStore store,
-            TestGenerator generator,
+            CandidateGenerationCoordinator generationCoordinator,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
             RunReplayer replayer,
             Duration leaseDuration,
             Duration heartbeatInterval) {
         this.store = Objects.requireNonNull(store, "store");
-        this.generator = Objects.requireNonNull(generator, "generator");
+        this.generationCoordinator =
+                Objects.requireNonNull(generationCoordinator, "generationCoordinator");
         this.patchGate = Objects.requireNonNull(patchGate, "patchGate");
         this.workspaceFactory = Objects.requireNonNull(workspaceFactory, "workspaceFactory");
         this.replayer = Objects.requireNonNull(replayer, "replayer");
@@ -88,50 +96,16 @@ public final class Issue2TestWorker {
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
             GenerationInput input = store.loadGenerationInput(claimed.runId());
-            GenerationResult result = generator.generate(input);
-
-            if (result instanceof GenerationResult.GenerationFailure failure) {
-                beat.fail(new RunFailure(
-                        FailureStage.GENERATION,
-                        FailureCategory.GENERATION_FAILURE,
-                        failure.reason()));
-                return Optional.empty();
-            }
-
-            GenerationResult.GeneratedCandidate generated =
-                    (GenerationResult.GeneratedCandidate) result;
-
-            try (CandidateWorkspaceFactory.WorkspaceSession session =
-                    workspaceFactory.open(claimed, input)) {
-                PatchPreparationResult prepared = patchGate.prepare(
-                        session.workspace(),
-                        session.modulePath(),
-                        generated,
-                        session.networkMode());
-                if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
-                    beat.fail(toPatchGateFailure(rejected));
-                    return Optional.empty();
-                }
-                PatchPreparationResult.PreparedCandidate ok =
-                        (PatchPreparationResult.PreparedCandidate) prepared;
-                GatedCandidate gated = GatedCandidate.afterSuccessfulGate(generated, ok);
-                return Optional.of(beat.commitCandidate(gated));
-            } catch (StaleClaimException stale) {
-                throw stale;
-            } catch (Exception ex) {
-                beat.fail(new RunFailure(
-                        FailureStage.WORKSPACE,
-                        FailureCategory.WORKSPACE_UNSAFE,
-                        bound("workspace prepare failed: " + ex.getClass().getSimpleName())));
-                return Optional.empty();
-            }
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(store, beat);
+            CandidateGenerationCoordinator.Result result = generationCoordinator.run(input, session);
+            return switch (result) {
+                case CandidateGenerationCoordinator.Result.CandidateCommitted committed ->
+                        Optional.of(committed.claim());
+                case CandidateGenerationCoordinator.Result.RunFailed ignored -> Optional.empty();
+            };
         }
     }
 
-    /**
-     * REPLAYING / 恢复：按投影 materialize（Live 1 侧 / Historical 2 侧）→ 再应用 candidate → Replay。
-     * 不调用 {@link TestGenerator}。workspace 准备与 replay 执行分属不同失败阶段。
-     */
     private RunDetails replayPhase(ClaimedRun claimed, String owner) {
         PersistedCandidatePatch candidate = claimed
                 .candidate()
@@ -183,15 +157,14 @@ public final class Issue2TestWorker {
             PersistedCandidatePatch candidate,
             List<CandidateWorkspaceFactory.WorkspaceSession> sessions)
             throws Exception {
-        GenerationResult.GeneratedCandidate generated = new GenerationResult.GeneratedCandidate(
-                candidate.patchText(), candidate.targetTest());
+        CandidateDraft draft = new CandidateDraft(candidate.patchText(), candidate.targetTest());
 
         return switch (projection) {
             case ReplayWorkspaceProjection.Live live -> {
                 CandidateWorkspaceFactory.WorkspaceSession session = workspaceFactory.openForRevision(
                         claimed, live.repositoryUrl(), live.buggyRevision(), live.modulePath());
                 sessions.add(session);
-                applyCandidate(session, generated);
+                applyCandidate(session, draft);
                 yield new PreparedReplayWorkspace.Live(
                         session.workspace(), session.modulePath(), session.networkMode());
             }
@@ -208,8 +181,8 @@ public final class Issue2TestWorker {
                         historical.fixedRevision(),
                         historical.modulePath());
                 sessions.add(fixed);
-                applyCandidate(buggy, generated);
-                applyCandidate(fixed, generated);
+                applyCandidate(buggy, draft);
+                applyCandidate(fixed, draft);
                 yield new PreparedReplayWorkspace.Historical(
                         buggy.workspace(),
                         fixed.workspace(),
@@ -220,12 +193,11 @@ public final class Issue2TestWorker {
     }
 
     private void applyCandidate(
-            CandidateWorkspaceFactory.WorkspaceSession session,
-            GenerationResult.GeneratedCandidate generated) {
+            CandidateWorkspaceFactory.WorkspaceSession session, CandidateDraft draft) {
         PatchPreparationResult prepared = patchGate.prepare(
                 session.workspace(),
                 session.modulePath(),
-                generated,
+                draft,
                 session.networkMode());
         if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
             throw new PatchGateRejectedException(toPatchGateFailure(rejected));
@@ -237,21 +209,21 @@ public final class Issue2TestWorker {
             try {
                 sessions.get(i).close();
             } catch (Exception ignored) {
-                // 尽力关闭
+                // best effort
             }
         }
     }
 
     private static RunFailure toPatchGateFailure(PatchPreparationResult.RejectedCandidate rejected) {
-        FailureCategory category = mapRejection(rejected.category());
-        return new RunFailure(FailureStage.PATCH_GATE, category, rejected.reason());
-    }
-
-    private static FailureCategory mapRejection(PatchRejectionCategory category) {
-        return switch (category) {
-            case WORKSPACE_UNSAFE -> FailureCategory.WORKSPACE_UNSAFE;
-            default -> FailureCategory.PATCH_REJECTED;
-        };
+        FailureCategory category =
+                rejected.category() == PatchRejectionCategory.WORKSPACE_UNSAFE
+                        ? FailureCategory.WORKSPACE_UNSAFE
+                        : FailureCategory.PATCH_REJECTED;
+        FailureStage stage =
+                category == FailureCategory.WORKSPACE_UNSAFE
+                        ? FailureStage.WORKSPACE
+                        : FailureStage.PATCH_GATE;
+        return new RunFailure(stage, category, rejected.reason());
     }
 
     private static String bound(String summary) {

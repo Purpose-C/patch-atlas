@@ -1,5 +1,6 @@
 package io.github.patchatlas.agent;
 
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.replay.TargetTest;
@@ -28,7 +29,7 @@ class PatchGateTest {
 
     @Test
     void appliesCreateTestFileAndBindsTarget() throws Exception {
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
+        CandidateDraft candidate = new CandidateDraft(
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures.NewTest", "works"));
 
@@ -76,7 +77,7 @@ class PatchGateTest {
                 +  void added() {}
                 """;
 
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
+        CandidateDraft candidate = new CandidateDraft(
                 patch, new TargetTest("fixtures.OldTest", "added"));
 
         PatchPreparationResult result =
@@ -98,7 +99,7 @@ class PatchGateTest {
                 @@ -0,0 +1,1 @@
                 +class Evil {}
                 """;
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
+        CandidateDraft candidate = new CandidateDraft(
                 patch, new TargetTest("fixtures.Evil", "x"));
 
         PatchPreparationResult result =
@@ -112,7 +113,7 @@ class PatchGateTest {
 
     @Test
     void rejectsTargetNotInPatch() {
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
+        CandidateDraft candidate = new CandidateDraft(
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures.OtherTest", "works"));
 
@@ -136,7 +137,7 @@ class PatchGateTest {
         PatchPreparationResult result = gate.prepare(
                 workspace,
                 "",
-                new GenerationResult.GeneratedCandidate(
+                new CandidateDraft(
                         FakeTestGeneratorTest.minimalCreatePatch(),
                         new TargetTest("fixtures.NewTest", "works")),
                 MavenNetworkMode.OFFLINE);
@@ -155,7 +156,7 @@ class PatchGateTest {
             PatchPreparationResult result = gate.prepare(
                     outsideWs,
                     "",
-                    new GenerationResult.GeneratedCandidate(
+                    new CandidateDraft(
                             FakeTestGeneratorTest.minimalCreatePatch(),
                             new TargetTest("fixtures.NewTest", "works")),
                     MavenNetworkMode.OFFLINE);
@@ -191,7 +192,7 @@ class PatchGateTest {
                                 longClass.replace('.', '/'),
                                 longClass.replace('.', '/'));
         // 类名路径过长且 selector 超 256
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
+        CandidateDraft candidate = new CandidateDraft(
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures." + "N".repeat(250), "works"));
 
@@ -220,7 +221,7 @@ class PatchGateTest {
         PatchPreparationResult result = gate.prepare(
                 workspace,
                 "",
-                new GenerationResult.GeneratedCandidate(
+                new CandidateDraft(
                         patch, new TargetTest("fixtures.Short", "x")),
                 MavenNetworkMode.OFFLINE);
 
@@ -229,23 +230,17 @@ class PatchGateTest {
     }
 
     @Test
-    void rejectsOversizedPatchTextAsStructuredRejection() {
+    void rejectsOversizedPatchTextAtDraftBoundary() {
         String huge = "x".repeat(65 * 1024);
         String patch = "diff --git a/src/test/java/fixtures/A.java b/src/test/java/fixtures/A.java\n"
                 + "new file mode 100644\n--- /dev/null\n+++ b/src/test/java/fixtures/A.java\n"
                 + "@@ -0,0 +1,1 @@\n+"
                 + huge
                 + "\n";
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
-                patch, new TargetTest("fixtures.A", "m"));
-
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
-
-        assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
-        assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
-                .isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
-        assertThat(Files.exists(workspace.resolve("src/test/java/fixtures/A.java"))).isFalse();
+        // CandidateDraft 领域边界先于 Gate 拒绝超限 patch
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new CandidateDraft(patch, new TargetTest("fixtures.A", "m")));
     }
 
     @Test
@@ -269,7 +264,7 @@ class PatchGateTest {
         PatchPreparationResult result = gate.prepare(
                 workspace,
                 "",
-                new GenerationResult.GeneratedCandidate(patch, new TargetTest("fixtures.Crlf", "x")),
+                new CandidateDraft(patch, new TargetTest("fixtures.Crlf", "x")),
                 MavenNetworkMode.OFFLINE);
 
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
@@ -299,7 +294,7 @@ class PatchGateTest {
         PatchPreparationResult result = gate.prepare(
                 workspace,
                 "core",
-                new GenerationResult.GeneratedCandidate(patch, new TargetTest("com.ex.T", "m")),
+                new CandidateDraft(patch, new TargetTest("com.ex.T", "m")),
                 MavenNetworkMode.OFFLINE);
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         assertThat(Files.exists(workspace.resolve("core/src/test/java/com/ex/T.java"))).isTrue();

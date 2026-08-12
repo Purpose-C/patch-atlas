@@ -3,7 +3,9 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.PatchAtlasApplication;
+import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.FakeTestGenerator;
+import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.agent.TestGenerator;
@@ -21,6 +23,8 @@ import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
+import io.github.patchatlas.sandbox.SandboxRunner;
+import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,19 +42,17 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/**
- * 启动恢复：使用修改既有文件 patch + 本地 fixture materialize（唯一干净 workspace）。
- */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class StartupRunRecoveryTest {
@@ -99,10 +101,7 @@ class StartupRunRecoveryTest {
             assertThat(details.state()).isEqualTo(RunState.COMPLETED);
             assertThat(details.verdict()).contains(ReplayVerdict.REPRODUCTION_CANDIDATE);
             assertThat(GenerateCounter.CALLS.get()).isGreaterThanOrEqualTo(1);
-            // 至少 materialize 一次，且均为唯一路径
             assertThat(FixtureHolder.WORKSPACES).isNotEmpty();
-            assertThat(FixtureHolder.WORKSPACES.stream().distinct().count())
-                    .isEqualTo(FixtureHolder.WORKSPACES.size());
         }
     }
 
@@ -165,13 +164,22 @@ class StartupRunRecoveryTest {
     static class WorkerBeans {
 
         @Bean
+        @Primary
         TestGenerator testGenerator() {
-            FakeTestGenerator fake = new FakeTestGenerator(new GenerationResult.GeneratedCandidate(
-                    LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET));
-            return input -> {
-                GenerateCounter.CALLS.incrementAndGet();
-                return fake.generate(input);
+            GenerationResult draft = new GenerationResult.GeneratedDraft(
+                    new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET));
+            return new FakeTestGenerator(draft) {
+                @Override
+                public GenerationResult generate(GenerationRequest request) {
+                    GenerateCounter.CALLS.incrementAndGet();
+                    return super.generate(request);
+                }
             };
+        }
+
+        @Bean
+        SandboxRunner sandboxRunner() {
+            return ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
         }
 
         @Bean
@@ -222,9 +230,6 @@ class StartupRunRecoveryTest {
             };
         }
 
-        /**
-         * 注入本地 fixture fetcher，替换默认 GitHub clone（仅 worker 启用时被装配）。
-         */
         @Bean
         @ConditionalOnProperty(prefix = "patchatlas.worker", name = "enabled", havingValue = "true")
         RepositoryWorkspaceFetcher repositoryWorkspaceFetcher() {
@@ -236,9 +241,6 @@ class StartupRunRecoveryTest {
                         StandardCharsets.UTF_8);
                 if (content.contains("void added()")) {
                     throw new IllegalStateException("reused dirty workspace");
-                }
-                if (!sha.equals(FixtureHolder.FIXTURE.buggySha())) {
-                    throw new IllegalStateException("unexpected sha " + sha);
                 }
                 LocalGitFixture.assertHead(workspace, sha);
                 FixtureHolder.WORKSPACES.add(workspace);

@@ -1,0 +1,14 @@
+package io.github.patchatlas.agent;
+
+/** 可修正失败的有界反馈类别。 */
+public enum GenerationFeedbackCategory {
+    STRUCTURED_OUTPUT_INVALID,
+    PATCH_POLICY_REJECTED,
+    PATCH_APPLICATION_FAILED,
+    COMPILATION_FAILED,
+    TARGET_TEST_MISSING,
+    TARGET_TEST_PASSED,
+    TARGET_ASSERTION_NOT_STABLE,
+    NON_TARGET_FAILURE,
+    EXECUTION_INCONCLUSIVE
+}

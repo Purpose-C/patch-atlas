@@ -19,10 +19,12 @@ class TestGeneratorOracleBoundaryTest {
         Set<Class<?>> types = Set.of(
                 TestGenerator.class,
                 GenerationInput.class,
+                GenerationRequest.class,
                 SourceSnapshot.class,
                 GenerationResult.class,
-                GenerationResult.GeneratedCandidate.class,
-                GenerationResult.GenerationFailure.class,
+                GenerationResult.GeneratedDraft.class,
+                GenerationResult.GenerationCallFailure.class,
+                CandidateDraft.class,
                 FakeTestGenerator.class);
 
         Set<String> offenders = new HashSet<>();
@@ -39,17 +41,11 @@ class TestGeneratorOracleBoundaryTest {
     }
 
     @Test
-    void generationInputOnlyExposesGeneratorContextNotCaseManifest() {
-        Set<String> names = Arrays.stream(GenerationInput.class.getMethods())
-                .filter(m -> m.getDeclaringClass() != Object.class)
-                .map(Method::getName)
+    void generationRequestDoesNotExposeFixedRevision() {
+        Set<String> names = Arrays.stream(GenerationRequest.class.getRecordComponents())
+                .map(c -> c.getName().toLowerCase())
                 .collect(java.util.stream.Collectors.toSet());
-        assertThat(names).contains("generatorContext");
-        assertThat(names)
-                .doesNotContain("oracleData", "caseManifest", "fixedRevision", "knownTriggerTest");
-        assertThat(GenerationInput.class.getRecordComponents())
-                .extracting(c -> c.getType().getSimpleName())
-                .doesNotContain("CaseManifest", "OracleData");
+        assertThat(names).doesNotContain("fixedrevision", "oracledata", "knowntriggertest");
     }
 
     private static void collectOracle(Type type, Set<String> offenders) {

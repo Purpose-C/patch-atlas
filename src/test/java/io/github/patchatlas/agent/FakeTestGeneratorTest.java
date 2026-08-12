@@ -11,19 +11,23 @@ class FakeTestGeneratorTest {
 
     @Test
     void returnsConfiguredResultDeterministically() {
-        GenerationResult.GeneratedCandidate candidate = new GenerationResult.GeneratedCandidate(
-                minimalCreatePatch(), new TargetTest("fixtures.NewTest", "works"));
-        FakeTestGenerator fake = new FakeTestGenerator(candidate);
-        GenerationInput input = sampleInput();
+        GenerationResult draft = new GenerationResult.GeneratedDraft(
+                new CandidateDraft(minimalCreatePatch(), new TargetTest("fixtures.NewTest", "works")));
+        FakeTestGenerator fake = new FakeTestGenerator(draft);
+        GenerationRequest request = GenerationRequest.first(sampleInput(), 1);
 
-        assertThat(fake.generate(input)).isSameAs(candidate);
-        assertThat(fake.generate(input)).isSameAs(candidate);
+        assertThat(fake.generate(request)).isSameAs(draft);
+        assertThat(fake.generate(request)).isSameAs(draft);
+        assertThat(fake.identity().provider()).isEqualTo("fake");
     }
 
     @Test
     void canBeConfiguredToFail() {
-        FakeTestGenerator fake = new FakeTestGenerator(new GenerationResult.GenerationFailure("boom"));
-        assertThat(fake.generate(sampleInput())).isInstanceOf(GenerationResult.GenerationFailure.class);
+        FakeTestGenerator fake = new FakeTestGenerator(
+                new GenerationResult.GenerationCallFailure(
+                        CallFailureCategory.MODEL_UNAVAILABLE, "boom"));
+        assertThat(fake.generate(GenerationRequest.first(sampleInput(), 1)))
+                .isInstanceOf(GenerationResult.GenerationCallFailure.class);
     }
 
     static GenerationInput sampleInput() {

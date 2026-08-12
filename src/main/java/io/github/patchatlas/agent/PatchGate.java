@@ -2,6 +2,7 @@ package io.github.patchatlas.agent;
 
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.WorkspaceTrust;
+// CandidateDraft in same package
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.io.IOException;
@@ -33,7 +34,7 @@ public final class PatchGate {
     public PatchPreparationResult prepare(
             Path workspace,
             String modulePath,
-            GenerationResult.GeneratedCandidate candidate,
+            CandidateDraft candidate,
             MavenNetworkMode networkMode) {
         Objects.requireNonNull(workspace, "workspace");
         Objects.requireNonNull(modulePath, "modulePath");
