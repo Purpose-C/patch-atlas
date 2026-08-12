@@ -1,9 +1,40 @@
 spring:
   application:
     name: patch-atlas
+  # 默认排除 JDBC/Flyway，无 PostgreSQL 时可启动（健康检查、本地开发）。
+  # 启用持久化：SPRING_PROFILES_ACTIVE=persistence
+  #   + SPRING_DATASOURCE_URL / SPRING_DATASOURCE_USERNAME / SPRING_DATASOURCE_PASSWORD
+  # persistence profile 会清空 exclude 并开启 Flyway；见下方文档。
+  flyway:
+    enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+---
+# 激活后：DataSource + 事务 + Flyway 自动配置生效，Run Store 可装配。
+spring:
+  config:
+    activate:
+      on-profile: persistence
+  autoconfigure:
+    exclude: []
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# Worker 默认关闭；启用示例：
+#   patchatlas.worker.enabled=true
+#   patchatlas.worker.workspace-root=/var/patchatlas/workspaces
+#   并提供 TestGenerator + RunReplayer Bean（/部署装配）
+patchatlas:
+  worker:
+    enabled: false

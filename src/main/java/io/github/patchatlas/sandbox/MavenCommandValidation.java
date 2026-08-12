@@ -1,6 +1,7 @@
 package io.github.patchatlas.sandbox;
 
-final class MavenCommandValidation {
+/** Maven 模块路径与 test selector 白名单校验（命令构造与 Run 提交共用）。 */
+public final class MavenCommandValidation {
 
     private static final String SAFE_MODULE_SEGMENT = "[A-Za-z0-9][A-Za-z0-9_.-]{0,127}";
     private static final String SAFE_TEST_SELECTOR =
@@ -8,7 +9,7 @@ final class MavenCommandValidation {
 
     private MavenCommandValidation() {}
 
-    static void requireSafeModulePath(String modulePath) {
+    public static void requireSafeModulePath(String modulePath) {
         if (modulePath == null) {
             throw new IllegalArgumentException("modulePath is required");
         }
@@ -25,7 +26,7 @@ final class MavenCommandValidation {
         }
     }
 
-    static void requireSafeTestSelector(String testSelector) {
+    public static void requireSafeTestSelector(String testSelector) {
         if (testSelector == null
                 || testSelector.length() > 256
                 || !testSelector.matches(SAFE_TEST_SELECTOR)) {

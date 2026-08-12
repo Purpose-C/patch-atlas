@@ -1,7 +1,5 @@
 package io.github.patchatlas.repository;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -62,44 +60,6 @@ public class RepositoryCloner {
     }
 
     private boolean isSupportedRepositoryUrl(String repositoryUrl) {
-        if (repositoryUrl == null || repositoryUrl.isBlank()) {
-            return false;
-        }
-
-        try {
-            URI uri = new URI(repositoryUrl);
-            if (!"https".equalsIgnoreCase(uri.getScheme())
-                    || !"github.com".equalsIgnoreCase(uri.getHost())
-                    || uri.getUserInfo() != null
-                    || uri.getPort() != -1
-                    || uri.getQuery() != null
-                    || uri.getFragment() != null) {
-                return false;
-            }
-
-            String path = uri.getPath();
-            if (path == null
-                    || path.isEmpty()
-                    || path.endsWith("/")
-                    || !path.equals(uri.getRawPath())) {
-                return false;
-            }
-            String[] segments = path.substring(1).split("/", -1);
-            if (segments.length != 2) {
-                return false;
-            }
-            String repositoryName = segments[1].endsWith(".git")
-                    ? segments[1].substring(0, segments[1].length() - 4)
-                    : segments[1];
-            return isSafeGithubSegment(segments[0]) && isSafeGithubSegment(repositoryName);
-        } catch (URISyntaxException ex) {
-            return false;
-        }
-    }
-
-    private boolean isSafeGithubSegment(String segment) {
-        return !segment.equals(".")
-                && !segment.equals("..")
-                && segment.matches("[A-Za-z0-9_.-]+");
+        return RepositoryUrls.isAnonymousGithubHttps(repositoryUrl);
     }
 }
