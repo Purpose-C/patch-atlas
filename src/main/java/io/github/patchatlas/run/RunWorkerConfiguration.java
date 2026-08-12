@@ -9,6 +9,7 @@ import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Fallback;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * 可选 Worker 装配与启动恢复。
@@ -30,6 +35,7 @@ import org.springframework.context.annotation.Fallback;
  */
 @Configuration
 @EnableConfigurationProperties(RunWorkerProperties.class)
+@EnableScheduling
 @ConditionalOnProperty(prefix = "patchatlas.worker", name = "enabled", havingValue = "true")
 public class RunWorkerConfiguration {
 
@@ -130,28 +136,68 @@ public class RunWorkerConfiguration {
     }
 
     @Bean
-    ApplicationRunner unfinishedRunRecoveryRunner(Issue2TestWorker worker, RunWorkerProperties properties) {
+    RunWorkerDrain runWorkerDrain(Issue2TestWorker worker, RunWorkerProperties properties) {
+        return new RunWorkerDrain(worker, properties.getOwner());
+    }
+
+    @Bean
+    ApplicationRunner unfinishedRunRecoveryRunner(RunWorkerDrain drain, RunWorkerProperties properties) {
         return args -> {
-            String owner = properties.getOwner();
-            int max = Math.max(1, properties.getStartupMaxRuns());
-            int processed = 0;
-            for (int i = 0; i < max; i++) {
-                var details = worker.processNext(owner);
-                if (details.isEmpty()) {
-                    break;
-                }
-                processed++;
-                log.info(
-                        "recovered/processed run {} -> {}",
-                        details.get().runId(),
-                        details.get().state());
-            }
+            int processed = drain.drain(properties.getStartupMaxRuns());
             if (processed > 0) {
-                log.info("startup recovery processed {} run(s) as owner={}", processed, owner);
+                log.info(
+                        "startup recovery processed {} run(s) as owner={}",
+                        processed,
+                        properties.getOwner());
             } else {
-                log.info("startup recovery: no claimable runs (owner={})", owner);
+                log.info("startup recovery: no claimable runs (owner={})", properties.getOwner());
             }
         };
+    }
+
+    @Bean
+    WorkerPollScheduler workerPollScheduler(RunWorkerDrain drain, RunWorkerProperties properties) {
+        return new WorkerPollScheduler(drain, properties);
+    }
+
+    /** fixed-delay 常驻消费；与启动 drain 共用 seam，防重入。 */
+    static final class WorkerPollScheduler {
+        private final RunWorkerDrain drain;
+        private final RunWorkerProperties properties;
+
+        WorkerPollScheduler(RunWorkerDrain drain, RunWorkerProperties properties) {
+            this.drain = drain;
+            this.properties = properties;
+        }
+
+        @Scheduled(fixedDelayString = "${patchatlas.worker.poll-interval:2s}")
+        public void poll() {
+            // 连续消费当前队列；空则返回。tick 内部防重入。
+            drain.drain(Math.max(1, properties.getStartupMaxRuns()));
+        }
+
+        /**
+         * 有界优雅关闭：先停领取，再等待当前 tick（最多 lease-duration，
+         * 避免容器销毁时仍在 claim/执行）。
+         */
+        @EventListener(ContextClosedEvent.class)
+        public void onClose() {
+            Duration wait = properties.getLeaseDuration();
+            if (wait == null || wait.isNegative() || wait.isZero()) {
+                wait = Duration.ofSeconds(30);
+            }
+            // 上限避免极长租约拖死关机
+            if (wait.compareTo(Duration.ofMinutes(2)) > 0) {
+                wait = Duration.ofMinutes(2);
+            }
+            boolean idle = drain.shutdown(wait);
+            if (!idle) {
+                log.warn(
+                        "worker shutdown: tick still running after {} (owner={})",
+                        wait,
+                        properties.getOwner());
+            }
+        }
     }
 
     private static Path requireWorkspaceRoot(RunWorkerProperties properties) {

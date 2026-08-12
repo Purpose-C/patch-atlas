@@ -23,6 +23,9 @@ public class RunWorkerProperties {
     /** 启动时最多连续处理的 Run 数（防止无限循环）。 */
     private int startupMaxRuns = 256;
 
+    /** 队列空时再检查的间隔（常驻消费）。 */
+    private Duration pollInterval = Duration.ofSeconds(2);
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -69,5 +72,13 @@ public class RunWorkerProperties {
 
     public void setStartupMaxRuns(int startupMaxRuns) {
         this.startupMaxRuns = startupMaxRuns;
+    }
+
+    public Duration getPollInterval() {
+        return pollInterval;
+    }
+
+    public void setPollInterval(Duration pollInterval) {
+        this.pollInterval = pollInterval;
     }
 }

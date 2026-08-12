@@ -22,6 +22,10 @@ graphify-out/*
 # 第三方仓库源码只保存在本地工作区，公开仓库仅提交案例元数据。
 samples/
 
-# 本地协作上下文不入库。
+# 本地协作上下文不进公开仓库。
+# 对外工程说明统一放在 docs/；源码、测试、fixtures、benchmark 等照常入库。
 
 
+tasks/
+AGENTS.md
+CONTEXT.md

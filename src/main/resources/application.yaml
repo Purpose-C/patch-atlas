@@ -56,6 +56,7 @@ spring:
 patchatlas:
   worker:
     enabled: false
+    # poll-interval: 2s   # 常驻消费空队列间隔（仅 worker.enabled=true）
   generator:
     type: FAKE
     openai:

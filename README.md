@@ -32,7 +32,7 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据
 
 ## 已实现能力
 
-- Spring Boot 状态接口与 Vue 状态页；
+- Spring Boot 健康检查与 Vue 运行控制台（列表/详情，只读）；
 - 公开 GitHub HTTPS 仓库获取与固定 Commit 校验；
 - 仓库 URL、目标目录和 Revision 输入边界校验；
 - 强类型 Maven 测试与依赖预热命令；
@@ -41,10 +41,13 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据
 - Live/Historical Replay、Candidate Patch Gate 与 PostgreSQL Run 恢复；
 - Fake/真实模型 adapter，以及最多三轮 Buggy-only 生成修正；
 - 可恢复的 Java/网络执行策略、生产 Docker/Replay adapter 与 Worker 完整装配；
+- `POST/GET /api/runs` 幂等创建、keyset 列表与可审计详情；
 - 受控 off-by-one 校准案例；
 - spring-cloud-openfeign #1326 真实历史案例与缓存数据。
 
-目前尚未实现 Run REST/结果界面、完整可观测性、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。
+目前尚未实现前端提交表单、SSE/指标看板、完整可观测性、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。
+
+**安全提示**：本实例为单用户自托管，默认无认证。不要直接暴露到公网。API Key 仅经后端环境变量注入，永不进入前端。
 
 Worker 默认将 Maven 缓存放在 `<workspace-root>/.patch-atlas-cache/maven`。单次 Run 清理只删除其独立工作区，不删除共享缓存；若部署时重建整个 workspace root，缓存也会随之失效。
 
@@ -88,13 +91,36 @@ npm ci
 npm run dev
 ```
 
-Vite 开发服务器会把 `/api` 请求代理到 Spring Boot。
+Vite 开发服务器会把 `/api` 请求代理到 Spring Boot。控制台路由为 `/runs` 与 `/runs/:runId`。
+
+### 持久化与 Worker（可选）
+
+```bash
+export SPRING_PROFILES_ACTIVE=persistence
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/patchatlas
+export SPRING_DATASOURCE_USERNAME=...
+export SPRING_DATASOURCE_PASSWORD=...
+# Worker（执行队列；需要 workspace 根目录与 Docker）
+export PATCHATLAS_WORKER_ENABLED=true   # 或 application 配置 patchatlas.worker.enabled=true
+# patchatlas.worker.workspace-root=/var/patchatlas/workspaces
+```
+
+创建 Run（异步，不在 HTTP 中等待模型/Docker）：
+
+```http
+POST /api/runs
+Idempotency-Key: demo-1
+Content-Type: application/json
+```
 
 ## 验证命令
 
 ```bash
 # 默认离线测试，不访问 GitHub、不要求 Docker
 ./mvnw test
+
+# PostgreSQL / Flyway / 幂等与分页
+./mvnw test -Dgroups=database
 
 # 真实公开仓库获取
 ./mvnw test -Dgroups=network

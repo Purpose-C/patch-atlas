@@ -105,6 +105,156 @@ public final class PostgresRunStore {
         return id;
     }
 
+    /**
+     * 公开 API 幂等提交：原子插入或返回已有 Run / 指纹冲突。
+     *
+     * <p>不得先查再插；内部 fixture 可继续使用 {@link #submit(RunSubmission)}。
+     */
+    public IdempotentSubmitResult submitIdempotent(
+            IdempotencyKey key, String submissionSha256, RunSubmission submission) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(submission, "submission");
+        if (submissionSha256 == null || !submissionSha256.matches("^[0-9a-f]{64}$")) {
+            throw new IllegalArgumentException("submissionSha256 must be 64 lowercase hex chars");
+        }
+        return tx.execute(status -> {
+            UUID id = UUID.randomUUID();
+            String snapshotsJson = snapshotsCodec.encode(submission.sourceSnapshots());
+            // ON CONFLICT DO NOTHING：避免唯一冲突中止事务（PostgreSQL 25P02）
+            Optional<UUID> insertedId = jdbc.sql(
+                            """
+                            INSERT INTO verification_run (
+                              id, mode, case_id, repository_url, license, issue_url,
+                              issue_title, issue_body, buggy_revision, fixed_revision,
+                              module_path, java_version, network_mode, source_snapshots,
+                              input_schema_version, state, version, recovery_count, replay_round,
+                              idempotency_key, submission_sha256
+                            ) VALUES (
+                              :id, :mode, :caseId, :repositoryUrl, :license, :issueUrl,
+                              :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
+                              :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb),
+                              :schemaVersion, :state, 0, 0, 0, :idempotencyKey, :submissionSha256
+                            )
+                            ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL
+                            DO NOTHING
+                            RETURNING id
+                            """)
+                    .param("id", id)
+                    .param("mode", submission.mode().name())
+                    .param("caseId", submission.caseId())
+                    .param("repositoryUrl", submission.repositoryUrl())
+                    .param("license", submission.license())
+                    .param("issueUrl", submission.issueUrl())
+                    .param("issueTitle", submission.issueTitle())
+                    .param("issueBody", submission.issueBody())
+                    .param("buggyRevision", submission.buggyRevision())
+                    .param("fixedRevision", submission.fixedRevision())
+                    .param("modulePath", submission.modulePath())
+                    .param("javaVersion", submission.javaVersion())
+                    .param("networkMode", submission.networkMode().name())
+                    .param("sourceSnapshots", snapshotsJson)
+                    .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
+                    .param("state", RunState.QUEUED.name())
+                    .param("idempotencyKey", key.value())
+                    .param("submissionSha256", submissionSha256)
+                    .query((rs, rowNum) -> (UUID) rs.getObject("id"))
+                    .optional();
+            if (insertedId.isPresent()) {
+                return new IdempotentSubmitResult.Accepted(insertedId.orElseThrow(), RunState.QUEUED, true);
+            }
+            return loadIdempotentResult(key, submissionSha256);
+        });
+    }
+
+    public RunListPage listRuns(int limit, Optional<RunListCursor> cursor) {
+        if (limit < 1 || limit > 100) {
+            throw new IllegalArgumentException("limit must be between 1 and 100");
+        }
+        Objects.requireNonNull(cursor, "cursor");
+        int fetch = limit + 1;
+        List<RunSummary> rows;
+        if (cursor.isEmpty()) {
+            rows = jdbc.sql(
+                            """
+                            SELECT id, mode, state, issue_title, repository_url,
+                                   verdict, failure_category,
+                                   created_at, updated_at, completed_at
+                              FROM verification_run
+                             ORDER BY created_at DESC, id DESC
+                             LIMIT :limit
+                            """)
+                    .param("limit", fetch)
+                    .query((rs, rowNum) -> mapSummary(rs))
+                    .list();
+        } else {
+            RunListCursor c = cursor.orElseThrow();
+            rows = jdbc.sql(
+                            """
+                            SELECT id, mode, state, issue_title, repository_url,
+                                   verdict, failure_category,
+                                   created_at, updated_at, completed_at
+                              FROM verification_run
+                             WHERE (created_at, id) < (:createdAt, :runId)
+                             ORDER BY created_at DESC, id DESC
+                             LIMIT :limit
+                            """)
+                    .param("createdAt", Timestamp.from(c.createdAt()))
+                    .param("runId", c.runId())
+                    .param("limit", fetch)
+                    .query((rs, rowNum) -> mapSummary(rs))
+                    .list();
+        }
+        Optional<String> next = Optional.empty();
+        if (rows.size() > limit) {
+            RunSummary last = rows.get(limit - 1);
+            next = Optional.of(new RunListCursor(last.createdAt(), last.runId()).encode());
+            rows = rows.subList(0, limit);
+        }
+        return new RunListPage(rows, next);
+    }
+
+    public Optional<RunDetailView> findRunDetail(UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        Optional<RunDetailView> header = jdbc.sql(
+                        """
+                        SELECT r.id, r.mode, r.state, r.case_id,
+                               r.repository_url, r.issue_url, r.issue_title, r.issue_body,
+                               r.buggy_revision, r.fixed_revision, r.module_path,
+                               r.java_version, r.network_mode,
+                               r.generation_attempt_count, r.model_provider, r.model_name,
+                               r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
+                               r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
+                               r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method
+                          FROM verification_run r
+                          LEFT JOIN candidate_test_patch c ON c.run_id = r.id
+                         WHERE r.id = :id
+                        """)
+                .param("id", runId)
+                .query((rs, rowNum) -> mapDetailHeader(rs))
+                .optional();
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        RunDetailView base = header.orElseThrow();
+        List<RunAttemptView> attempts = loadAttemptViews(runId, base.candidate().map(c -> c.targetTest()));
+        return Optional.of(new RunDetailView(
+                base.runId(),
+                base.mode(),
+                base.state(),
+                base.caseId(),
+                base.createdAt(),
+                base.updatedAt(),
+                base.completedAt(),
+                base.input(),
+                base.executionPolicy(),
+                base.generation(),
+                base.candidate(),
+                base.verdict(),
+                base.failure(),
+                attempts));
+    }
+
     public Optional<RunDetails> findRun(UUID runId) {
         Objects.requireNonNull(runId, "runId");
         return jdbc.sql(
@@ -1151,6 +1301,213 @@ public final class PostgresRunStore {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 completedAt);
+    }
+
+    private IdempotentSubmitResult loadIdempotentResult(IdempotencyKey key, String submissionSha256) {
+        var row = jdbc.sql(
+                        """
+                        SELECT id, state, submission_sha256
+                          FROM verification_run
+                         WHERE idempotency_key = :key
+                        """)
+                .param("key", key.value())
+                .query((rs, rowNum) -> new Object[] {
+                    (UUID) rs.getObject("id"),
+                    RunState.valueOf(rs.getString("state")),
+                    rs.getString("submission_sha256")
+                })
+                .optional()
+                .orElseThrow(() -> new IllegalStateException("idempotency key vanished after conflict"));
+        UUID id = (UUID) row[0];
+        RunState state = (RunState) row[1];
+        String stored = (String) row[2];
+        if (submissionSha256.equals(stored)) {
+            return new IdempotentSubmitResult.Accepted(id, state, false);
+        }
+        return new IdempotentSubmitResult.Conflict(id);
+    }
+
+    private RunSummary mapSummary(ResultSet rs) throws SQLException {
+        Optional<ReplayVerdict> verdict = Optional.ofNullable(rs.getString("verdict")).map(ReplayVerdict::valueOf);
+        Optional<FailureCategory> failureCategory =
+                Optional.ofNullable(rs.getString("failure_category")).map(FailureCategory::valueOf);
+        return new RunSummary(
+                (UUID) rs.getObject("id"),
+                VerificationMode.valueOf(rs.getString("mode")),
+                RunState.valueOf(rs.getString("state")),
+                rs.getString("issue_title"),
+                rs.getString("repository_url"),
+                verdict,
+                failureCategory,
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                toInstant(rs.getTimestamp("completed_at")));
+    }
+
+    private RunDetailView mapDetailHeader(ResultSet rs) throws SQLException {
+        RunState state = RunState.valueOf(rs.getString("state"));
+        Optional<ReplayVerdict> verdict = Optional.ofNullable(rs.getString("verdict")).map(ReplayVerdict::valueOf);
+        Optional<RunFailure> failure = Optional.empty();
+        if (rs.getString("failure_stage") != null) {
+            failure = Optional.of(new RunFailure(
+                    FailureStage.valueOf(rs.getString("failure_stage")),
+                    FailureCategory.valueOf(rs.getString("failure_category")),
+                    rs.getString("failure_summary")));
+        }
+        Optional<RunDetailView.CandidateView> candidate = Optional.empty();
+        String patchText = rs.getString("patch_text");
+        if (patchText != null) {
+            candidate = Optional.of(new RunDetailView.CandidateView(
+                    patchText,
+                    rs.getString("patch_sha256"),
+                    new TargetTest(rs.getString("target_class"), rs.getString("target_method"))));
+        }
+        return new RunDetailView(
+                (UUID) rs.getObject("id"),
+                VerificationMode.valueOf(rs.getString("mode")),
+                state,
+                rs.getString("case_id"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                toInstant(rs.getTimestamp("completed_at")),
+                new RunDetailView.InputSummary(
+                        rs.getString("repository_url"),
+                        rs.getString("issue_url"),
+                        rs.getString("issue_title"),
+                        rs.getString("issue_body"),
+                        rs.getString("buggy_revision"),
+                        rs.getString("fixed_revision"),
+                        rs.getString("module_path")),
+                new MavenExecutionPolicy(
+                        rs.getString("java_version"),
+                        MavenNetworkMode.valueOf(rs.getString("network_mode"))),
+                new RunDetailView.GenerationMeta(
+                        rs.getInt("generation_attempt_count"),
+                        rs.getString("model_provider"),
+                        rs.getString("model_name"),
+                        rs.getLong("model_input_tokens"),
+                        rs.getLong("model_output_tokens"),
+                        rs.getLong("model_total_tokens")),
+                candidate,
+                verdict,
+                failure,
+                List.of());
+    }
+
+    private List<RunAttemptView> loadAttemptViews(UUID runId, Optional<TargetTest> target) {
+        // 在 PostgreSQL 侧只投影匹配 Target Test 的单个 JSON 对象，避免把整包
+        // test_cases（可能很大）拉进 JVM 再过滤。
+        if (target.isEmpty()) {
+            return jdbc.sql(
+                            """
+                            SELECT replay_round, side, attempt_ordinal, phase, outcome,
+                                   target_evidence, diagnostic, sandbox_status, exit_code,
+                                   elapsed_ms, timed_out, command::text AS command, log_summary,
+                                   image, limits::text AS limits, network_mode,
+                                   NULL::text AS matched_test_case, evidence_schema_version
+                              FROM replay_attempt
+                             WHERE run_id = :runId
+                             ORDER BY replay_round ASC, side ASC, attempt_ordinal ASC
+                            """)
+                    .param("runId", runId)
+                    .query((rs, rowNum) -> mapAttemptView(rs))
+                    .list();
+        }
+        TargetTest t = target.orElseThrow();
+        return jdbc.sql(
+                        """
+                        SELECT replay_round, side, attempt_ordinal, phase, outcome,
+                               target_evidence, diagnostic, sandbox_status, exit_code,
+                               elapsed_ms, timed_out, command::text AS command, log_summary,
+                               image, limits::text AS limits, network_mode,
+                               (
+                                 SELECT e
+                                   FROM jsonb_array_elements(COALESCE(test_cases, '[]'::jsonb)) AS e
+                                  WHERE e->>'className' = :targetClass
+                                    AND e->>'methodName' = :targetMethod
+                                  LIMIT 1
+                               )::text AS matched_test_case,
+                               evidence_schema_version
+                          FROM replay_attempt
+                         WHERE run_id = :runId
+                         ORDER BY replay_round ASC, side ASC, attempt_ordinal ASC
+                        """)
+                .param("runId", runId)
+                .param("targetClass", t.className())
+                .param("targetMethod", t.methodName())
+                .query((rs, rowNum) -> mapAttemptView(rs))
+                .list();
+    }
+
+    private RunAttemptView mapAttemptView(ResultSet rs) throws SQLException {
+        String outcome = rs.getString("outcome");
+        String sandbox = rs.getString("sandbox_status");
+        Optional<RunAttemptView.TargetTestCaseView> matched =
+                parseMatchedTargetCase(rs.getString("matched_test_case"));
+        return new RunAttemptView(
+                rs.getInt("replay_round"),
+                ReplaySide.valueOf(rs.getString("side")),
+                rs.getInt("attempt_ordinal"),
+                AttemptPhase.valueOf(rs.getString("phase")),
+                Optional.ofNullable(outcome).map(RunOutcome::valueOf),
+                SingleAttemptEvidence.valueOf(rs.getString("target_evidence")),
+                Optional.ofNullable(rs.getString("diagnostic")),
+                Optional.ofNullable(sandbox).map(SandboxExecutionStatus::valueOf),
+                Optional.ofNullable(rs.getObject("exit_code")).map(v -> (Integer) v),
+                Optional.ofNullable(rs.getObject("elapsed_ms")).map(v -> ((Number) v).longValue()),
+                Optional.ofNullable(rs.getObject("timed_out")).map(v -> (Boolean) v),
+                Optional.ofNullable(rs.getString("command")),
+                Optional.ofNullable(rs.getString("image")),
+                Optional.ofNullable(rs.getString("limits")),
+                Optional.ofNullable(rs.getString("network_mode")),
+                Optional.ofNullable(rs.getString("log_summary")),
+                matched,
+                rs.getShort("evidence_schema_version"));
+    }
+
+    /** 解析 PostgreSQL 已投影的单个 Target Test Case 对象（非全量数组）。 */
+    private static Optional<RunAttemptView.TargetTestCaseView> parseMatchedTargetCase(
+            String matchedJson) {
+        if (matchedJson == null || matchedJson.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            tools.jackson.databind.JsonNode n = tools.jackson.databind.json.JsonMapper.shared()
+                    .readTree(matchedJson);
+            if (n == null || !n.isObject()) {
+                return Optional.empty();
+            }
+            tools.jackson.databind.JsonNode cn = n.get("className");
+            tools.jackson.databind.JsonNode mn = n.get("methodName");
+            if (cn == null || mn == null || !cn.isString() || !mn.isString()) {
+                return Optional.empty();
+            }
+            String className = cn.stringValue();
+            String methodName = mn.stringValue();
+            tools.jackson.databind.JsonNode st = n.get("status");
+            String status = st != null && st.isString() ? st.stringValue() : "UNKNOWN";
+            tools.jackson.databind.JsonNode msg = n.get("message");
+            String message = msg == null || msg.isNull() || !msg.isString() ? null : msg.stringValue();
+            tools.jackson.databind.JsonNode elapsedNode = n.get("elapsedMs");
+            Long elapsedMs = null;
+            if (elapsedNode != null && !elapsedNode.isNull() && elapsedNode.isNumber()) {
+                elapsedMs = elapsedNode.longValue();
+            }
+            tools.jackson.databind.JsonNode exNode = n.get("exceptionType");
+            String exceptionType =
+                    exNode == null || exNode.isNull() || !exNode.isString()
+                            ? null
+                            : exNode.stringValue();
+            return Optional.of(new RunAttemptView.TargetTestCaseView(
+                    className,
+                    methodName,
+                    status,
+                    Optional.ofNullable(message),
+                    Optional.ofNullable(elapsedMs),
+                    Optional.ofNullable(exceptionType)));
+        } catch (RuntimeException ignored) {
+            return Optional.empty();
+        }
     }
 
     private static Instant toInstant(Timestamp ts) {

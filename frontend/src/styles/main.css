@@ -52,6 +52,26 @@ dd { margin: 0.4rem 0 0; font-size: 1rem; font-weight: 600; word-break: break-wo
 .status-error p { margin: 0; font-weight: 700; }
 .status-error small { display: block; margin-top: 0.5rem; }
 
+.runs-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.runs-table th, .runs-table td { text-align: left; padding: 0.55rem 0.4rem; border-bottom: 1px solid #e3dfd6; vertical-align: top; }
+.runs-table th { color: #687581; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.state-link { color: #1d2a38; font-weight: 700; }
+.clip { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; word-break: break-all; }
+.plain {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f0eee8;
+  border: 1px solid #d9d5cb;
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.muted { color: #687581; font-weight: 400; display: block; margin-top: 0.25rem; }
+.attempt-card { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed #d9d5cb; }
+.table-wrap { overflow-x: auto; }
+
 @media (max-width: 640px) {
   .page-shell { padding-top: 2rem; }
   .masthead { align-items: start; flex-direction: column; }

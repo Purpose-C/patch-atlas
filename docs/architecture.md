@@ -93,6 +93,16 @@ Java 版本与网络模式属于 Verification Run 的不可变执行策略。Jav
 
 启用 Worker 时，项目默认装配 `DockerSandboxRunner` 与基于 Replay Engine 的 `RunReplayer`；部署可用自定义 adapter 覆盖默认 fallback。workspace 根目录缺失或无效时启动立即失败。
 
+### Run 入口与读取边界
+
+Verification Run 的 REST 入口是异步命令：调用方提供完整、有界且显式包含执行策略的不可变输入，服务端落库后返回 `202 Accepted`，不在 HTTP 请求中等待模型、Git 或 Docker。创建请求使用 PostgreSQL 持久化的 Idempotency-Key 与规范化请求指纹抵抗网络重试；Controller 不直接调用 Worker，也不直接访问 SQL。
+
+Worker 启用时由单进程串行调度入口持续领取 Run；启动恢复与常驻消费复用同一 drain seam，数据库 claim、lease 和 fence 仍是跨进程并发与崩溃恢复的安全边界。关闭开始后不再领取新 Run。当前不引入 MQ、事件流或无限并发。
+
+列表与详情使用独立 REST 读取投影，不序列化持久化对象。列表采用 `created_at + run_id` 的稳定 keyset 分页；详情可以展示 Issue、执行策略、模型用量、Candidate Test Patch 与正式 Replay Attempt，但不返回 Source Snapshots、lease、宿主路径、原始模型响应或生成预验证。Run 的 `FAILED` 是可查询的领域终态，不映射成 GET 请求的 HTTP 失败。
+
+Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由，并只对非终态 Run 做有限轮询。Issue、Patch、日志和诊断均按不可信纯文本渲染。V1 不提供前端创建表单、宽泛 CORS 或认证，因此默认部署不应直接暴露到公网。
+
 ## 安全模型
 
 仓库源码、Issue、构建日志与模型输出均为不可信数据。
@@ -132,6 +142,7 @@ Java 版本与网络模式属于 Verification Run 的不可变执行策略。Jav
 - Live/Historical Replay 与机械裁决；
 - Candidate Draft 生成、Patch Gate 和最多三轮 Buggy-only 修正；
 - PostgreSQL Verification Run、租约 fencing 与崩溃恢复；
+- 生产 Worker、可恢复 Maven 执行策略与安全依赖预热；
 - 受控校准案例和一个真实 Spring 历史案例。
 
 尚未实现：
