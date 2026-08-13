@@ -22,8 +22,6 @@ samples/
 
 # 本地协作上下文不进公开仓库。
 # 对外工程说明统一放在 docs/；源码、测试、fixtures、benchmark 等照常入库。
-
-
 tasks/
 AGENTS.md
 
