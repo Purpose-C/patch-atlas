@@ -17,6 +17,13 @@
     <name>PatchAtlas</name>
     <description>Evidence-driven Java bug replay and impact analysis platform</description>
 
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
     <properties>
         <java.version>21</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
