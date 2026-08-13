@@ -1,0 +1,86 @@
+{
+  "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+  "issueUrl" : "https://github.com/AuthMe/ConfigMe/issues/363",
+  "issueContentSha256" : "062d63c4fe83d8ea1819ddf8e3364a7ba95d0f8e5476b5694879992a7a71a9fa",
+  "buggyRevision" : "cab40d1c3c13c43455226d0324de62b288dab544",
+  "sources" : [ {
+    "path" : "src/main/java/ch/jalu/configme/Comment.java",
+    "gitBlobId" : "8d00304a6d1615f1677c25416c5865a9ce0ac33f",
+    "contentSha256" : "f408f101a6b2b35ec4bcaf607dea9db1d3f3f2faf7f7d66ab18f372037317e6e",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/beanmapper/BeanWithCollectionOfBeanTypeTest.java",
+    "gitBlobId" : "a32495f76123c8d9d8f3f88277459d70ec8e3acf",
+    "contentSha256" : "795f6ddccf97ca17ab76a61084afd99583ffa9ca2087ad70bbdee275fb5bc45f",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/beanmapper/MapperImplCommentRepetitionTest.java",
+    "gitBlobId" : "93582b936149307f3e806ea7d6ba108fb34abc0f",
+    "contentSha256" : "db8038297d1d3d92b4e97358c68af27696461822554651a2967e590688855ea4",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/beanmapper/command/ExecutionDetails.java",
+    "gitBlobId" : "9463da4f08fe25a8ed707059f69baefd4f932c99",
+    "contentSha256" : "7adc4d77c986c62fc9e570fd212085a72196dfe623db375d17f691732ccd47f6",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/beanmapper/propertydescription/BeanDescriptionFactoryImplTest.java",
+    "gitBlobId" : "70e218a221a9e9b4ec01c89f9e0d961ba47cf4d9",
+    "contentSha256" : "6ccce0538a2fa2e7274161e29ab7ef4546edf2026a40d2fdef4e3ab795dc0631",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/configurationdata/ConfigurationDataBuilderTest.java",
+    "gitBlobId" : "7f4c0512295af3a5ea212819844255e71d74621c",
+    "contentSha256" : "a194e95401c20df97726759bf21c9c57a14f984b5079509f93ebcbc823854868",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/configurationdata/samples/AdditionalTestConfiguration.java",
+    "gitBlobId" : "6dae3fd4784b8b5f22dbc9070642df67b93a7ebe",
+    "contentSha256" : "5b2edf33bd8f596b776d0d7d871b4458c8487754207aacbff4d5a5a54e2cf4c6",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceCommentsExportTest.java",
+    "gitBlobId" : "999a4dbc12ada9b4abb3fb32414c85e5e10ff316",
+    "contentSha256" : "d96a5465f9728811e8bf4264dae7d855ee6fc30757464389095f850ea249505d",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/resource/rootcommentsamples/GroupPropertyHolder.java",
+    "gitBlobId" : "9dc59715b921a415132b848259d28cfe6ff7ba6f",
+    "contentSha256" : "d91a4182202a416622d30a28569516afee4f612dd80e879b78dd748b923e112b",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/resource/rootcommentsamples/TestConfig.java",
+    "gitBlobId" : "e5fd043c0681e7ee71a2cffc59abddb872a114c3",
+    "contentSha256" : "8dd66752696500038c0232956ff196427c84a27ad7ac35a4748af168df679b3f",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImplTest.java",
+    "gitBlobId" : "adec01b866a6be1ee28255d1494fb1fda610d3ea",
+    "contentSha256" : "88dbea2a76e514ba02ef4a51742a134b97b20772adc3bac9e80ab4503f1c50c9",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/TestConfiguration.java",
+    "gitBlobId" : "0ff9e37697ada01aac6d8b2320e0003e85f2d5f6",
+    "contentSha256" : "9865f60e6d9769079f8c50d67d1f565ddb6496829aa8413297f9e71659d55f39",
+    "selectionReason" : "REFERENCING_TEST"
+  } ],
+  "excludedSources" : [ {
+    "path" : "src/test/java/ch/jalu/configme/samples/TestVersionConfiguration.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/settingsholders/FullyValidSettingsHolder1.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/settingsholders/FullyValidSettingsHolder2.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/settingsholders/MissingCommentsHolder.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/settingsholders/SettingsHolderWithEnumPropertyComments.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/ch/jalu/configme/samples/settingsholders/SettingsHolderWithVariousCommentLengths.java",
+    "reason" : "FILE_LIMIT"
+  } ]
+}

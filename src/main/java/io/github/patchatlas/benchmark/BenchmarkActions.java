@@ -1,0 +1,53 @@
+package io.github.patchatlas.benchmark;
+
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * 薄 wrapper：只接受 {@code freeze / calibrate / agent-4 / agent-5 / agent-6 / verify} 六个封闭动作。
+ *
+ * <p>不接受任意 shell、任意 caseId 或动态选择表达式。
+ * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
+ */
+public final class BenchmarkActions {
+
+    public static final String FREEZE = "freeze";
+    public static final String CALIBRATE = "calibrate";
+    public static final String AGENT_4 = "agent-4";
+    public static final String AGENT_5 = "agent-5";
+    public static final String AGENT_6 = "agent-6";
+    public static final String VERIFY = "verify";
+
+    private static final Set<String> CLOSED_ACTIONS = Set.of(
+            FREEZE, CALIBRATE, AGENT_4, AGENT_5, AGENT_6, VERIFY);
+
+    private BenchmarkActions() {}
+
+    /** 校验动作是否在封闭集合内；不在则抛出，绝不静默接受。 */
+    public static String parseAction(String input) {
+        Objects.requireNonNull(input, "input");
+        String normalized = input.trim().toLowerCase(Locale.ROOT);
+        if (!CLOSED_ACTIONS.contains(normalized)) {
+            throw new IllegalArgumentException(
+                    "unknown benchmark action '" + input + "'; expected one of " + CLOSED_ACTIONS);
+        }
+        return normalized;
+    }
+
+    /** Agent 动作对应的 cohort 位置（4–6）。 */
+    public static int agentPosition(String action) {
+        return switch (parseAction(action)) {
+            case AGENT_4 -> 4;
+            case AGENT_5 -> 5;
+            case AGENT_6 -> 6;
+            default -> throw new IllegalArgumentException(action + " is not an agent action");
+        };
+    }
+
+    /** 校验动作是否为正式运行（calibrate / agent-N），需要真实模型和 Docker。 */
+    public static boolean isFormalRun(String action) {
+        String parsed = parseAction(action);
+        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed);
+    }
+}

@@ -1,0 +1,83 @@
+{
+  "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+  "issueUrl" : "https://github.com/Bindambc/whatsapp-business-java-api/issues/100",
+  "issueContentSha256" : "06e47f05f0ff7bc8c38ea5ec721a61ca006ea6db1afcc7d0220b89ceb64bf8a1",
+  "buggyRevision" : "dec4ca17d1194c063e63197d214322f2149c4ee5",
+  "sources" : [ {
+    "path" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "gitBlobId" : "a3ec9f3d2335b73caccccf62e1b2f125f71bb04b",
+    "contentSha256" : "30435eca5cb6503f318a0ad75f5237df54bd22ca4c07e8ac606ff2824ea270a4",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/DeleteMediaExample.java",
+    "gitBlobId" : "f934a7cbafade29f15f3ff9459a4dba79d43eb14",
+    "contentSha256" : "3c11894520d0abc78be53d48deaac0172d889054e566dc8ff0552cd91ef58eec",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/DownloadMediaExample.java",
+    "gitBlobId" : "d7a0abcc51ddb84282ef7caacef60b5657fede82",
+    "contentSha256" : "ac28291e47f186583be448f20644f98baf0e5650d797eb933fa6e6741dddb93d",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/RetrieveMediaUrlExample.java",
+    "gitBlobId" : "4dfb2a6a026e3b8b245ea45f38d151a7573d87b3",
+    "contentSha256" : "603290f3beb17f71aa0816f003d7edc0e000e45889d603fd60209bb9081f6162",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendAudioMessageExample.java",
+    "gitBlobId" : "259e8785f4256991b24d373bbcbec1b5f708525d",
+    "contentSha256" : "b7fd64eef1cd16aa13357463b3072df59871b4ab43eaf3afba065f9d8e23c530",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendContactMessageExample.java",
+    "gitBlobId" : "a0016700bc3619fc0f8997332c5a6df53ce63d80",
+    "contentSha256" : "d0ba1500ca37dd21ba5c2a943bc9f275a0220a79a880f03f20fef0f2e36c54fa",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendDocumentMessageExample.java",
+    "gitBlobId" : "628a68474b1624c6767b2d4cfb74fa03ad427411",
+    "contentSha256" : "40c1aa2cc6e4dd5b91b8347a9ee30b620dd2c9a8bb5ae5e060eb304683362cc7",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendImageLinkMessageExample.java",
+    "gitBlobId" : "7af29bbeb385079bae9eb59820e4ce321d513f4e",
+    "contentSha256" : "fc98fd8dc3c0d1b3faebbf55c0badd2992e45f25198aa9c7cf8da2c213ca35a2",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendImageMessageExample.java",
+    "gitBlobId" : "b9796f1a08c6ffc05772935471c741095c8b33d0",
+    "contentSha256" : "7794b4aab3cacd68a009abb48b2f47723918034545ff371c61e0d9d1208e2826",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendInteractiveMessageExample.java",
+    "gitBlobId" : "dc47eb8a647bd4e65b9defff352dcf5dbf6536dc",
+    "contentSha256" : "c4f57c316c51c3a5fdf468b0351f7161e078b1f4c88e2f30241446d1d3f04399",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendStickerMessageExample.java",
+    "gitBlobId" : "33cc3823fa3581d7f1bd486ccc43921183cb8498",
+    "contentSha256" : "a05875250065c5fa33282467545fcc473bf4ac5b3690c0bbb8bffd2754b32453",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendTemplateButtonMessageExample.java",
+    "gitBlobId" : "35201f867fd6b9732d3e2127c29d37b80f2e04ce",
+    "contentSha256" : "a75fd67b57fa2bf663deeab2572400662a205bd729ee779f0a092a862f253348",
+    "selectionReason" : "REFERENCING_TEST"
+  } ],
+  "excludedSources" : [ {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendTemplateTextMessageExample.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendTextMessageExample.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/SendVideoMessageExample.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/examples/UploadMediaExample.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/com/whatsapp/api/impl/WhatsappBusinessCloudApiTest.java",
+    "reason" : "FILE_LIMIT"
+  } ]
+}

@@ -1,0 +1,23 @@
+{
+  "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+  "issueUrl" : "https://github.com/davidmoten/word-wrap/issues/47",
+  "issueContentSha256" : "ab1b0f81cdb63f1fce198c60323d8a748088a61657f02389d5a80136e88fda71",
+  "buggyRevision" : "930eb5e91a40f00a6782e939606d6c1d397629e0",
+  "sources" : [ {
+    "path" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "gitBlobId" : "ceca2827bc7b95a4dd9f9b0bb8e606525460fdba",
+    "contentSha256" : "65f2f7b5029cc9faeb3fc364eb70b913381b3ab6247fd9e7bda6f5410e953324",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/test/java/org/davidmoten/text/utils/Benchmarks.java",
+    "gitBlobId" : "77934992bde7a15826355e2ede30c342b7569adb",
+    "contentSha256" : "5b726eb401e7429c37639d465275811eb6683cac277f0324003c41790ee52cfe",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/davidmoten/text/utils/WordWrapTest.java",
+    "gitBlobId" : "b9f13076d6220239626c208abfd56e90b0fd94ef",
+    "contentSha256" : "574a37cd303fbf63201f96f0bb9e3031ada00310e5c57d953b01107cacd8dcec",
+    "selectionReason" : "REFERENCING_TEST"
+  } ],
+  "excludedSources" : [ ]
+}

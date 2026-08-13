@@ -1,0 +1,68 @@
+{
+  "datasetRevision" : "fe986fb7919be62c2a6f611ee16659e849646798",
+  "seed" : "cc279be0a2cfe38a327d24d828a49b8425ae37e7",
+  "selectorVersion" : "task018-v1",
+  "rulesSha256" : "22d5fa7e6ce6a81e67efd8a8151948775c09f1605a8cdf04eb0b169111f8181c",
+  "cohortSha256" : "7bc71bb5b7fee0182f8e423386d208aa9ba29c61eabf84962a1a446dee297f53",
+  "cases" : [ {
+    "position" : 1,
+    "role" : "CALIBRATION",
+    "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+    "sortKey" : "27336a50fb61f3840c727a3fd829f02768e598fba1faaeaadce699384dd8bc3a",
+    "repositoryUrl" : "https://github.com/Bindambc/whatsapp-business-java-api.git",
+    "issueUrl" : "https://github.com/Bindambc/whatsapp-business-java-api/issues/100",
+    "license" : "MIT",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  }, {
+    "position" : 2,
+    "role" : "CALIBRATION",
+    "caseId" : "jhy-jsoup-91b630f86b5c",
+    "sortKey" : "47a6de7feec60464eb35bf7c90f9961425634fa7da36a00ef0012d95bda5cb3e",
+    "repositoryUrl" : "https://github.com/jhy/jsoup.git",
+    "issueUrl" : "https://github.com/jhy/jsoup/issues/2002",
+    "license" : "MIT",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  }, {
+    "position" : 3,
+    "role" : "CALIBRATION",
+    "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+    "sortKey" : "7f7b2ec1a0904a3a717e964293c1fa7dc6f0d32dce028dcdd480975db9ee1b54",
+    "repositoryUrl" : "https://github.com/davidmoten/word-wrap.git",
+    "issueUrl" : "https://github.com/davidmoten/word-wrap/issues/47",
+    "license" : "Apache-2.0",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  }, {
+    "position" : 4,
+    "role" : "AGENT_BENCHMARK",
+    "caseId" : "jhy-jsoup-a96ebc95f9ad",
+    "sortKey" : "8e2303e1a2a880bd3bbec107c8945a7b1e8b97fda087c9da72be8e8600d79a0f",
+    "repositoryUrl" : "https://github.com/jhy/jsoup.git",
+    "issueUrl" : "https://github.com/jhy/jsoup/issues/1902",
+    "license" : "MIT",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  }, {
+    "position" : 5,
+    "role" : "AGENT_BENCHMARK",
+    "caseId" : "jhy-jsoup-9de27fa7cd82",
+    "sortKey" : "8fe7a6532a9daccd367b0e7adffc727be481c024a532a8b522922da61f0efdb0",
+    "repositoryUrl" : "https://github.com/jhy/jsoup.git",
+    "issueUrl" : "https://github.com/jhy/jsoup/issues/2011",
+    "license" : "MIT",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  }, {
+    "position" : 6,
+    "role" : "AGENT_BENCHMARK",
+    "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+    "sortKey" : "af950791301567fac700e1eace144929127b9f2da454a48f5da3ef1c6c547575",
+    "repositoryUrl" : "https://github.com/AuthMe/ConfigMe.git",
+    "issueUrl" : "https://github.com/AuthMe/ConfigMe/issues/363",
+    "license" : "MIT",
+    "modulePath" : "",
+    "javaVersion" : "17"
+  } ]
+}

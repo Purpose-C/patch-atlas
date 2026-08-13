@@ -1,0 +1,8 @@
+{
+  "caseId" : "jhy-jsoup-9de27fa7cd82",
+  "issueUrl" : "https://github.com/jhy/jsoup/issues/2011",
+  "issueContentSha256" : "dcc1395f8697c37c5010208b1158501cbb066a1e40ea8f853ab41c91c2477ed1",
+  "buggyRevision" : "eff15210b0507f3eb20ff71a201061e841b40c77",
+  "sources" : [ ],
+  "excludedSources" : [ ]
+}

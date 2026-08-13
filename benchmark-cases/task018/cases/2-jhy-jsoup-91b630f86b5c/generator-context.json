@@ -1,0 +1,170 @@
+{
+  "caseId" : "jhy-jsoup-91b630f86b5c",
+  "issueUrl" : "https://github.com/jhy/jsoup/issues/2002",
+  "issueContentSha256" : "6e4fa6b1a3cdfcda9ba1e730c95e2455761ba1c52882de82688556fd0e79f86a",
+  "buggyRevision" : "9170b1d17b3b0c953c0a07b3d62a7884f3a7e019",
+  "sources" : [ {
+    "path" : "src/main/java/org/jsoup/Jsoup.java",
+    "gitBlobId" : "b4a99ebcb1e02b603548f12c43384ba835c82293",
+    "contentSha256" : "715dc369a27d6b4265b1dc9e741e2c1613af3fa8b4a96a667156dc76676f795e",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/jsoup/nodes/Attribute.java",
+    "gitBlobId" : "56a34b49bfccbeb2e0f41612385822f6f2600a5a",
+    "contentSha256" : "de6d99e7eae6a0666efd38e858693d9bd5dc2f20cf0f6e5183933e43798fa302",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "gitBlobId" : "76b6590e350136dad2dba524194ffedcca10358c",
+    "contentSha256" : "c3407a92f6f491b2db1633e02664795808d6377b1685960065c42945b8faf54e",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/jsoup/nodes/Document.java",
+    "gitBlobId" : "9930dc5e24cbe168d723b03f66508568d34a8b89",
+    "contentSha256" : "7be6b3f4fdde8e060c98393b944c7949574bd726624315efc74b5667167da6e4",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/jsoup/nodes/Node.java",
+    "gitBlobId" : "3c55690f3ad15837434f1ab71b50b0a37f32ca59",
+    "contentSha256" : "e7bcdb59d238f45cf8a7c56c0226afe229c6acecef444d6b4bd9e237ea764ab7",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/test/java/org/jsoup/helper/DataUtilTest.java",
+    "gitBlobId" : "10074d4ca9a3ef4778d03041fcf26fb168602c1b",
+    "contentSha256" : "4f94f70535dc8cac7c11f53ba061a8ab8e29d919edef474a425263242925ba45",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/FuzzFixesIT.java",
+    "gitBlobId" : "a03758dd677469dc3bb40a79baab7df5a20e6662",
+    "contentSha256" : "1707b0d41d9eddf591f843db685c134d183bbb9a4cbf250a520610828a29f1ea",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/FuzzFixesTest.java",
+    "gitBlobId" : "0fd668f2568f2bbabfcc71c288f344da00a9b7ba",
+    "contentSha256" : "ec12bb47796071157cab3ef2254ab2406c792ca98e7fd3faafee34b93ab73fce",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/SafelistExtensionTest.java",
+    "gitBlobId" : "82f9316aaa2d291bb5bb16ad8759e7c86ba1ad6d",
+    "contentSha256" : "65ffec459d04153a85056726fae31f017347feb29adbc84809a0cccd9c62db74",
+    "selectionReason" : "REFERENCING_TEST"
+  } ],
+  "excludedSources" : [ {
+    "path" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/helper/W3CDomTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/ConnectIT.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/ConnectTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/ParseTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/SessionIT.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/SessionTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/integration/UrlConnectTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/internal/StringUtilTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/AttributeTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/AttributesTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/BuildEntities.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/CommentTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/DocumentTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/DocumentTypeTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/ElementIT.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/EntitiesTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/FormElementTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/LeafNodeTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/NodeTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/PositionTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/nodes/TextNodeTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/AttributeParseTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/HtmlTreeBuilderStateTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/ParserIT.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/ParserSettingsTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/ParserTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/TokenQueueTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/TokeniserStateTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/TokeniserTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/parser/XmlTreeBuilderTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/safety/CleanerTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/safety/SafelistTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/CssTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/ElementsTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/QueryParserTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/SelectorTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/TraversorTest.java",
+    "reason" : "REQUEST_BUDGET"
+  }, {
+    "path" : "src/test/java/org/jsoup/select/XpathTest.java",
+    "reason" : "REQUEST_BUDGET"
+  } ]
+}

@@ -1,0 +1,7 @@
+{
+  "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+  "fixedRevision" : "362caf5eb33c0f23bbb29ba689112dee3750b30c",
+  "targetClass" : "com.whatsapp.api.impl.WhatsappBusinessCloudApiTest",
+  "targetMethod" : "testSendTemplateTextMessage",
+  "knownTriggerPatchSha256" : "4a136c91940bf7c3a097d6435355d97816c9ffca7453a3277746eafd5c4e682a"
+}

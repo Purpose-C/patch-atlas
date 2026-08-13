@@ -1,0 +1,7 @@
+{
+  "caseId" : "jhy-jsoup-9de27fa7cd82",
+  "fixedRevision" : "9de27fa7cd823f6d26e33e48b36ef010c05f977c",
+  "targetClass" : "org.jsoup.helper.HttpConnectionTest",
+  "targetMethod" : "setHeaderWithUnicodeValue",
+  "knownTriggerPatchSha256" : "b999c8181eaffec6a0a25a60db10eb048b927e81a58974befda07e43d72d32ab"
+}

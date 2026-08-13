@@ -1,0 +1,7 @@
+{
+  "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+  "fixedRevision" : "e59eedf0bac7d5ca7ee0062f3816c7ac5c3de4e0",
+  "targetClass" : "org.davidmoten.text.utils.WordWrapTest",
+  "targetMethod" : "testStatelessness",
+  "knownTriggerPatchSha256" : "3fa55b36a4ec4d20103bcb19386b5b69fff10416a381011fe70eaacd26213874"
+}

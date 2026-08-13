@@ -1,0 +1,7 @@
+{
+  "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+  "fixedRevision" : "7bf10c51347958ead6d2d8d11e6077dbc35c980e",
+  "targetClass" : "ch.jalu.configme.configurationdata.PropertyListBuilderTest",
+  "targetMethod" : "shouldThrowForRootPathAndOtherProperty",
+  "knownTriggerPatchSha256" : "3cd234b39c44cbd5447ca56345bc327a1ea1c88b64937a1e8e6c9d6aa4d7616f"
+}
