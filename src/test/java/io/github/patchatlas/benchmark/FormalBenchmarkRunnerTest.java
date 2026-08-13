@@ -165,6 +165,29 @@ class FormalBenchmarkRunnerTest {
         assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
     }
 
+    @Test
+    void dryRunLaunchesDiagnosticAndDoesNotCheckPreflight() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        BenchmarkPreflight failing = new BenchmarkPreflight(
+                () -> { throw new RuntimeException("pg down"); },
+                new BenchmarkPreflight.DockerProbe() {
+                    @Override public boolean daemonReady() { return false; }
+                    @Override public boolean imagePresent(String image) { return false; }
+                },
+                () -> 0,
+                () -> null);
+
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failing, store, ops, true).execute("dry-run", validCohort());
+
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        var finished = (FormalBenchmarkRunner.Outcome.Finished) outcome;
+        assertThat(finished.details()).hasSize(1);
+        assertThat(finished.details().getFirst().purpose()).isEqualTo(RunPurpose.DIAGNOSTIC);
+        assertThat(finished.details().getFirst().caseId()).isEqualTo("scof-1326-diagnostic");
+    }
+
     private static FormalBenchmarkRunner runner(
             BenchmarkPreflight preflight,
             ScriptedStore store,
@@ -313,6 +336,16 @@ class FormalBenchmarkRunnerTest {
             return store.create(
                     cohortCase.caseId(),
                     RunPurpose.AGENT_BENCHMARK,
+                    null,
+                    RunState.QUEUED,
+                    0);
+        }
+
+        @Override
+        public UUID launchDiagnostic() {
+            return store.create(
+                    "scof-1326-diagnostic",
+                    RunPurpose.DIAGNOSTIC,
                     null,
                     RunState.QUEUED,
                     0);

@@ -64,6 +64,8 @@ public final class FormalBenchmarkRunner {
 
         UUID launchAgent(CohortCase cohortCase);
 
+        UUID launchDiagnostic();
+
         Path exportEvidence(Cohort cohort, List<RunDetailView> details) throws IOException;
     }
 
@@ -96,6 +98,9 @@ public final class FormalBenchmarkRunner {
         }
         if (BenchmarkActions.VERIFY.equals(parsed)) {
             return verify(cohort);
+        }
+        if (BenchmarkActions.DRY_RUN.equals(parsed)) {
+            return dryRun();
         }
 
         Result checked = preflight.check(cohort);
@@ -156,5 +161,14 @@ public final class FormalBenchmarkRunner {
         } catch (IOException ex) {
             throw new IllegalStateException("evidence export failed", ex);
         }
+    }
+
+    private Outcome dryRun() {
+        UUID runId = operations.launchDiagnostic();
+        Optional<RunDetailView> terminal = waiter.awaitTerminal(runId, AGENT_WAIT);
+        if (terminal.isEmpty()) {
+            return new Outcome.TimedOut(runId, RESUME_MESSAGE);
+        }
+        return new Outcome.Finished(List.of(terminal.orElseThrow()));
     }
 }

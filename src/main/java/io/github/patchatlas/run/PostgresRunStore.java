@@ -76,6 +76,11 @@ public final class PostgresRunStore {
         return submit(RunPurpose.AGENT_BENCHMARK, submission);
     }
 
+    /** 诊断重跑入口；不进入正式 Benchmark 分母，仍经过完整生成与 Replay 链路。 */
+    public UUID submitDiagnostic(RunSubmission submission) {
+        return submit(RunPurpose.DIAGNOSTIC, submission);
+    }
+
     /**
      * Creates a historical calibration run with a known trigger patch and starts replay directly.
      *

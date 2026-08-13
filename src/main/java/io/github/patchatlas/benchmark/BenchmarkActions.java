@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 薄 wrapper：只接受 {@code freeze / calibrate / agent-4 / agent-5 / agent-6 / verify} 六个封闭动作。
+ * 薄 wrapper：只接受 {@code freeze / calibrate / agent-4 / agent-5 / agent-6 / verify / dry-run} 七个封闭动作。
  *
  * <p>不接受任意 shell、任意 caseId 或动态选择表达式。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
@@ -18,9 +18,10 @@ public final class BenchmarkActions {
     public static final String AGENT_5 = "agent-5";
     public static final String AGENT_6 = "agent-6";
     public static final String VERIFY = "verify";
+    public static final String DRY_RUN = "dry-run";
 
     private static final Set<String> CLOSED_ACTIONS = Set.of(
-            FREEZE, CALIBRATE, AGENT_4, AGENT_5, AGENT_6, VERIFY);
+            FREEZE, CALIBRATE, AGENT_4, AGENT_5, AGENT_6, VERIFY, DRY_RUN);
 
     private BenchmarkActions() {}
 
@@ -48,6 +49,6 @@ public final class BenchmarkActions {
     /** 校验动作是否为正式运行（calibrate / agent-N），需要真实模型和 Docker。 */
     public static boolean isFormalRun(String action) {
         String parsed = parseAction(action);
-        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed);
+        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed) && !DRY_RUN.equals(parsed);
     }
 }

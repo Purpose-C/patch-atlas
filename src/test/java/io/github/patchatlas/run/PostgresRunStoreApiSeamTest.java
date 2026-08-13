@@ -259,6 +259,14 @@ class PostgresRunStoreApiSeamTest {
     }
 
     @Test
+    void submitDiagnosticPersistsDiagnosticPurpose() {
+        UUID runId = store.submitDiagnostic(liveSubmission("diagnostic-1"));
+
+        RunDetailView detail = store.findRunDetail(runId).orElseThrow();
+        assertThat(detail.purpose()).isEqualTo(RunPurpose.DIAGNOSTIC);
+    }
+
+    @Test
     void startCalibrationSkipsGenerationAndPersistsKnownTriggerProvenance() {
         PersistedCandidatePatch knownTrigger = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
 

@@ -16,6 +16,7 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.parseAction("agent-5")).isEqualTo("agent-5");
         assertThat(BenchmarkActions.parseAction("agent-6")).isEqualTo("agent-6");
         assertThat(BenchmarkActions.parseAction("verify")).isEqualTo("verify");
+        assertThat(BenchmarkActions.parseAction("dry-run")).isEqualTo("dry-run");
     }
 
     @Test
@@ -63,5 +64,10 @@ class BenchmarkActionsTest {
     void isFormalRunExcludesFreezeAndVerify() {
         assertThat(BenchmarkActions.isFormalRun("freeze")).isFalse();
         assertThat(BenchmarkActions.isFormalRun("verify")).isFalse();
+    }
+
+    @Test
+    void isFormalRunExcludesDryRun() {
+        assertThat(BenchmarkActions.isFormalRun("dry-run")).isFalse();
     }
 }

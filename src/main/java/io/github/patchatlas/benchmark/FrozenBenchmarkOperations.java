@@ -140,6 +140,29 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
     }
 
     @Override
+    public UUID launchDiagnostic() {
+        RunSubmission diagnostic = new RunSubmission(
+                VerificationMode.HISTORICAL,
+                "scof-1326-diagnostic",
+                "https://github.com/spring-cloud/spring-cloud-openfeign",
+                "Apache-2.0",
+                "https://github.com/spring-cloud/spring-cloud-openfeign/issues/1326",
+                "SpringMvcContract warns about unwrapped parameters when @GetMapping has a single URI parameter",
+                """
+                When a @GetMapping method has a single URI-typed parameter (e.g., @PathVariable),
+                SpringMvcContract incorrectly treats it as an unwrapped parameter and logs a warning:
+                "OpenFeign Warning: ... is not annotated". The method should be accepted without warning
+                because URI parameters are valid and do not require explicit annotations.""",
+                "3f6cd2eb9b5a9675a3b5fd0a0987ad8cfc3e8398",
+                "a91d8f565ed3682b9bc363f9f36745d30957c09d",
+                "spring-cloud-openfeign-core",
+                "17",
+                MavenNetworkMode.ONLINE,
+                List.of());
+        return runStore.submitDiagnostic(diagnostic);
+    }
+
+    @Override
     public Path exportEvidence(Cohort cohort, List<io.github.patchatlas.run.RunDetailView> details)
             throws IOException {
         exporter.export(
