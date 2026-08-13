@@ -159,6 +159,41 @@ class CandidateGenerationCoordinatorTest {
     }
 
     @Test
+    void unsafePathRejectionEntersCorrectionLoop() throws Exception {
+        String mainPatch =
+                """
+                diff --git a/src/main/java/fixtures/Evil.java b/src/main/java/fixtures/Evil.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/main/java/fixtures/Evil.java
+                @@ -0,0 +1,2 @@
+                +package fixtures;
+                +class Evil {}
+                """;
+        FakeTestGenerator generator = FakeTestGenerator.of(
+                new GenerationResult.GeneratedDraft(new CandidateDraft(mainPatch, TARGET)),
+                new GenerationResult.GeneratedDraft(new CandidateDraft(mainPatch, TARGET)),
+                new GenerationResult.GeneratedDraft(new CandidateDraft(mainPatch, TARGET)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+        var failed = (CandidateGenerationCoordinator.Result.RunFailed) result;
+        assertThat(failed.details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.GENERATION_EXHAUSTED);
+        assertThat(session.generationAttemptCount()).isEqualTo(3);
+        assertThat(generator.callCount()).isEqualTo(3);
+        // 每轮反馈都是 PATCH_POLICY_REJECTED（unsafe path 可修正）
+        List<GenerationRequest> reqs = generator.capturedRequests();
+        assertThat(reqs.get(1).generationFeedback().orElseThrow().category())
+                .isEqualTo(GenerationFeedbackCategory.PATCH_POLICY_REJECTED);
+        assertThat(reqs.get(2).generationFeedback().orElseThrow().category())
+                .isEqualTo(GenerationFeedbackCategory.PATCH_POLICY_REJECTED);
+    }
+
+    @Test
     void threeRoundSuccessAfterTargetPassedThenCompileFailure() throws Exception {
         CandidateDraft good = new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET);
         FakeTestGenerator generator = FakeTestGenerator.of(

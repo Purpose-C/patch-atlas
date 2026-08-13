@@ -44,7 +44,8 @@ class BenchmarkEvidenceExporterTest {
                   "limitations": [
                     "该 model 标识无日期版本锚点，供应商可在不改名的前提下更换权重，因此本批次结果不保证长期可复现。",
                     "该模型的训练数据构成与知识截止时间未公开，无法论证其对 GitBug-Java 案例的污染边界。"
-                  ]
+                  ],
+                  "failureHandling": "Patch Gate 的策略性拒绝可修正并进入下一次 Generation Attempt（三轮上限不变）；仅 WORKSPACE_UNSAFE 立即终态。该规则在任何正式模型调用之前确定。"
                 }
                 """);
     }
@@ -75,7 +76,9 @@ class BenchmarkEvidenceExporterTest {
                 .contains("case-1")
                 .contains("agnes-2.5-flash")
                 .contains("无日期版本锚点")
-                .contains("训练数据构成");
+                .contains("训练数据构成")
+                .contains("failureHandling")
+                .contains("Patch Gate 的策略性拒绝可修正");
         String md = Files.readString(tempDir.resolve("evidence-report.md"));
         assertThat(md).contains("Calibration passed").contains("3 / 3");
         assertThat(md).contains("Agent VALID_REPRODUCTION").contains("1 / 3");
@@ -86,6 +89,8 @@ class BenchmarkEvidenceExporterTest {
         assertThat(md).contains("Protocol Limitations");
         assertThat(md).contains("无日期版本锚点");
         assertThat(md).contains("训练数据构成");
+        assertThat(md).contains("Failure Handling");
+        assertThat(md).contains("Patch Gate 的策略性拒绝可修正");
     }
 
     @Test

@@ -51,6 +51,24 @@ class BenchmarkArtifactReaderTest {
         assertThat(protocol.limitations()).hasSize(2);
         assertThat(protocol.limitations().get(0)).contains("无日期版本锚点");
         assertThat(protocol.limitations().get(1)).contains("训练数据构成");
+        assertThat(protocol.failureHandling()).contains("Patch Gate 的策略性拒绝可修正");
+    }
+
+    @Test
+    void readProtocolFailsWhenFailureHandlingMissing() throws IOException {
+        Path badProtocol = tempDir.resolve("protocol.json");
+        Files.writeString(badProtocol, """
+                {
+                  "provider": "agnes",
+                  "model": "agnes-2.5-flash",
+                  "endpoint": "https://apihub.agnes-ai.com/v1",
+                  "limitations": ["limitation 1"]
+                }
+                """);
+
+        assertThatThrownBy(() -> new BenchmarkArtifacts().readProtocol(badProtocol))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("failureHandling");
     }
 
     @Test

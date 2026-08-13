@@ -139,7 +139,8 @@ public final class BenchmarkArtifacts {
             String provider,
             String model,
             String endpoint,
-            List<String> limitations) {
+            List<String> limitations,
+            String failureHandling) {
         public ProtocolMetadata {
             requireText(provider, "provider");
             requireText(model, "model");
@@ -148,6 +149,7 @@ public final class BenchmarkArtifacts {
             if (limitations.isEmpty()) {
                 throw new IllegalArgumentException("protocol limitations must not be empty");
             }
+            requireText(failureHandling, "failureHandling");
         }
     }
 
@@ -299,7 +301,22 @@ public final class BenchmarkArtifacts {
         if (!Files.exists(path)) {
             throw new IllegalStateException("protocol file missing: " + path);
         }
-        return mapper.readValue(path.toFile(), ProtocolMetadata.class);
+        try {
+            return mapper.readValue(path.toFile(), ProtocolMetadata.class);
+        } catch (RuntimeException ex) {
+            throw unwrapIllegalArgument(ex);
+        }
+    }
+
+    private static RuntimeException unwrapIllegalArgument(RuntimeException ex) {
+        Throwable cursor = ex;
+        while (cursor != null) {
+            if (cursor instanceof IllegalArgumentException illegal) {
+                return illegal;
+            }
+            cursor = cursor.getCause();
+        }
+        return ex;
     }
 
     public static String issueContentSha256(String title, String body) {

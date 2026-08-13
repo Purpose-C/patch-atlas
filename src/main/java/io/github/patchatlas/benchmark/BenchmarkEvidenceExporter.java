@@ -77,6 +77,7 @@ public final class BenchmarkEvidenceExporter {
             String modelName,
             String modelEndpoint,
             List<String> protocolLimitations,
+            String failureHandling,
             int calibrationPassed,
             int agentReproductions,
             int agentFailures,
@@ -86,6 +87,7 @@ public final class BenchmarkEvidenceExporter {
             Objects.requireNonNull(cohortSha256, "cohortSha256");
             Objects.requireNonNull(datasetRevision, "datasetRevision");
             protocolLimitations = List.copyOf(Objects.requireNonNull(protocolLimitations, "protocolLimitations"));
+            Objects.requireNonNull(failureHandling, "failureHandling");
             cases = List.copyOf(Objects.requireNonNull(cases, "cases"));
         }
     }
@@ -232,6 +234,7 @@ public final class BenchmarkEvidenceExporter {
                 protocol.model(),
                 protocol.endpoint(),
                 protocol.limitations(),
+                protocol.failureHandling(),
                 calibrationPassed,
                 agentReproductions,
                 agentFailures,
@@ -287,6 +290,8 @@ public final class BenchmarkEvidenceExporter {
             md.append("- ").append(limitation).append('\n');
         }
         md.append('\n');
+        md.append("## Failure Handling\n\n");
+        md.append(export.failureHandling()).append("\n\n");
 
         md.append("## Summary\n\n");
         md.append("| Metric | Value |\n| --- | --- |\n");

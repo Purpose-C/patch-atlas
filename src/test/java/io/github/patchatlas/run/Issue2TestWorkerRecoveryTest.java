@@ -203,7 +203,7 @@ class Issue2TestWorkerRecoveryTest {
     }
 
     @Test
-    void rejectsMainSourcePatchAtGateAndFailsRun() {
+    void rejectsMainSourcePatchAtGateAndExhaustsAfterThreeAttempts() {
         AtomicInteger generateCalls = new AtomicInteger();
         String mainPatch =
                 """
@@ -240,11 +240,11 @@ class Issue2TestWorkerRecoveryTest {
         RunDetails details = worker.processNext("w").orElseThrow();
         assertThat(details.state()).isEqualTo(RunState.FAILED);
         assertThat(details.failure()).isPresent();
-        // 越界生产路径：立即终态，不得入库 candidate，不得耗尽 3 轮
-        assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.PATCH_GATE);
-        assertThat(details.failure().orElseThrow().category()).isEqualTo(FailureCategory.PATCH_REJECTED);
+        // 越界路径现在视为可修正：三轮 Gate 拒绝后终态为 GENERATION_EXHAUSTED
+        assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.GENERATION);
+        assertThat(details.failure().orElseThrow().category()).isEqualTo(FailureCategory.GENERATION_EXHAUSTED);
         assertThat(details.candidate()).isEmpty();
-        assertThat(generateCalls.get()).isEqualTo(1);
+        assertThat(generateCalls.get()).isEqualTo(3);
     }
 
     private Issue2TestWorker worker(PostgresRunStore store, AtomicInteger generateCalls) {
