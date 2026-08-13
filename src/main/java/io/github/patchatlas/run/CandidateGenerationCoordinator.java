@@ -1,12 +1,12 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.GenerationFeedback;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.GeneratorIdentity;
-import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.TestGenerator;
@@ -107,7 +107,7 @@ public final class CandidateGenerationCoordinator {
 
             GenerationRequest request = buildRequest(generationInput, ordinal, previousDraft, feedback);
             GenerationResult call = generator.generate(request);
-            recordUsageIfPresent(session, call.usage());
+            recordUsageIfPresent(session, call);
 
             AttemptDecision decision = decideAttempt(
                     call, ordinal, claimAfterReserve, generationInput, executionPolicy, session);
@@ -120,6 +120,11 @@ public final class CandidateGenerationCoordinator {
                     return new Result.CandidateCommitted(replaying);
                 }
                 case AttemptDecision.Retry retry -> {
+                    RunEvents.generationAttemptRejected(
+                            claimAfterReserve.runId(),
+                            ordinal,
+                            retry.feedback().category(),
+                            retry.feedback().summary());
                     previousDraft = retry.draft();
                     feedback = Optional.of(retry.feedback());
                 }
@@ -213,8 +218,10 @@ public final class CandidateGenerationCoordinator {
         return GenerationRequest.first(generationInput, ordinal);
     }
 
-    private static void recordUsageIfPresent(GenerationRunSession session, Optional<ModelUsage> usage) {
-        usage.ifPresent(session::recordModelUsage);
+    private static void recordUsageIfPresent(GenerationRunSession session, GenerationResult call) {
+        call.usage()
+                .ifPresent(usage -> session.recordModelUsage(
+                        usage, call.completionDiagnostics().orElseGet(CompletionDiagnostics::unknown)));
     }
 
     private static MavenTestCommand commandForDraft(

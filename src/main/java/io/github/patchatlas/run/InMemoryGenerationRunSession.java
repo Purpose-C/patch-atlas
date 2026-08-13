@@ -1,9 +1,9 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.ModelUsage;
-import io.github.patchatlas.run.RunEvents;
-import io.github.patchatlas.replay.ReplayVerdict;
+import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.VerificationMode;
 import java.time.Instant;
 import java.util.Objects;
@@ -66,15 +66,58 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
 
     @Override
     public synchronized ClaimedRun recordModelUsage(ModelUsage usage) {
+        return recordModelUsage(usage, CompletionDiagnostics.unknown());
+    }
+
+    @Override
+    public synchronized ClaimedRun recordModelUsage(ModelUsage usage, CompletionDiagnostics diagnostics) {
         Objects.requireNonNull(usage, "usage");
+        Objects.requireNonNull(diagnostics, "diagnostics");
         requireLive();
         inputTokens = safeAdd(inputTokens, usage.inputTokens());
         outputTokens = safeAdd(outputTokens, usage.outputTokens());
         totalTokens = safeAdd(totalTokens, usage.totalTokens());
         claim = bump(claim);
         RunEvents.generationUsageRecorded(
-                claim.runId(), usage.inputTokens(), usage.outputTokens(), usage.totalTokens(), null);
+                claim.runId(),
+                usage.inputTokens(),
+                usage.outputTokens(),
+                usage.totalTokens(),
+                null,
+                diagnostics);
         return claim;
+    }
+
+    /**
+     * 内存终态：正式 Replay 之后把 Run 标为 {@link RunState#COMPLETED}。
+     * 不落库；供默认套件离线端到端断言终态。
+     */
+    public synchronized RunDetails complete(ReplayResult result) {
+        Objects.requireNonNull(result, "result");
+        requireLive();
+        if (claim.state() != RunState.REPLAYING || claim.candidate().isEmpty()) {
+            throw new IllegalStateException("complete requires a REPLAYING candidate");
+        }
+        long v = version.incrementAndGet();
+        Instant now = Instant.now();
+        terminal = new RunDetails(
+                claim.runId(),
+                claim.mode(),
+                RunState.COMPLETED,
+                v,
+                null,
+                "https://github.com/ex/repo.git",
+                "t",
+                "a".repeat(40),
+                claim.mode() == VerificationMode.HISTORICAL ? "b".repeat(40) : null,
+                Optional.of(result.verdict()),
+                Optional.empty(),
+                claim.candidate(),
+                now,
+                now,
+                now);
+        RunEvents.runCompleted(terminal.runId(), terminal.mode(), result.verdict());
+        return terminal;
     }
 
     @Override

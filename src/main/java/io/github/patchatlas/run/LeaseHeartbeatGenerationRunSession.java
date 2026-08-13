@@ -1,7 +1,7 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.ModelUsage;
-import io.github.patchatlas.run.RunEvents;
 import java.util.Objects;
 
 /**
@@ -39,9 +39,19 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
 
     @Override
     public ClaimedRun recordModelUsage(ModelUsage usage) {
+        return recordModelUsage(usage, CompletionDiagnostics.unknown());
+    }
+
+    @Override
+    public ClaimedRun recordModelUsage(ModelUsage usage, CompletionDiagnostics diagnostics) {
         ClaimedRun claimed = heartbeat.recordModelUsage(usage);
         RunEvents.generationUsageRecorded(
-                claimed.runId(), usage.inputTokens(), usage.outputTokens(), usage.totalTokens(), null);
+                claimed.runId(),
+                usage.inputTokens(),
+                usage.outputTokens(),
+                usage.totalTokens(),
+                null,
+                diagnostics);
         return claimed;
     }
 

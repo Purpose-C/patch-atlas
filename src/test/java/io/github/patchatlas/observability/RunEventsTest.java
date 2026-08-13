@@ -6,6 +6,8 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FailureCategory;
@@ -59,6 +61,11 @@ class RunEventsTest {
             "verdict",
             "failure_stage",
             "failure_category",
+            "feedback_category",
+            "feedback_summary",
+            "finish_reason",
+            "reasoning_tokens",
+            "text_tokens",
             "submission_outcome",
             "component",
             "error_type");
@@ -91,6 +98,8 @@ class RunEventsTest {
             RunEvents.runClaimed(RUN, VerificationMode.LIVE, 0);
             RunEvents.runRecovered(RUN, VerificationMode.HISTORICAL, 2);
             RunEvents.generationAttemptReserved(RUN, 1, "openai", "gpt-4.1-mini");
+            RunEvents.generationAttemptRejected(
+                    RUN, 2, GenerationFeedbackCategory.PATCH_POLICY_REJECTED, "path outside test sources");
             RunEvents.generationUsageRecorded(RUN, 11, 22, 33, 1);
             RunEvents.candidateCommitted(RUN);
             RunEvents.replayStarted(RUN, 1);
@@ -113,22 +122,23 @@ class RunEventsTest {
             RunCorrelation.clear();
         }
 
-        assertThat(appender.list).hasSize(15);
+        assertThat(appender.list).hasSize(16);
         assertEvent(0, "run.submitted", Level.INFO, "submission_outcome", "created");
         assertEvent(1, "run.submission.conflict", Level.WARN);
         assertEvent(2, "run.claimed", Level.INFO);
         assertEvent(3, "run.recovered", Level.INFO, "recovery_count", "2");
         assertEvent(4, "generation.attempt.reserved", Level.INFO, "attempt_ordinal", "1");
-        assertEvent(5, "generation.usage.recorded", Level.INFO, "input_tokens", "11");
-        assertEvent(6, "candidate.committed", Level.INFO);
-        assertEvent(7, "replay.started", Level.INFO, "replay_round", "1");
-        assertEvent(8, "run.completed", Level.INFO, "verdict", "REPRODUCTION_CANDIDATE");
-        assertEvent(9, "run.failed", Level.INFO, "failure_category", "GENERATION_EXHAUSTED");
-        assertEvent(10, "claim.stale", Level.WARN);
-        assertEvent(11, "worker.tick.failed", Level.WARN, "error_type", "IllegalStateException");
-        assertEvent(12, "sandbox.executed", Level.INFO, "command_type", "test");
-        assertEvent(13, "sandbox.executed", Level.WARN, "timed_out", "true");
-        assertEvent(14, "observability.recording.failed", Level.WARN, "component", "sandbox");
+        assertEvent(5, "generation.attempt.rejected", Level.INFO, "feedback_category", "PATCH_POLICY_REJECTED");
+        assertEvent(6, "generation.usage.recorded", Level.INFO, "input_tokens", "11");
+        assertEvent(7, "candidate.committed", Level.INFO);
+        assertEvent(8, "replay.started", Level.INFO, "replay_round", "1");
+        assertEvent(9, "run.completed", Level.INFO, "verdict", "REPRODUCTION_CANDIDATE");
+        assertEvent(10, "run.failed", Level.INFO, "failure_category", "GENERATION_EXHAUSTED");
+        assertEvent(11, "claim.stale", Level.WARN);
+        assertEvent(12, "worker.tick.failed", Level.WARN, "error_type", "IllegalStateException");
+        assertEvent(13, "sandbox.executed", Level.INFO, "command_type", "test");
+        assertEvent(14, "sandbox.executed", Level.WARN, "timed_out", "true");
+        assertEvent(15, "observability.recording.failed", Level.WARN, "component", "sandbox");
 
         for (ILoggingEvent event : appender.list) {
             Map<String, String> fields = fields(event);
@@ -142,6 +152,31 @@ class RunEventsTest {
                     .doesNotContain("SENTINEL-ISSUE")
                     .doesNotContain("Idempotency");
         }
+        assertThat(fields(appender.list.get(5))).containsEntry("feedback_summary", "path outside test sources");
+        assertThat(fields(appender.list.get(6)))
+                .containsEntry("finish_reason", "unknown")
+                .containsEntry("reasoning_tokens", "unknown")
+                .containsEntry("text_tokens", "unknown");
+    }
+
+    @Test
+    void usageDiagnosticsAppearWithoutModelBody() {
+        RunEvents.generationUsageRecorded(
+                RUN,
+                10,
+                182,
+                192,
+                1,
+                CompletionDiagnostics.of("length", "101", "81"));
+        ILoggingEvent event = appender.list.getFirst();
+        assertThat(fields(event))
+                .containsEntry("event", "generation.usage.recorded")
+                .containsEntry("finish_reason", "length")
+                .containsEntry("reasoning_tokens", "101")
+                .containsEntry("text_tokens", "81");
+        assertThat(event.getFormattedMessage() + kv(event))
+                .doesNotContain("SENTINEL-MODEL-BODY")
+                .doesNotContain("patchText");
     }
 
     @Test

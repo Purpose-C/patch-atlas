@@ -10,6 +10,7 @@ import com.openai.errors.RateLimitException;
 import com.openai.errors.UnauthorizedException;
 import com.openai.errors.UnexpectedStatusCodeException;
 import com.openai.errors.UnprocessableEntityException;
+import com.openai.models.completions.CompletionUsage;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -105,18 +106,21 @@ public final class SpringAiTestGenerator implements TestGenerator {
         }
 
         Optional<ModelUsage> usage = extractUsage(response);
+        Optional<CompletionDiagnostics> diagnostics = Optional.of(completionDiagnostics(response));
         if (isModelRefusal(response)) {
             return new GenerationResult.GenerationCallFailure(
                     CallFailureCategory.MODEL_REFUSED,
                     "model refused or content filtered",
-                    usage);
+                    usage,
+                    diagnostics);
         }
         String content = extractContent(response);
         if (content == null || content.isBlank()) {
             return new GenerationResult.GenerationCallFailure(
                     CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
                     "empty content",
-                    usage);
+                    usage,
+                    diagnostics);
         }
         // 边界再限长（HTTP 层已限制；此处拒绝超大 content 进入 parser 深解析）
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
@@ -124,18 +128,20 @@ public final class SpringAiTestGenerator implements TestGenerator {
             return new GenerationResult.GenerationCallFailure(
                     CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
                     "response size out of bounds",
-                    usage);
+                    usage,
+                    diagnostics);
         }
 
         CandidateDraftParser.ParseResult parsed = draftParser.parse(content);
         return switch (parsed) {
             case CandidateDraftParser.ParseResult.Ok ok ->
-                    new GenerationResult.GeneratedDraft(ok.draft(), usage);
+                    new GenerationResult.GeneratedDraft(ok.draft(), usage, diagnostics);
             case CandidateDraftParser.ParseResult.Invalid invalid ->
                     new GenerationResult.GenerationCallFailure(
                             CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
                             sanitizeBounded(invalid.reason(), "structured output invalid"),
-                            usage);
+                            usage,
+                            diagnostics);
         };
     }
 
@@ -337,6 +343,65 @@ public final class SpringAiTestGenerator implements TestGenerator {
             return Optional.empty();
         }
         return Optional.of(new ModelUsage(in, out, total));
+    }
+
+    /**
+     * 从 {@link ChatResponse} 读取 finish_reason 与 completion 明细。取不到记 {@code unknown}，不抛异常。
+     * 不回显模型正文。
+     */
+    static CompletionDiagnostics completionDiagnostics(ChatResponse response) {
+        try {
+            String finish = finishReason(response);
+            String reasoning = CompletionDiagnostics.UNKNOWN;
+            String text = CompletionDiagnostics.UNKNOWN;
+            Long reasoningTokens = reasoningTokens(response);
+            Integer completionTokens = completionTokens(response);
+            if (reasoningTokens != null) {
+                reasoning = Long.toString(reasoningTokens);
+                if (completionTokens != null
+                        && completionTokens >= 0
+                        && reasoningTokens >= 0
+                        && completionTokens >= reasoningTokens) {
+                    text = Long.toString(completionTokens - reasoningTokens);
+                }
+            }
+            return new CompletionDiagnostics(finish, reasoning, text);
+        } catch (RuntimeException ignored) {
+            return CompletionDiagnostics.unknown();
+        }
+    }
+
+    private static String finishReason(ChatResponse response) {
+        if (response == null || response.getResult() == null || response.getResult().getMetadata() == null) {
+            return CompletionDiagnostics.UNKNOWN;
+        }
+        String finish = response.getResult().getMetadata().getFinishReason();
+        return finish == null ? CompletionDiagnostics.UNKNOWN : finish;
+    }
+
+    private static Integer completionTokens(ChatResponse response) {
+        if (response == null
+                || response.getMetadata() == null
+                || response.getMetadata().getUsage() == null) {
+            return null;
+        }
+        return response.getMetadata().getUsage().getCompletionTokens();
+    }
+
+    private static Long reasoningTokens(ChatResponse response) {
+        if (response == null
+                || response.getMetadata() == null
+                || response.getMetadata().getUsage() == null) {
+            return null;
+        }
+        Object nativeUsage = response.getMetadata().getUsage().getNativeUsage();
+        if (!(nativeUsage instanceof CompletionUsage completionUsage)) {
+            return null;
+        }
+        return completionUsage
+                .completionTokensDetails()
+                .flatMap(CompletionUsage.CompletionTokensDetails::reasoningTokens)
+                .orElse(null);
     }
 
     /** 稳定、有界、无秘密的摘要；不回显异常 message 原文。 */

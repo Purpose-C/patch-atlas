@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.ModelUsage;
 
 /**
@@ -21,6 +22,10 @@ public interface GenerationRunSession {
     ReserveResult reserveGenerationAttempt(String provider, String modelName);
 
     ClaimedRun recordModelUsage(ModelUsage usage);
+
+    default ClaimedRun recordModelUsage(ModelUsage usage, CompletionDiagnostics diagnostics) {
+        return recordModelUsage(usage);
+    }
 
     ClaimedRun commitCandidate(GatedCandidate gated);
 

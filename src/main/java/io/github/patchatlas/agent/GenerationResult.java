@@ -11,23 +11,37 @@ public sealed interface GenerationResult
 
     Optional<ModelUsage> usage();
 
-    record GeneratedDraft(CandidateDraft draft, Optional<ModelUsage> usage) implements GenerationResult {
+    Optional<CompletionDiagnostics> completionDiagnostics();
+
+    record GeneratedDraft(
+            CandidateDraft draft,
+            Optional<ModelUsage> usage,
+            Optional<CompletionDiagnostics> completionDiagnostics)
+            implements GenerationResult {
         public GeneratedDraft {
             Objects.requireNonNull(draft, "draft");
             Objects.requireNonNull(usage, "usage");
+            Objects.requireNonNull(completionDiagnostics, "completionDiagnostics");
         }
 
         public GeneratedDraft(CandidateDraft draft) {
-            this(draft, Optional.empty());
+            this(draft, Optional.empty(), Optional.empty());
         }
 
         public GeneratedDraft(CandidateDraft draft, ModelUsage usage) {
-            this(draft, Optional.of(usage));
+            this(draft, Optional.of(usage), Optional.empty());
+        }
+
+        public GeneratedDraft(CandidateDraft draft, Optional<ModelUsage> usage) {
+            this(draft, usage, Optional.empty());
         }
     }
 
     record GenerationCallFailure(
-            CallFailureCategory category, String summary, Optional<ModelUsage> usage)
+            CallFailureCategory category,
+            String summary,
+            Optional<ModelUsage> usage,
+            Optional<CompletionDiagnostics> completionDiagnostics)
             implements GenerationResult {
         public static final int MAX_SUMMARY_CHARS = 512;
 
@@ -35,6 +49,7 @@ public sealed interface GenerationResult
             Objects.requireNonNull(category, "category");
             Objects.requireNonNull(summary, "summary");
             Objects.requireNonNull(usage, "usage");
+            Objects.requireNonNull(completionDiagnostics, "completionDiagnostics");
             if (summary.isBlank()) {
                 throw new IllegalArgumentException("summary must not be blank");
             }
@@ -44,7 +59,12 @@ public sealed interface GenerationResult
         }
 
         public GenerationCallFailure(CallFailureCategory category, String summary) {
-            this(category, summary, Optional.empty());
+            this(category, summary, Optional.empty(), Optional.empty());
+        }
+
+        public GenerationCallFailure(
+                CallFailureCategory category, String summary, Optional<ModelUsage> usage) {
+            this(category, summary, usage, Optional.empty());
         }
     }
 }

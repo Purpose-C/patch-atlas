@@ -7,12 +7,15 @@ import com.openai.errors.BadRequestException;
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.RateLimitException;
 import com.openai.errors.UnauthorizedException;
+import com.openai.models.completions.CompletionUsage;
 import io.github.patchatlas.repository.CaseManifest;
+import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.replay.TargetTest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -285,6 +288,116 @@ class SpringAiTestGeneratorTest {
         assertThat(failure.category()).isEqualTo(CallFailureCategory.MODEL_CONFIGURATION_ERROR);
         assertThat(failure.summary()).contains("192 KiB");
         assertThat(calls).hasValue(0);
+    }
+
+    @Test
+    void recordsFinishReasonAndCompletionDetailsInUsageLog() {
+        String body = "{\"patchText\":\"SENTINEL-MODEL-BODY\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}";
+        ChatModel model = prompt -> responseWithDiagnostics(body, "length", 10, 182, 192, 101L);
+        SpringAiTestGenerator generator =
+                new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
+
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
+            assertThat(result).isInstanceOf(GenerationResult.GeneratedDraft.class);
+            CompletionDiagnostics diagnostics = result.completionDiagnostics().orElseThrow();
+            assertThat(diagnostics.finishReason()).isEqualTo("length");
+            assertThat(diagnostics.reasoningTokens()).isEqualTo("101");
+            assertThat(diagnostics.textTokens()).isEqualTo("81");
+
+            RunEvents.generationUsageRecorded(
+                    UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                    10,
+                    182,
+                    192,
+                    1,
+                    diagnostics);
+            ch.qos.logback.classic.spi.ILoggingEvent event = appender.list.getLast();
+            java.util.Map<String, String> fields = usageFields(event);
+            assertThat(fields)
+                    .containsEntry("event", "generation.usage.recorded")
+                    .containsEntry("finish_reason", "length")
+                    .containsEntry("reasoning_tokens", "101")
+                    .containsEntry("text_tokens", "81");
+            assertThat(event.getFormattedMessage() + fields).doesNotContain("SENTINEL-MODEL-BODY");
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void missingFinishReasonAndDetailsRecordUnknownWithoutThrowing() {
+        ChatModel model = prompt -> response(
+                "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 10, 20, 30);
+        SpringAiTestGenerator generator =
+                new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
+        GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
+        CompletionDiagnostics diagnostics = result.completionDiagnostics().orElseThrow();
+        assertThat(diagnostics.finishReason()).isEqualTo("unknown");
+        assertThat(diagnostics.reasoningTokens()).isEqualTo("unknown");
+        assertThat(diagnostics.textTokens()).isEqualTo("unknown");
+    }
+
+    @Test
+    void emptyContentStillRecordsLengthDiagnosticsAndOmitsModelBody() {
+        ChatModel model = prompt -> responseWithDiagnostics("", "length", 10, 8192, 8202, 8192L);
+        SpringAiTestGenerator generator =
+                new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
+        GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
+        assertThat(result).isInstanceOf(GenerationResult.GenerationCallFailure.class);
+        var fail = (GenerationResult.GenerationCallFailure) result;
+        assertThat(fail.summary()).isEqualTo("empty content");
+        CompletionDiagnostics diagnostics = fail.completionDiagnostics().orElseThrow();
+        assertThat(diagnostics.finishReason()).isEqualTo("length");
+        assertThat(diagnostics.reasoningTokens()).isEqualTo("8192");
+        assertThat(diagnostics.textTokens()).isEqualTo("0");
+        assertThat(diagnostics.finishReason() + diagnostics.reasoningTokens() + diagnostics.textTokens())
+                .doesNotContain("SENTINEL-MODEL-BODY");
+    }
+
+    @Test
+    void unsafeFinishReasonIsUnknownAndDoesNotEchoModelBody() {
+        CompletionDiagnostics diagnostics = SpringAiTestGenerator.completionDiagnostics(
+                responseWithDiagnostics("{}", "stop SENTINEL-MODEL-BODY", 1, 1, 2, null));
+        assertThat(diagnostics.finishReason()).isEqualTo("unknown");
+        assertThat(diagnostics.finishReason()).doesNotContain("SENTINEL-MODEL-BODY");
+    }
+
+    private static java.util.Map<String, String> usageFields(ch.qos.logback.classic.spi.ILoggingEvent event) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        if (event.getKeyValuePairs() != null) {
+            for (org.slf4j.event.KeyValuePair pair : event.getKeyValuePairs()) {
+                map.put(pair.key, String.valueOf(pair.value));
+            }
+        }
+        return map;
+    }
+
+    private static ChatResponse responseWithDiagnostics(
+            String content, String finishReason, int in, int out, int total, Long reasoningTokens) {
+        Generation generation = new Generation(
+                new AssistantMessage(content),
+                ChatGenerationMetadata.builder().finishReason(finishReason).build());
+        CompletionUsage.Builder nativeUsage = CompletionUsage.builder()
+                .promptTokens(in)
+                .completionTokens(out)
+                .totalTokens(total);
+        if (reasoningTokens != null) {
+            nativeUsage.completionTokensDetails(
+                    CompletionUsage.CompletionTokensDetails.builder()
+                            .reasoningTokens(reasoningTokens)
+                            .build());
+        }
+        ChatResponseMetadata metadata = ChatResponseMetadata.builder()
+                .usage(new DefaultUsage(in, out, total, nativeUsage.build()))
+                .build();
+        return new ChatResponse(List.of(generation), metadata);
     }
 
     private static UnauthorizedException unauthorized() {

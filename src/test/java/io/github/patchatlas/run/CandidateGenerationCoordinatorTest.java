@@ -194,6 +194,70 @@ class CandidateGenerationCoordinatorTest {
     }
 
     @Test
+    void gateRejectionLogsAttemptRejectedWithoutLeakingSentinels() throws Exception {
+        String sentinelPatch =
+                """
+                diff --git a/src/main/java/fixtures/Evil.java b/src/main/java/fixtures/Evil.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/main/java/fixtures/Evil.java
+                @@ -0,0 +1,2 @@
+                +package fixtures;
+                +class Evil { /* SENTINEL-PATCH-CONTENT */ }
+                """;
+        GenerationInput sentinelInput = new GenerationInput(
+                input.generatorContext(), "title", "SENTINEL-ISSUE-BODY", List.of());
+        FakeTestGenerator generator = FakeTestGenerator.of(
+                new GenerationResult.GeneratedDraft(new CandidateDraft(sentinelPatch, TARGET)),
+                new GenerationResult.GeneratedDraft(new CandidateDraft(sentinelPatch, TARGET)),
+                new GenerationResult.GeneratedDraft(new CandidateDraft(sentinelPatch, TARGET)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var result = coordinator.run(sentinelInput, session);
+            assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+
+            List<ch.qos.logback.classic.spi.ILoggingEvent> rejected = appender.list.stream()
+                    .filter(event -> event.getKeyValuePairs() != null
+                            && event.getKeyValuePairs().stream()
+                                    .anyMatch(pair -> "event".equals(pair.key)
+                                            && "generation.attempt.rejected".equals(String.valueOf(pair.value))))
+                    .toList();
+            assertThat(rejected).hasSize(3);
+            assertThat(kv(rejected.get(0))).containsEntry("attempt_ordinal", "1");
+            assertThat(kv(rejected.get(1))).containsEntry("attempt_ordinal", "2");
+            assertThat(kv(rejected.get(2))).containsEntry("attempt_ordinal", "3");
+            for (var event : rejected) {
+                assertThat(kv(event)).containsEntry("feedback_category", "PATCH_POLICY_REJECTED");
+                assertThat(kv(event)).containsEntry("feedback_summary", "path outside test sources");
+                assertThat(event.getFormattedMessage() + kv(event) + event.getMDCPropertyMap())
+                        .doesNotContain("SENTINEL-PATCH-CONTENT")
+                        .doesNotContain("SENTINEL-ISSUE-BODY");
+            }
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    private static java.util.Map<String, String> kv(ch.qos.logback.classic.spi.ILoggingEvent event) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        if (event.getKeyValuePairs() != null) {
+            for (org.slf4j.event.KeyValuePair pair : event.getKeyValuePairs()) {
+                map.put(pair.key, String.valueOf(pair.value));
+            }
+        }
+        return map;
+    }
+
+    @Test
     void threeRoundSuccessAfterTargetPassedThenCompileFailure() throws Exception {
         CandidateDraft good = new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET);
         FakeTestGenerator generator = FakeTestGenerator.of(

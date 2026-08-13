@@ -52,10 +52,9 @@ class FormalBenchmarkHarnessTest {
         if (!Files.isDirectory(workspaceRoot)) {
             throw new IllegalStateException("workspace root must be an existing directory");
         }
-        boolean isDryRun = BenchmarkActions.DRY_RUN.equals(parsed);
-        List<GitBugJavaMetadataReader.CaseMetadata> metadata = isDryRun
-                ? List.of()
-                : readGitBugMetadata();
+        List<GitBugJavaMetadataReader.CaseMetadata> metadata = BenchmarkActions.isFormalRun(parsed)
+                ? readGitBugMetadata()
+                : List.of();
 
         DataSource dataSource = dataSource();
         BenchmarkArtifacts artifacts = new BenchmarkArtifacts();

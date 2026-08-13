@@ -1,5 +1,7 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
+import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
@@ -7,6 +9,7 @@ import io.github.patchatlas.sandbox.MavenSandboxCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,13 +67,42 @@ public final class RunEvents {
         }
     }
 
+    public static void generationAttemptRejected(
+            UUID runId,
+            int attemptOrdinal,
+            GenerationFeedbackCategory category,
+            String summary) {
+        try (var ignored = RunCorrelation.openIfAbsent(runId)) {
+            info("generation.attempt.rejected")
+                    .addKeyValue("attempt_ordinal", attemptOrdinal)
+                    .addKeyValue("feedback_category", category.name())
+                    .addKeyValue("feedback_summary", boundSummary(summary))
+                    .log("generation attempt rejected");
+        }
+    }
+
     public static void generationUsageRecorded(
             UUID runId, long inputTokens, long outputTokens, long totalTokens, Integer usageRecordCount) {
+        generationUsageRecorded(
+                runId, inputTokens, outputTokens, totalTokens, usageRecordCount, CompletionDiagnostics.unknown());
+    }
+
+    public static void generationUsageRecorded(
+            UUID runId,
+            long inputTokens,
+            long outputTokens,
+            long totalTokens,
+            Integer usageRecordCount,
+            CompletionDiagnostics diagnostics) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
         try (var ignored = RunCorrelation.openIfAbsent(runId)) {
             LoggingEventBuilder builder = info("generation.usage.recorded")
                     .addKeyValue("input_tokens", inputTokens)
                     .addKeyValue("output_tokens", outputTokens)
-                    .addKeyValue("total_tokens", totalTokens);
+                    .addKeyValue("total_tokens", totalTokens)
+                    .addKeyValue("finish_reason", diagnostics.finishReason())
+                    .addKeyValue("reasoning_tokens", diagnostics.reasoningTokens())
+                    .addKeyValue("text_tokens", diagnostics.textTokens());
             if (usageRecordCount != null) {
                 builder = builder.addKeyValue("usage_record_count", usageRecordCount);
             }
@@ -143,6 +175,20 @@ public final class RunEvents {
                 .addKeyValue("component", "sandbox")
                 .addKeyValue("error_type", error.getClass().getSimpleName())
                 .log("sandbox observation failed");
+    }
+
+    private static String boundSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            return "rejected";
+        }
+        String s = summary.replace('\0', ' ').trim();
+        if (s.isEmpty()) {
+            return "rejected";
+        }
+        if (s.length() > RunFailure.MAX_SUMMARY_CHARS) {
+            return s.substring(0, RunFailure.MAX_SUMMARY_CHARS);
+        }
+        return s;
     }
 
     private static LoggingEventBuilder info(String event) {
