@@ -9,7 +9,7 @@ import java.util.HexFormat;
 import java.security.MessageDigest;
 import org.junit.jupiter.api.Test;
 
-/** ��candidate 映射、hash、大小边界。 */
+/** candidate 映射、hash、大小边界。 */
 class PersistedCandidatePatchTest {
 
     @Test
@@ -24,9 +24,27 @@ class PersistedCandidatePatchTest {
         assertThat(created.patchSha256()).isEqualTo(expected);
         assertThat(created.patchText()).isEqualTo(patch);
         assertThat(created.targetTest()).isEqualTo(target);
+        assertThat(created.provenance()).isEqualTo(TestPatchProvenance.AGENT_GENERATED);
 
         PersistedCandidatePatch restored =
                 PersistedCandidatePatch.restore(patch, expected, target.className(), target.methodName());
+        assertThat(restored).isEqualTo(created);
+    }
+
+    @Test
+    void knownTriggerFactoryAndRestorePreserveProvenance() {
+        String patch = "diff --git a/x b/x\n+hello";
+        TargetTest target = new TargetTest("fixtures.NewTest", "works");
+
+        PersistedCandidatePatch created = PersistedCandidatePatch.fromKnownTrigger(patch, target);
+        PersistedCandidatePatch restored = PersistedCandidatePatch.restore(
+                patch,
+                created.patchSha256(),
+                target.className(),
+                target.methodName(),
+                TestPatchProvenance.KNOWN_TRIGGER);
+
+        assertThat(created.provenance()).isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
         assertThat(restored).isEqualTo(created);
     }
 

@@ -20,6 +20,7 @@ function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
   return {
     runId: '11111111-1111-1111-1111-111111111111',
     mode: 'HISTORICAL',
+    runPurpose: 'STANDARD',
     state: 'COMPLETED',
     caseId: 'case-1',
     createdAt: '2026-08-12T10:00:00Z',
@@ -51,6 +52,7 @@ function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
       patchSha256: 'c'.repeat(64),
       targetClass: 'c.T',
       targetMethod: 'm',
+      patchProvenance: 'AGENT_GENERATED',
     },
     result: {
       verdict: 'VALID_REPRODUCTION',

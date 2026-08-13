@@ -13,6 +13,7 @@ import java.util.UUID;
 public record RunDetailView(
         UUID runId,
         VerificationMode mode,
+        RunPurpose purpose,
         RunState state,
         String caseId,
         Instant createdAt,
@@ -29,6 +30,7 @@ public record RunDetailView(
     public RunDetailView {
         Objects.requireNonNull(runId, "runId");
         Objects.requireNonNull(mode, "mode");
+        Objects.requireNonNull(purpose, "purpose");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
@@ -78,11 +80,16 @@ public record RunDetailView(
         }
     }
 
-    public record CandidateView(String patchText, String patchSha256, TargetTest targetTest) {
+    public record CandidateView(
+            String patchText,
+            String patchSha256,
+            TargetTest targetTest,
+            TestPatchProvenance provenance) {
         public CandidateView {
             Objects.requireNonNull(patchText, "patchText");
             Objects.requireNonNull(patchSha256, "patchSha256");
             Objects.requireNonNull(targetTest, "targetTest");
+            Objects.requireNonNull(provenance, "provenance");
         }
     }
 }

@@ -46,6 +46,67 @@ class PatchGateTest {
     }
 
     @Test
+    void inspectsCandidatePolicyWithoutWorkspaceIo() {
+        CandidateDraft candidate = new CandidateDraft(
+                FakeTestGeneratorTest.minimalCreatePatch(),
+                new TargetTest("fixtures.NewTest", "works"));
+
+        PatchPolicyInspection result =
+                PatchGate.inspect("", candidate, MavenNetworkMode.OFFLINE);
+
+        assertThat(result).isInstanceOf(PatchPolicyInspection.Accepted.class);
+        var accepted = (PatchPolicyInspection.Accepted) result;
+        assertThat(accepted.changedPaths())
+                .containsExactly("src/test/java/fixtures/NewTest.java");
+        assertThat(accepted.command().arguments()).contains("-Dtest=fixtures.NewTest#works");
+        assertThat(Files.exists(workspace.resolve("src/test/java/fixtures/NewTest.java"))).isFalse();
+    }
+
+    @Test
+    void verifiesKnownCreatePatchIsAlreadyPresentWithoutWriting() throws Exception {
+        Path existing = workspace.resolve("src/test/java/fixtures/NewTest.java");
+        Files.createDirectories(existing.getParent());
+        Files.writeString(
+                existing,
+                """
+                package fixtures;
+
+                import org.junit.jupiter.api.Test;
+
+                class NewTest {
+                  @Test
+                  void works() {}
+                }
+                """,
+                StandardCharsets.UTF_8);
+        String before = Files.readString(existing);
+        CandidateDraft candidate = new CandidateDraft(
+                FakeTestGeneratorTest.minimalCreatePatch(),
+                new TargetTest("fixtures.NewTest", "works"));
+
+        PatchPreparationResult result = gate.verifyAlreadyApplied(
+                workspace, "", candidate, MavenNetworkMode.OFFLINE);
+
+        assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
+        assertThat(Files.readString(existing)).isEqualTo(before);
+    }
+
+    @Test
+    void rejectsKnownPatchThatIsNotPresentWithoutWriting() throws Exception {
+        CandidateDraft candidate = new CandidateDraft(
+                FakeTestGeneratorTest.minimalCreatePatch(),
+                new TargetTest("fixtures.NewTest", "works"));
+
+        PatchPreparationResult result = gate.verifyAlreadyApplied(
+                workspace, "", candidate, MavenNetworkMode.OFFLINE);
+
+        assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
+        assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
+                .isEqualTo(PatchRejectionCategory.APPLICATION_FAILURE);
+        assertThat(Files.exists(workspace.resolve("src/test/java/fixtures/NewTest.java"))).isFalse();
+    }
+
+    @Test
     void appendsToExistingTestFile() throws Exception {
         Path existing = workspace.resolve("src/test/java/fixtures/OldTest.java");
         Files.createDirectories(existing.getParent());

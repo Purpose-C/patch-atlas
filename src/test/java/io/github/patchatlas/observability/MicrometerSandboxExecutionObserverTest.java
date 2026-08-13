@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/** ��Timer 记录 SandboxExecution.elapsed，不测墙钟。 */
+/** Timer 记录 SandboxExecution.elapsed，不测墙钟。 */
 class MicrometerSandboxExecutionObserverTest {
 
     private static final MavenTestCommand TEST =

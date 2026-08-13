@@ -428,6 +428,49 @@ class Issue2TestWorkerRecoveryTest {
     }
 
     @Test
+    void calibrationAppliesKnownTriggerOnlyToBuggyAndVerifiesFixed() throws Exception {
+        LocalGitFixture.Fixture hist =
+                LocalGitFixture.initHistoricalWithKnownTrigger(tempRoot.resolve("calibration-git"));
+        Path histRoot = Files.createDirectories(tempRoot.resolve("calibration-ws"));
+        PostgresRunStore store = new PostgresRunStore(dataSource());
+        RunSubmission submission = new RunSubmission(
+                VerificationMode.HISTORICAL,
+                "calibration-known-trigger",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "title",
+                "body",
+                hist.buggySha(),
+                hist.fixedSha(),
+                "",
+                "21",
+                List.of(new SourceSnapshot("src/A.java", "class A {}")));
+        PersistedCandidatePatch trigger =
+                PersistedCandidatePatch.fromAccepted(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET);
+        ClaimedRun replaying = store.startCalibration(
+                submission,
+                GatedCandidateTestHelper.gated(trigger),
+                "calibrator",
+                Duration.ofMinutes(5));
+
+        FormalReplayCoordinator coordinator = new FormalReplayCoordinator(
+                store,
+                new PatchGate(histRoot),
+                new TempCandidateWorkspaceFactory(histRoot, LocalGitFixture.fetcher(hist.originDir())),
+                successfulWarmup(histRoot),
+                Issue2TestWorkerRecoveryTest::fakeLiveReplay,
+                Issue2TestWorker.DEFAULT_LEASE,
+                Issue2TestWorker.DEFAULT_HEARTBEAT);
+        RunDetails completed = coordinator.run(replaying, "calibrator");
+
+        assertThat(completed.state()).isEqualTo(RunState.COMPLETED);
+        assertThat(completed.verdict()).contains(ReplayVerdict.VALID_REPRODUCTION);
+        assertThat(completed.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+    }
+
+    @Test
     void replayEngineExceptionIsClassifiedAsReplaySystemError() {
         PostgresRunStore store = new PostgresRunStore(dataSource());
         store.submit(liveSubmission("replay-err"));

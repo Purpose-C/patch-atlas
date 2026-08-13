@@ -230,6 +230,62 @@ class PostgresRunStoreApiSeamTest {
         assertThat(tc.exceptionType()).contains("org.opentest4j.AssertionFailedError");
     }
 
+    @Test
+    void findRunDetailExposesDefaultPurposeAndAgentPatchProvenance() {
+        ClaimedRun generating = claimAndGenerate("provenance-1");
+        PersistedCandidatePatch candidate = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
+        store.commitCandidate(ClaimHandle.from(generating), GatedCandidateTestHelper.gated(candidate));
+
+        RunDetailView detail = store.findRunDetail(generating.runId()).orElseThrow();
+
+        assertThat(detail.purpose()).isEqualTo(RunPurpose.STANDARD);
+        assertThat(detail.candidate()).get().extracting(RunDetailView.CandidateView::provenance)
+                .isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+    }
+
+    @Test
+    void submitAgentBenchmarkPersistsPurposeWithoutChangingGenerationFlow() {
+        UUID runId = store.submitAgentBenchmark(liveSubmission("agent-benchmark-1"));
+        ClaimedRun generating = store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow();
+        assertThat(generating.runId()).isEqualTo(runId);
+
+        PersistedCandidatePatch candidate = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
+        store.commitCandidate(ClaimHandle.from(generating), GatedCandidateTestHelper.gated(candidate));
+
+        RunDetailView detail = store.findRunDetail(runId).orElseThrow();
+        assertThat(detail.purpose()).isEqualTo(RunPurpose.AGENT_BENCHMARK);
+        assertThat(detail.candidate()).get().extracting(RunDetailView.CandidateView::provenance)
+                .isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+    }
+
+    @Test
+    void startCalibrationSkipsGenerationAndPersistsKnownTriggerProvenance() {
+        PersistedCandidatePatch knownTrigger = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
+
+        ClaimedRun replaying = store.startCalibration(
+                historicalSubmission("calibration-1"),
+                GatedCandidateTestHelper.gated(knownTrigger),
+                "calibrator",
+                Duration.ofMinutes(5));
+
+        assertThat(replaying.state()).isEqualTo(RunState.REPLAYING);
+        assertThat(replaying.replayRound()).isZero();
+        assertThat(replaying.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+
+        RunDetails restored = store.findRun(replaying.runId()).orElseThrow();
+        assertThat(restored.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+
+        RunDetailView detail = store.findRunDetail(replaying.runId()).orElseThrow();
+        assertThat(detail.purpose()).isEqualTo(RunPurpose.CALIBRATION);
+        assertThat(detail.generation().attemptCount()).isZero();
+        assertThat(detail.generation().modelProvider()).isNull();
+        assertThat(detail.generation().modelName()).isNull();
+        assertThat(detail.candidate()).get().extracting(RunDetailView.CandidateView::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+    }
+
     private ClaimedRun claimAndGenerate(String caseId) {
         RunSubmission s = liveSubmission(caseId);
         store.submitIdempotent(
@@ -279,6 +335,23 @@ class PostgresRunStoreApiSeamTest {
                 "body",
                 BUG,
                 null,
+                "",
+                "21",
+                MavenNetworkMode.OFFLINE,
+                List.of(new SourceSnapshot("src/A.java", "class A {}")));
+    }
+
+    private static RunSubmission historicalSubmission(String caseId) {
+        return new RunSubmission(
+                VerificationMode.HISTORICAL,
+                caseId,
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "title",
+                "body",
+                BUG,
+                FIXED,
                 "",
                 "21",
                 MavenNetworkMode.OFFLINE,

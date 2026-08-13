@@ -23,7 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * ��PostgreSQL 下 GenerationRunSession 预占、usage、fencing、第四次拒绝。
+ * PostgreSQL 下 GenerationRunSession 预占、usage、fencing、第四次拒绝。
  */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)

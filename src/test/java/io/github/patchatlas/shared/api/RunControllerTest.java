@@ -15,6 +15,7 @@ import io.github.patchatlas.run.IdempotentSubmitResult;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunListPage;
+import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.RunSummary;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
@@ -158,6 +159,7 @@ class RunControllerTest {
                 .thenReturn(Optional.of(new RunDetailView(
                         id,
                         VerificationMode.LIVE,
+                        RunPurpose.STANDARD,
                         RunState.GENERATING,
                         "case-1",
                         now,

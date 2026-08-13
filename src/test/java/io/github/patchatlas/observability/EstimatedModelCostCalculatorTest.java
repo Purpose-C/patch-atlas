@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
-/** ��费用只由 Pricing Reference 与已记录 token 计算，不是账单。 */
+/** 费用只由 Pricing Reference 与已记录 token 计算，不是账单。 */
 class EstimatedModelCostCalculatorTest {
 
     private static final PricingReference OPENAI = pricing("openai", "gpt-4.1-mini", "2.00", "8.00");

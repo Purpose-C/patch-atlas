@@ -8,6 +8,7 @@ import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.MavenSandboxCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
+import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,7 +133,7 @@ public final class RunEvents {
         builder.addKeyValue(
                         "command_type",
                         command instanceof MavenDependencyWarmupCommand ? "dependency_warmup" : "test")
-                .addKeyValue("network_mode", execution.networkMode().name().toLowerCase())
+                .addKeyValue("network_mode", execution.networkMode().name().toLowerCase(Locale.ROOT))
                 .addKeyValue("sandbox_status", execution.status().name())
                 .addKeyValue("duration_ms", execution.elapsed().toMillis())
                 .addKeyValue("timed_out", execution.timedOut())

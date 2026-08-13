@@ -139,7 +139,11 @@ public final class FormalReplayCoordinator {
                 warmDependencies(buggy, draft);
                 warmDependencies(fixed, draft);
                 applyCandidate(buggy, draft);
-                applyCandidate(fixed, draft);
+                if (candidate.provenance() == TestPatchProvenance.KNOWN_TRIGGER) {
+                    verifyCandidateAlreadyApplied(fixed, draft);
+                } else {
+                    applyCandidate(fixed, draft);
+                }
                 yield new PreparedReplayWorkspace.Historical(
                         buggy.workspace(),
                         fixed.workspace(),
@@ -152,6 +156,18 @@ public final class FormalReplayCoordinator {
     private void applyCandidate(
             CandidateWorkspaceFactory.WorkspaceSession session, CandidateDraft draft) {
         PatchPreparationResult prepared = patchGate.prepare(
+                session.workspace(),
+                session.modulePath(),
+                draft,
+                session.executionPolicy());
+        if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
+            throw new PatchGateRejectedException(toPatchGateFailure(rejected));
+        }
+    }
+
+    private void verifyCandidateAlreadyApplied(
+            CandidateWorkspaceFactory.WorkspaceSession session, CandidateDraft draft) {
+        PatchPreparationResult prepared = patchGate.verifyAlreadyApplied(
                 session.workspace(),
                 session.modulePath(),
                 draft,

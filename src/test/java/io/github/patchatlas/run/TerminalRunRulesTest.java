@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * COMPLETED / FAILED 与 ReplayVerdict、failure 字段互斥（��。
+ * COMPLETED / FAILED 与 ReplayVerdict、failure 字段互斥（纯领域规则）。
  */
 class TerminalRunRulesTest {
 

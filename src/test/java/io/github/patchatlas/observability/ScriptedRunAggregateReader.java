@@ -37,10 +37,6 @@ final class ScriptedRunAggregateReader implements RunAggregateReader {
         values.put("tokens:" + provider + ":" + type, count);
     }
 
-    void tokensForModel(String provider, String model, String type, long count) {
-        values.put("tokensModel:" + provider + ":" + model + ":" + type, count);
-    }
-
     void tokensForModelSnapshot(String provider, String model, long input, long output, long total) {
         values.put("tokensSnapshot:" + provider + ":" + model + ":input", input);
         values.put("tokensSnapshot:" + provider + ":" + model + ":output", output);
@@ -79,11 +75,6 @@ final class ScriptedRunAggregateReader implements RunAggregateReader {
     @Override
     public long tokens(String provider, String type) {
         return get("tokens:" + provider + ":" + type);
-    }
-
-    @Override
-    public long tokensForModel(String provider, String model, String type) {
-        return get("tokensModel:" + provider + ":" + model + ":" + type);
     }
 
     @Override

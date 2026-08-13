@@ -7,7 +7,10 @@ import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.RecordedUsageStatus;
 import io.github.patchatlas.run.RunDetailView;
+import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
+import io.github.patchatlas.run.TestPatchProvenance;
+import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import java.time.Instant;
@@ -16,7 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** ��详情 DTO 向后兼容增加 usage 四态与估算费用。 */
+/** 详情 DTO 向后兼容增加 usage 四态与估算费用。 */
 class RunDetailResponseMappingTest {
 
     private static final Instant NOW = Instant.parse("2026-08-13T00:00:00Z");
@@ -32,6 +35,37 @@ class RunDetailResponseMappingTest {
         assertThat(response.generation().estimatedCost()).isNull();
         assertThat(response.generation().attemptCount()).isZero();
         assertThat(response.generation().inputTokens()).isZero();
+        assertThat(response.runPurpose()).isEqualTo(RunPurpose.STANDARD.name());
+    }
+
+    @Test
+    void mapsPatchProvenance() {
+        RunDetailView base = detail(1, "openai", "gpt-test", 1, 2, 3, 1);
+        RunDetailView withCandidate = new RunDetailView(
+                base.runId(),
+                base.mode(),
+                RunPurpose.AGENT_BENCHMARK,
+                base.state(),
+                base.caseId(),
+                base.createdAt(),
+                base.updatedAt(),
+                base.completedAt(),
+                base.input(),
+                base.executionPolicy(),
+                base.generation(),
+                Optional.of(new RunDetailView.CandidateView(
+                        "diff --git a/x b/x",
+                        "a".repeat(64),
+                        new TargetTest("c.T", "m"),
+                        TestPatchProvenance.AGENT_GENERATED)),
+                base.verdict(),
+                base.failure(),
+                base.attempts());
+
+        RunDetailResponse response = RunDtos.toDetailResponse(withCandidate);
+
+        assertThat(response.runPurpose()).isEqualTo("AGENT_BENCHMARK");
+        assertThat(response.candidate().patchProvenance()).isEqualTo("AGENT_GENERATED");
     }
 
     @Test
@@ -64,6 +98,20 @@ class RunDetailResponseMappingTest {
         assertThat(mismatched.generation().estimatedCost()).isNull();
     }
 
+    @Test
+    void trackingUnavailableOmitsCostEvenWithPricingConfigured() {
+        PricingReference pricing = PricingReference.parse(new PricingFields(
+                        "openai", "gpt-4.1-mini", "2.00", "8.00", "2026-08-13", "fixture"))
+                .orElseThrow();
+
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, "openai", "gpt-4.1-mini", 0, 0, 0, null),
+                Optional.of(pricing));
+
+        assertThat(response.generation().usageStatus()).isEqualTo("TRACKING_UNAVAILABLE");
+        assertThat(response.generation().estimatedCost()).isNull();
+    }
+
     private static String status(int attempts, Integer records) {
         return RunDtos.toDetailResponse(
                         detail(attempts, "openai", "gpt-4.1-mini", 1, 1, 2, records), Optional.empty())
@@ -82,6 +130,7 @@ class RunDetailResponseMappingTest {
         return new RunDetailView(
                 UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
                 VerificationMode.LIVE,
+                RunPurpose.STANDARD,
                 RunState.GENERATING,
                 "case-1",
                 NOW,

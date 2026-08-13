@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.event.KeyValuePair;
 
-/** ��固定事件、等级、字段白名单与敏感 sentinel。 */
+/** 固定事件、等级、字段白名单与敏感 sentinel。 */
 class RunEventsTest {
 
     private static final UUID RUN = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

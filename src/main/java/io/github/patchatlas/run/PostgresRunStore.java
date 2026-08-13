@@ -68,18 +68,131 @@ public final class PostgresRunStore {
     }
 
     public UUID submit(RunSubmission submission) {
+        return submit(RunPurpose.STANDARD, submission);
+    }
+
+    /** 正式 Agent Benchmark 样本入口；生成与 Replay 控制流仍沿用普通 Run。 */
+    public UUID submitAgentBenchmark(RunSubmission submission) {
+        return submit(RunPurpose.AGENT_BENCHMARK, submission);
+    }
+
+    /**
+     * Creates a historical calibration run with a known trigger patch and starts replay directly.
+     *
+     * <p>The candidate must have passed the same Patch Gate as generated candidates. Calibration
+     * does not enter the generation state or create model-attempt facts.
+     */
+    public ClaimedRun startCalibration(
+            RunSubmission submission,
+            GatedCandidate gated,
+            String owner,
+            Duration leaseDuration) {
+        Objects.requireNonNull(submission, "submission");
+        Objects.requireNonNull(gated, "gated");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(leaseDuration, "leaseDuration");
+        if (submission.mode() != VerificationMode.HISTORICAL) {
+            throw new IllegalArgumentException("calibration requires HISTORICAL mode");
+        }
+        if (owner.isBlank() || owner.length() > RunLease.MAX_OWNER_CHARS) {
+            throw new IllegalArgumentException("invalid lease owner");
+        }
+        if (leaseDuration.isZero() || leaseDuration.isNegative()) {
+            throw new IllegalArgumentException("leaseDuration must be positive");
+        }
+
+        UUID runId = UUID.randomUUID();
+        UUID leaseToken = UUID.randomUUID();
+        long leaseSeconds = Math.max(1L, leaseDuration.toSeconds());
+        PersistedCandidatePatch candidate = gated.patch();
+        String snapshotsJson = snapshotsCodec.encode(submission.sourceSnapshots());
+
+        return tx.execute(status -> {
+            jdbc.sql(
+                            """
+                            INSERT INTO verification_run (
+                              id, mode, run_purpose, case_id, repository_url, license, issue_url,
+                              issue_title, issue_body, buggy_revision, fixed_revision,
+                              module_path, java_version, network_mode, source_snapshots, input_schema_version,
+                              state, version, lease_token, lease_owner, lease_expires_at,
+                              recovery_count, replay_round, started_at
+                            ) VALUES (
+                              :id, :mode, :runPurpose, :caseId, :repositoryUrl, :license, :issueUrl,
+                              :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
+                              :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
+                              :state, 1, :leaseToken, :leaseOwner,
+                              CURRENT_TIMESTAMP + make_interval(secs => :leaseSeconds),
+                              0, 0, CURRENT_TIMESTAMP
+                            )
+                            """)
+                    .param("id", runId)
+                    .param("mode", submission.mode().name())
+                    .param("runPurpose", RunPurpose.CALIBRATION.name())
+                    .param("caseId", submission.caseId())
+                    .param("repositoryUrl", submission.repositoryUrl())
+                    .param("license", submission.license())
+                    .param("issueUrl", submission.issueUrl())
+                    .param("issueTitle", submission.issueTitle())
+                    .param("issueBody", submission.issueBody())
+                    .param("buggyRevision", submission.buggyRevision())
+                    .param("fixedRevision", submission.fixedRevision())
+                    .param("modulePath", submission.modulePath())
+                    .param("javaVersion", submission.javaVersion())
+                    .param("networkMode", submission.networkMode().name())
+                    .param("sourceSnapshots", snapshotsJson)
+                    .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
+                    .param("state", RunState.REPLAYING.name())
+                    .param("leaseToken", leaseToken)
+                    .param("leaseOwner", owner)
+                    .param("leaseSeconds", leaseSeconds)
+                    .update();
+
+            jdbc.sql(
+                            """
+                            INSERT INTO candidate_test_patch (
+                              run_id, patch_text, patch_sha256, target_class, target_method,
+                              patch_provenance
+                            ) VALUES (
+                              :runId, :patchText, :patchSha, :targetClass, :targetMethod,
+                              :patchProvenance
+                            )
+                            """)
+                    .param("runId", runId)
+                    .param("patchText", candidate.patchText())
+                    .param("patchSha", candidate.patchSha256())
+                    .param("targetClass", candidate.targetTest().className())
+                    .param("targetMethod", candidate.targetTest().methodName())
+                    .param("patchProvenance", TestPatchProvenance.KNOWN_TRIGGER.name())
+                    .update();
+
+            PersistedCandidatePatch knownTrigger = PersistedCandidatePatch.fromKnownTrigger(
+                    candidate.patchText(), candidate.targetTest());
+            return new ClaimedRun(
+                    runId,
+                    submission.mode(),
+                    RunState.REPLAYING,
+                    1,
+                    new RunLease(leaseToken, owner, loadLeaseExpiry(runId)),
+                    0,
+                    0,
+                    Optional.of(knownTrigger));
+        });
+    }
+
+    private UUID submit(RunPurpose purpose, RunSubmission submission) {
+        Objects.requireNonNull(purpose, "purpose");
         Objects.requireNonNull(submission, "submission");
         UUID id = UUID.randomUUID();
         String snapshotsJson = snapshotsCodec.encode(submission.sourceSnapshots());
         jdbc.sql(
                         """
                         INSERT INTO verification_run (
-                          id, mode, case_id, repository_url, license, issue_url,
+                          id, mode, run_purpose, case_id, repository_url, license, issue_url,
                           issue_title, issue_body, buggy_revision, fixed_revision,
                           module_path, java_version, network_mode, source_snapshots, input_schema_version,
                           state, version, recovery_count, replay_round
                         ) VALUES (
-                          :id, :mode, :caseId, :repositoryUrl, :license, :issueUrl,
+                          :id, :mode, :runPurpose, :caseId, :repositoryUrl, :license, :issueUrl,
                           :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
                           :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
                           :state, 0, 0, 0
@@ -87,6 +200,7 @@ public final class PostgresRunStore {
                         """)
                 .param("id", id)
                 .param("mode", submission.mode().name())
+                .param("runPurpose", purpose.name())
                 .param("caseId", submission.caseId())
                 .param("repositoryUrl", submission.repositoryUrl())
                 .param("license", submission.license())
@@ -217,7 +331,7 @@ public final class PostgresRunStore {
         Objects.requireNonNull(runId, "runId");
         Optional<RunDetailView> header = jdbc.sql(
                         """
-                        SELECT r.id, r.mode, r.state, r.case_id,
+                        SELECT r.id, r.mode, r.run_purpose, r.state, r.case_id,
                                r.repository_url, r.issue_url, r.issue_title, r.issue_body,
                                r.buggy_revision, r.fixed_revision, r.module_path,
                                r.java_version, r.network_mode,
@@ -226,7 +340,8 @@ public final class PostgresRunStore {
                                r.model_usage_record_count,
                                r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
                                r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
-                               c.patch_text, c.patch_sha256, c.target_class, c.target_method
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
                           FROM verification_run r
                           LEFT JOIN candidate_test_patch c ON c.run_id = r.id
                          WHERE r.id = :id
@@ -242,6 +357,7 @@ public final class PostgresRunStore {
         return Optional.of(new RunDetailView(
                 base.runId(),
                 base.mode(),
+                base.purpose(),
                 base.state(),
                 base.caseId(),
                 base.createdAt(),
@@ -264,7 +380,8 @@ public final class PostgresRunStore {
                                r.issue_title, r.buggy_revision, r.fixed_revision,
                                r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
                                r.created_at, r.updated_at, r.completed_at,
-                               c.patch_text, c.patch_sha256, c.target_class, c.target_method
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
                           FROM verification_run r
                           LEFT JOIN candidate_test_patch c ON c.run_id = r.id
                          WHERE r.id = :id
@@ -1265,7 +1382,8 @@ public final class PostgresRunStore {
     private PersistedCandidatePatch loadCandidateRequired(UUID runId) {
         return jdbc.sql(
                         """
-                        SELECT patch_text, patch_sha256, target_class, target_method
+                        SELECT patch_text, patch_sha256, target_class, target_method,
+                               patch_provenance
                           FROM candidate_test_patch
                          WHERE run_id = :id
                         """)
@@ -1274,7 +1392,8 @@ public final class PostgresRunStore {
                         rs.getString("patch_text"),
                         rs.getString("patch_sha256"),
                         rs.getString("target_class"),
-                        rs.getString("target_method")))
+                        rs.getString("target_method"),
+                        TestPatchProvenance.valueOf(rs.getString("patch_provenance"))))
                 .optional()
                 .orElseThrow(() -> new IllegalStateException("missing candidate for REPLAYING run " + runId));
     }
@@ -1299,7 +1418,8 @@ public final class PostgresRunStore {
                     patchText,
                     rs.getString("patch_sha256"),
                     rs.getString("target_class"),
-                    rs.getString("target_method")));
+                    rs.getString("target_method"),
+                    TestPatchProvenance.valueOf(rs.getString("patch_provenance"))));
         }
         Instant completedAt = toInstant(rs.getTimestamp("completed_at"));
         return new RunDetails(
@@ -1377,11 +1497,13 @@ public final class PostgresRunStore {
             candidate = Optional.of(new RunDetailView.CandidateView(
                     patchText,
                     rs.getString("patch_sha256"),
-                    new TargetTest(rs.getString("target_class"), rs.getString("target_method"))));
+                    new TargetTest(rs.getString("target_class"), rs.getString("target_method")),
+                    TestPatchProvenance.valueOf(rs.getString("patch_provenance"))));
         }
         return new RunDetailView(
                 (UUID) rs.getObject("id"),
                 VerificationMode.valueOf(rs.getString("mode")),
+                RunPurpose.valueOf(rs.getString("run_purpose")),
                 state,
                 rs.getString("case_id"),
                 rs.getTimestamp("created_at").toInstant(),

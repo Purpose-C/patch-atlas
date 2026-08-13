@@ -25,7 +25,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * ��submit / find / claim 与并发领取（真实 PostgreSQL）。
+ * submit / find / claim 与并发领取（真实 PostgreSQL）。
  */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)

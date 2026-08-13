@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * ��1/2/3 轮自控 fixture + 耗尽 + STRUCTURED_OUTPUT 反馈契约。
+ * 1/2/3 轮自控 fixture + 耗尽 + STRUCTURED_OUTPUT 反馈契约。
  *
  * <p>默认离线：内存 session + Fake 模型 + 真实 Patch Gate + 脚本化 SandboxRunner。
  */

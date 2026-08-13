@@ -7,7 +7,7 @@ import io.github.patchatlas.agent.SourceSnapshot;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** ��source_snapshots JSONB codec 边界。 */
+/** source_snapshots JSONB codec 边界。 */
 class SourceSnapshotsCodecTest {
 
     private final SourceSnapshotsCodec codec = new SourceSnapshotsCodec();

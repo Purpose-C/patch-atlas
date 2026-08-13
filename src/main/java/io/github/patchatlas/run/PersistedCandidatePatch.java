@@ -13,7 +13,11 @@ import java.util.Objects;
  *
  * <p>读取时必须校验 {@code patch_sha256} 与 UTF-8 原文一致。
  */
-public record PersistedCandidatePatch(String patchText, String patchSha256, TargetTest targetTest) {
+public record PersistedCandidatePatch(
+        String patchText,
+        String patchSha256,
+        TargetTest targetTest,
+        TestPatchProvenance provenance) {
 
     public static final int MAX_PATCH_BYTES = 64 * 1024;
     /** 与 SQL {@code char_length(target_class) + 1 + char_length(target_method) <= 256} 对齐。 */
@@ -23,6 +27,7 @@ public record PersistedCandidatePatch(String patchText, String patchSha256, Targ
         Objects.requireNonNull(patchText, "patchText");
         Objects.requireNonNull(patchSha256, "patchSha256");
         Objects.requireNonNull(targetTest, "targetTest");
+        Objects.requireNonNull(provenance, "provenance");
         validatePatchText(patchText);
         validateSelector(targetTest);
         String expected = sha256Hex(patchText);
@@ -32,21 +37,57 @@ public record PersistedCandidatePatch(String patchText, String patchSha256, Targ
         patchSha256 = expected;
     }
 
+    public PersistedCandidatePatch(
+            String patchText, String patchSha256, TargetTest targetTest) {
+        this(patchText, patchSha256, targetTest, TestPatchProvenance.AGENT_GENERATED);
+    }
+
     /** Gate 通过后构造：计算 hash。 */
     public static PersistedCandidatePatch fromAccepted(String patchText, TargetTest targetTest) {
         Objects.requireNonNull(patchText, "patchText");
         Objects.requireNonNull(targetTest, "targetTest");
         validatePatchText(patchText);
         validateSelector(targetTest);
-        return new PersistedCandidatePatch(patchText, sha256Hex(patchText), targetTest);
+        return new PersistedCandidatePatch(
+                patchText,
+                sha256Hex(patchText),
+                targetTest,
+                TestPatchProvenance.AGENT_GENERATED);
+    }
+
+    public static PersistedCandidatePatch fromKnownTrigger(
+            String patchText, TargetTest targetTest) {
+        Objects.requireNonNull(patchText, "patchText");
+        Objects.requireNonNull(targetTest, "targetTest");
+        validatePatchText(patchText);
+        validateSelector(targetTest);
+        return new PersistedCandidatePatch(
+                patchText,
+                sha256Hex(patchText),
+                targetTest,
+                TestPatchProvenance.KNOWN_TRIGGER);
     }
 
     /** 从数据库列恢复：校验 hash 与 selector。 */
     public static PersistedCandidatePatch restore(
             String patchText, String storedSha256, String targetClass, String targetMethod) {
+        return restore(
+                patchText,
+                storedSha256,
+                targetClass,
+                targetMethod,
+                TestPatchProvenance.AGENT_GENERATED);
+    }
+
+    public static PersistedCandidatePatch restore(
+            String patchText,
+            String storedSha256,
+            String targetClass,
+            String targetMethod,
+            TestPatchProvenance provenance) {
         Objects.requireNonNull(storedSha256, "storedSha256");
         TargetTest target = new TargetTest(targetClass, targetMethod);
-        return new PersistedCandidatePatch(patchText, storedSha256, target);
+        return new PersistedCandidatePatch(patchText, storedSha256, target, provenance);
     }
 
     private static void validatePatchText(String patchText) {

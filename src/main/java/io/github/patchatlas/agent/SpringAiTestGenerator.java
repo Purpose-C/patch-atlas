@@ -66,6 +66,11 @@ public final class SpringAiTestGenerator implements TestGenerator {
     @Override
     public GenerationResult generate(GenerationRequest request) {
         Objects.requireNonNull(request, "request");
+        if (!GenerationRequestBudget.fits(request)) {
+            return new GenerationResult.GenerationCallFailure(
+                    CallFailureCategory.MODEL_CONFIGURATION_ERROR,
+                    "serialized model request exceeds 192 KiB");
+        }
         String system = buildSystemPrompt();
         String user = buildUserPrompt(request);
         Prompt prompt = new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
@@ -328,7 +333,7 @@ public final class SpringAiTestGenerator implements TestGenerator {
         return s;
     }
 
-    private static String buildSystemPrompt() {
+    static String buildSystemPrompt() {
         return """
                 You generate a single Java regression test patch as JSON only.
                 Return exactly one JSON object with keys patchText, targetClass, targetMethod.
@@ -337,7 +342,7 @@ public final class SpringAiTestGenerator implements TestGenerator {
                 """;
     }
 
-    private static String buildUserPrompt(GenerationRequest request) {
+    static String buildUserPrompt(GenerationRequest request) {
         StringBuilder sb = new StringBuilder();
         sb.append("attemptOrdinal=").append(request.attemptOrdinal()).append('\n');
         sb.append("issueTitle=\n").append(request.generationInput().issueTitle()).append('\n');

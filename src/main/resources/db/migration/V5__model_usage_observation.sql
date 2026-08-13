@@ -1,4 +1,4 @@
--- nullable usage record count. Do not rewrite V1–V4.
+-- Nullable usage record count. Do not rewrite V1–V4.
 
 ALTER TABLE verification_run
     ADD COLUMN model_usage_record_count SMALLINT NULL DEFAULT 0;

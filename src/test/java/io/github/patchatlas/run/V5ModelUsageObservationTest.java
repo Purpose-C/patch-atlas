@@ -16,7 +16,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/** ��V5 回填未知 usage，且不改 V1–V4。 */
+/** V5 回填未知 usage，且不改 V1–V4。 */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class V5ModelUsageObservationTest {

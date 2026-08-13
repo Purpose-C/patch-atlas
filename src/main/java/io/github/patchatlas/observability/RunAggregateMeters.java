@@ -100,7 +100,7 @@ public final class RunAggregateMeters {
                         tokens.output(),
                         tokens.total())
                 .map(cost -> cost.amount().doubleValue())
-                .orElse(Double.NaN);
+                .orElse(0.0);
     }
 
     private static String tag(Enum<?> value) {

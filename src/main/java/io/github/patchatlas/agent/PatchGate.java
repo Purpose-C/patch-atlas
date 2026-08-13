@@ -22,6 +22,28 @@ import java.util.regex.Pattern;
  */
 public final class PatchGate {
 
+    private record PolicyDetails(
+            List<ParsedFileDiff> files,
+            List<String> changedPaths,
+            MavenTestCommand command,
+            PatchPreparationResult.RejectedCandidate rejection) {
+
+        static PolicyDetails accepted(
+                List<ParsedFileDiff> files,
+                List<String> changedPaths,
+                MavenTestCommand command) {
+            return new PolicyDetails(List.copyOf(files), List.copyOf(changedPaths), command, null);
+        }
+
+        static PolicyDetails rejected(PatchPreparationResult.RejectedCandidate rejection) {
+            return new PolicyDetails(List.of(), List.of(), null, rejection);
+        }
+
+        boolean accepted() {
+            return rejection == null;
+        }
+    }
+
     private static final Pattern SAFE_CLASS =
             Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final Pattern SAFE_METHOD = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
@@ -61,57 +83,21 @@ public final class PatchGate {
             return reject(PatchRejectionCategory.WORKSPACE_UNSAFE, "workspace outside allowed root");
         }
 
-        try {
-            validateModulePath(modulePath);
-        } catch (IllegalArgumentException ex) {
-            return reject(PatchRejectionCategory.UNSAFE_OR_OUT_OF_SCOPE_PATH, "unsafe module path");
-        }
-
-        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(candidate.patchText());
-        if (!parsed.isOk()) {
-            return reject(parsed.category(), parsed.reason());
-        }
-
-        String testRoot = testSourceRoot(modulePath);
-        List<String> changedPaths = new ArrayList<>();
-        for (ParsedFileDiff file : parsed.files()) {
-            PatchPreparationResult pathCheck = validateFilePath(file.path(), testRoot);
-            if (pathCheck != null) {
-                return pathCheck;
-            }
-            changedPaths.add(file.path());
-        }
-
-        PatchPreparationResult targetCheck =
-                validateTargetBinding(candidate.targetTest(), testRoot, changedPaths);
-        if (targetCheck != null) {
-            return targetCheck;
+        PolicyDetails policy = inspectInternal(modulePath, candidate, executionPolicy);
+        if (!policy.accepted()) {
+            return policy.rejection();
         }
 
         // 路径/symlink 校验（写入前）
-        for (ParsedFileDiff file : parsed.files()) {
+        for (ParsedFileDiff file : policy.files()) {
             PatchPreparationResult safety = validateFilesystemSafety(trustedWorkspace, file);
             if (safety != null) {
                 return safety;
             }
         }
 
-        // 写入前完成 Maven 命令构造，避免 policy/selector 失败时已修改 workspace
-        final MavenTestCommand command;
         try {
-            String selector =
-                    candidate.targetTest().className() + "#" + candidate.targetTest().methodName();
-            command = new MavenTestCommand(
-                    modulePath,
-                    selector,
-                    executionPolicy.networkMode(),
-                    executionPolicy.javaVersion());
-        } catch (IllegalArgumentException ex) {
-            return reject(PatchRejectionCategory.TARGET_NOT_CHANGED_BY_PATCH, "unsafe target test selector");
-        }
-
-        try {
-            for (ParsedFileDiff file : parsed.files()) {
+            for (ParsedFileDiff file : policy.files()) {
                 applyFile(trustedWorkspace, file);
             }
         } catch (IOException ex) {
@@ -119,7 +105,134 @@ public final class PatchGate {
         }
 
         return new PatchPreparationResult.PreparedCandidate(
-                trustedWorkspace, modulePath, candidate.targetTest(), command);
+                trustedWorkspace, modulePath, candidate.targetTest(), policy.command());
+    }
+
+    public PatchPreparationResult verifyAlreadyApplied(
+            Path workspace,
+            String modulePath,
+            CandidateDraft candidate,
+            MavenNetworkMode networkMode) {
+        return verifyAlreadyApplied(
+                workspace,
+                modulePath,
+                candidate,
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode));
+    }
+
+    /**
+     * 校准 patch 在 Fixed Revision 中应已存在；这里只读验证，不再次应用 patch。
+     */
+    public PatchPreparationResult verifyAlreadyApplied(
+            Path workspace,
+            String modulePath,
+            CandidateDraft candidate,
+            MavenExecutionPolicy executionPolicy) {
+        Objects.requireNonNull(workspace, "workspace");
+        Objects.requireNonNull(modulePath, "modulePath");
+        Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(executionPolicy, "executionPolicy");
+
+        final Path trustedWorkspace;
+        try {
+            trustedWorkspace = WorkspaceTrust.requireUnderAllowedRoot(workspace, allowedWorkspaceRoot);
+        } catch (IllegalArgumentException ex) {
+            return reject(PatchRejectionCategory.WORKSPACE_UNSAFE, "workspace outside allowed root");
+        }
+
+        PolicyDetails policy = inspectInternal(modulePath, candidate, executionPolicy);
+        if (!policy.accepted()) {
+            return policy.rejection();
+        }
+
+        try {
+            for (ParsedFileDiff file : policy.files()) {
+                if (!isAlreadyApplied(trustedWorkspace, file)) {
+                    return reject(
+                            PatchRejectionCategory.APPLICATION_FAILURE,
+                            "candidate patch not present in fixed workspace");
+                }
+            }
+        } catch (IOException ex) {
+            return reject(
+                    PatchRejectionCategory.APPLICATION_FAILURE,
+                    "candidate patch not present in fixed workspace");
+        }
+
+        return new PatchPreparationResult.PreparedCandidate(
+                trustedWorkspace, modulePath, candidate.targetTest(), policy.command());
+    }
+
+    public static PatchPolicyInspection inspect(
+            String modulePath, CandidateDraft candidate, MavenNetworkMode networkMode) {
+        return inspect(
+                modulePath,
+                candidate,
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode));
+    }
+
+    public static PatchPolicyInspection inspect(
+            String modulePath,
+            CandidateDraft candidate,
+            MavenExecutionPolicy executionPolicy) {
+        Objects.requireNonNull(modulePath, "modulePath");
+        Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(executionPolicy, "executionPolicy");
+        PolicyDetails details = inspectInternal(modulePath, candidate, executionPolicy);
+        if (!details.accepted()) {
+            return new PatchPolicyInspection.Rejected(
+                    details.rejection().category(), details.rejection().reason());
+        }
+        return new PatchPolicyInspection.Accepted(details.changedPaths(), details.command());
+    }
+
+    private static PolicyDetails inspectInternal(
+            String modulePath,
+            CandidateDraft candidate,
+            MavenExecutionPolicy executionPolicy) {
+        try {
+            validateModulePath(modulePath);
+        } catch (IllegalArgumentException ex) {
+            return PolicyDetails.rejected(reject(
+                    PatchRejectionCategory.UNSAFE_OR_OUT_OF_SCOPE_PATH, "unsafe module path"));
+        }
+
+        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(candidate.patchText());
+        if (!parsed.isOk()) {
+            return PolicyDetails.rejected(reject(parsed.category(), parsed.reason()));
+        }
+
+        String testRoot = testSourceRoot(modulePath);
+        List<String> changedPaths = new ArrayList<>();
+        for (ParsedFileDiff file : parsed.files()) {
+            PatchPreparationResult.RejectedCandidate pathCheck =
+                    validateFilePath(file.path(), testRoot);
+            if (pathCheck != null) {
+                return PolicyDetails.rejected(pathCheck);
+            }
+            changedPaths.add(file.path());
+        }
+
+        PatchPreparationResult.RejectedCandidate targetCheck =
+                validateTargetBinding(candidate.targetTest(), testRoot, changedPaths);
+        if (targetCheck != null) {
+            return PolicyDetails.rejected(targetCheck);
+        }
+
+        try {
+            String selector =
+                    candidate.targetTest().className() + "#" + candidate.targetTest().methodName();
+            MavenTestCommand command = new MavenTestCommand(
+                    modulePath,
+                    selector,
+                    executionPolicy.networkMode(),
+                    executionPolicy.javaVersion());
+            return PolicyDetails.accepted(parsed.files(), changedPaths, command);
+        } catch (IllegalArgumentException ex) {
+            return PolicyDetails.rejected(reject(
+                    PatchRejectionCategory.TARGET_NOT_CHANGED_BY_PATCH,
+                    "unsafe target test selector"));
+        }
     }
 
     private static void validateModulePath(String modulePath) {
@@ -141,7 +254,8 @@ public final class PatchGate {
         return modulePath.isEmpty() ? "src/test/java" : modulePath + "/src/test/java";
     }
 
-    private static PatchPreparationResult validateFilePath(String path, String testRoot) {
+    private static PatchPreparationResult.RejectedCandidate validateFilePath(
+            String path, String testRoot) {
         if (!path.startsWith(testRoot + "/") || !path.endsWith(".java")) {
             return reject(PatchRejectionCategory.UNSAFE_OR_OUT_OF_SCOPE_PATH, "path outside test sources");
         }
@@ -152,7 +266,7 @@ public final class PatchGate {
         return null;
     }
 
-    private static PatchPreparationResult validateTargetBinding(
+    private static PatchPreparationResult.RejectedCandidate validateTargetBinding(
             TargetTest target, String testRoot, List<String> changedPaths) {
         if (!SAFE_CLASS.matcher(target.className()).matches() || target.className().contains("$")) {
             return reject(PatchRejectionCategory.TARGET_NOT_CHANGED_BY_PATCH, "unsafe target class name");
@@ -226,6 +340,41 @@ public final class PatchGate {
         TextFileContent originalFile = TextFileContent.read(target);
         List<String> result = applyHunks(originalFile.lines(), file.hunks());
         Files.writeString(target, originalFile.serialize(result), StandardCharsets.UTF_8);
+    }
+
+    private static boolean isAlreadyApplied(Path workspace, ParsedFileDiff file) throws IOException {
+        Path target = workspace.resolve(file.path()).normalize();
+        if (!target.startsWith(workspace)
+                || Files.isSymbolicLink(target)
+                || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        Path cursor = workspace;
+        for (Path part : workspace.relativize(target)) {
+            cursor = cursor.resolve(part);
+            if (Files.isSymbolicLink(cursor)) {
+                return false;
+            }
+        }
+
+        List<String> actual = TextFileContent.read(target).lines();
+        if (file.kind() == ParsedFileDiff.Kind.CREATE) {
+            return actual.equals(file.addedLines());
+        }
+        for (ParsedFileDiff.Hunk hunk : file.hunks()) {
+            int start = hunk.newStart() - 1;
+            List<String> expected = hunk.lines().stream()
+                    .filter(line -> line.startsWith(" ") || line.startsWith("+"))
+                    .map(line -> line.substring(1))
+                    .toList();
+            if (start < 0 || start + expected.size() > actual.size()) {
+                return false;
+            }
+            if (!actual.subList(start, start + expected.size()).equals(expected)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<String> applyHunks(List<String> original, List<ParsedFileDiff.Hunk> hunks)
@@ -318,7 +467,8 @@ public final class PatchGate {
         return result;
     }
 
-    private static PatchPreparationResult reject(PatchRejectionCategory category, String reason) {
+    private static PatchPreparationResult.RejectedCandidate reject(
+            PatchRejectionCategory category, String reason) {
         return new PatchPreparationResult.RejectedCandidate(category, reason);
     }
 }

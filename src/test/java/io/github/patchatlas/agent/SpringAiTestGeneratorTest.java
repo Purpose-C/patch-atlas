@@ -9,6 +9,7 @@ import com.openai.errors.RateLimitException;
 import com.openai.errors.UnauthorizedException;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.TargetTest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -187,6 +188,30 @@ class SpringAiTestGeneratorTest {
                 .isEqualTo(CallFailureCategory.MODEL_REFUSED);
     }
 
+    @Test
+    void rejectsOversizedSerializedRequestBeforeCallingModel() {
+        AtomicInteger calls = new AtomicInteger();
+        ChatModel model = prompt -> {
+            calls.incrementAndGet();
+            return response("{}", 0, 0, 0);
+        };
+        SpringAiTestGenerator generator =
+                new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
+        List<SourceSnapshot> sources = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            sources.add(new SourceSnapshot(
+                    "src/main/java/p/C" + i + ".java", "x".repeat(SourceSnapshot.MAX_CONTENT_BYTES)));
+        }
+
+        GenerationResult result = generator.generate(GenerationRequest.first(input(sources), 1));
+
+        assertThat(result).isInstanceOf(GenerationResult.GenerationCallFailure.class);
+        var failure = (GenerationResult.GenerationCallFailure) result;
+        assertThat(failure.category()).isEqualTo(CallFailureCategory.MODEL_CONFIGURATION_ERROR);
+        assertThat(failure.summary()).contains("192 KiB");
+        assertThat(calls).hasValue(0);
+    }
+
     private static UnauthorizedException unauthorized() {
         return UnauthorizedException.builder().headers(Headers.builder().build()).build();
     }
@@ -211,6 +236,10 @@ class SpringAiTestGeneratorTest {
     }
 
     private static GenerationInput sampleInput() {
+        return input(List.of());
+    }
+
+    private static GenerationInput input(List<SourceSnapshot> sources) {
         return new GenerationInput(
                 new CaseManifest.GeneratorContext(
                         "c1",
@@ -222,6 +251,6 @@ class SpringAiTestGeneratorTest {
                         "21"),
                 "t",
                 "b",
-                List.of());
+                sources);
     }
 }

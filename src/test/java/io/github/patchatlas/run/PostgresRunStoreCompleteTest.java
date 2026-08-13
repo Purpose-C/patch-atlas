@@ -35,7 +35,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/** ��commitCandidate / complete 原子写与 ReplayResult round-trip。 */
+/** commitCandidate / complete 原子写与 ReplayResult round-trip。 */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class PostgresRunStoreCompleteTest {

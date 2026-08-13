@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/** ��生成投影类型表面不得暴露 Fixed / Oracle accessor。 */
+/** 生成投影类型表面不得暴露 Fixed / Oracle accessor。 */
 class GenerationProjectionOracleBoundaryTest {
 
     @Test

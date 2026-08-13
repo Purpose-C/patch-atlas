@@ -49,7 +49,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/** ��恢复、stale owner 与终态重试不得让 Run Aggregate Metrics 重复计数。 */
+/** 恢复、stale owner 与终态重试不得让 Run Aggregate Metrics 重复计数。 */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class RunAggregateMetricsIdempotenceTest {

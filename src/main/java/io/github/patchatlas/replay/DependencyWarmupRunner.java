@@ -6,7 +6,7 @@ import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
-import io.github.patchatlas.sandbox.SandboxObservations;
+import io.github.patchatlas.observability.SandboxObservations;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
 import java.util.Objects;

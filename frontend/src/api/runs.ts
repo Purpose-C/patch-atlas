@@ -1,4 +1,6 @@
 export type RunState = 'QUEUED' | 'GENERATING' | 'REPLAYING' | 'COMPLETED' | 'FAILED'
+export type RunPurpose = 'STANDARD' | 'CALIBRATION' | 'AGENT_BENCHMARK' | 'DIAGNOSTIC'
+export type TestPatchProvenance = 'AGENT_GENERATED' | 'KNOWN_TRIGGER'
 
 export interface ProblemDetail {
   type?: string
@@ -53,6 +55,7 @@ export interface EstimatedCost {
 export interface RunDetail {
   runId: string
   mode: string
+  runPurpose: RunPurpose
   state: RunState
   caseId: string | null
   createdAt: string
@@ -84,6 +87,7 @@ export interface RunDetail {
     patchSha256: string
     targetClass: string
     targetMethod: string
+    patchProvenance: TestPatchProvenance
   } | null
   result: {
     verdict: string | null

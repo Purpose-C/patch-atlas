@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * ��单候选 Buggy Docker 预验证。
+ * 单候选 Buggy Docker 预验证。
  *
  * <p>必须经过 Candidate Draft + Patch Gate；不得直接运行 fixture 已知触发测试冒充 Agent 结果。
  * fixture 的 buggy 生产缺陷通过独立 agent 风格候选测试方法复现。

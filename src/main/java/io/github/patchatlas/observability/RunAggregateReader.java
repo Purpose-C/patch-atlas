@@ -21,8 +21,6 @@ public interface RunAggregateReader {
 
     long tokens(String provider, String type);
 
-    long tokensForModel(String provider, String model, String type);
-
     /** 单条 SQL 返回指定 provider/model 的 input、output、total token，保证同一数据库快照。 */
     TokenSnapshot tokensForModelSnapshot(String provider, String model);
 

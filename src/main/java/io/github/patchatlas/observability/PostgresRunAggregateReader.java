@@ -113,19 +113,6 @@ public final class PostgresRunAggregateReader implements RunAggregateReader {
     }
 
     @Override
-    public long tokensForModel(String provider, String model, String type) {
-        return jdbc.sql(
-                        "SELECT COALESCE(SUM("
-                                + tokenColumn(type)
-                                + "), 0) FROM verification_run WHERE model_provider = :provider AND model_name = :model")
-                .param("provider", provider)
-                .param("model", model)
-                .query(Number.class)
-                .single()
-                .longValue();
-    }
-
-    @Override
     public TokenSnapshot tokensForModelSnapshot(String provider, String model) {
         return jdbc.sql(
                         """

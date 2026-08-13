@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** ��两个真实执行点记录 Timer；预执行失败不记；observer 失败不改结果。 */
+/** 两个真实执行点记录 Timer；预执行失败不记；observer 失败不改结果。 */
 class SandboxExecutionTelemetryTest {
 
     private static final TargetTest TARGET = new TargetTest("fixtures.OldTest", "added");

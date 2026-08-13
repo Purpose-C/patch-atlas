@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code findRun} 返回的只读详情（读取 seam；无分页/REST DTO）。
+ * {@code findRun} 返回的只读详情（只读 seam；无分页/REST DTO）。
  */
 public record RunDetails(
         UUID runId,

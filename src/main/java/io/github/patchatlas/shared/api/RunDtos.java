@@ -104,6 +104,7 @@ final class RunDtos {
         return new RunDetailResponse(
                 d.runId(),
                 d.mode().name(),
+                d.purpose().name(),
                 d.state().name(),
                 d.caseId(),
                 d.createdAt(),
@@ -135,7 +136,8 @@ final class RunDtos {
                                 c.patchText(),
                                 c.patchSha256(),
                                 c.targetTest().className(),
-                                c.targetTest().methodName()))
+                                c.targetTest().methodName(),
+                                c.provenance().name()))
                         .orElse(null),
                 result,
                 d.attempts().stream().map(RunDtos::toAttempt).toList());
@@ -143,6 +145,9 @@ final class RunDtos {
 
     private static RunDetailResponse.EstimatedCost estimatedCost(
             RunDetailView.GenerationMeta generation, Optional<PricingReference> pricing) {
+        if (generation.usageStatus() == io.github.patchatlas.run.RecordedUsageStatus.TRACKING_UNAVAILABLE) {
+            return null;
+        }
         return EstimatedModelCostCalculator.estimate(
                         pricing.orElse(null),
                         generation.modelProvider(),

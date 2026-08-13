@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * ��Run 提交输入 round-trip 到 GenerationInput，且 Historical 的 Fixed 不进入生成投影。
+ * Run 提交输入 round-trip 到 GenerationInput，且 Historical 的 Fixed 不进入生成投影。
  */
 class RunSubmissionAndGenerationMappingTest {
 

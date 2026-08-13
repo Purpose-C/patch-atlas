@@ -1,6 +1,7 @@
 package io.github.patchatlas.agent;
 
 import com.openai.client.OpenAIClient;
+import com.openai.client.OpenAIClientAsync;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.util.List;
@@ -57,7 +58,7 @@ public final class OpenAiChatModelFactory {
     }
 
     /**
-     * 仅使用原生 JSON Schema；兼容网关降级为 JSON_OBJECT 需另开任务。
+     * 仅使用原生 JSON Schema；兼容网关降级为 JSON_OBJECT 不在当前支持范围。
      *
      * @param baseUrl OpenAI 或兼容端点根（可含 {@code /v1}）
      */
@@ -75,7 +76,7 @@ public final class OpenAiChatModelFactory {
 
         OpenAiHttpClientBuilderCustomizer bodyLimit = builder -> builder.interceptor(bodyLimitInterceptor());
 
-        OpenAIClient client = OpenAiSetup.setupSyncClient(
+        OpenAIClient syncClient = OpenAiSetup.setupSyncClient(
                 resolvedBase,
                 apiKey,
                 null,
@@ -93,22 +94,46 @@ public final class OpenAiChatModelFactory {
                 null,
                 List.of(bodyLimit));
 
+        OpenAIClientAsync asyncClient = OpenAiSetup.setupAsyncClient(
+                resolvedBase,
+                apiKey,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                modelName,
+                TIMEOUT,
+                0,
+                null,
+                Map.of(),
+                ObservationRegistry.NOOP,
+                null,
+                List.of(bodyLimit));
+
+        OpenAiChatOptions options = chatOptions(modelName);
+
+        return OpenAiChatModel.builder()
+                .openAiClient(syncClient)
+                .openAiClientAsync(asyncClient)
+                .options(options)
+                .build();
+    }
+
+    static OpenAiChatOptions chatOptions(String modelName) {
         OpenAiChatModel.ResponseFormat jsonSchema = OpenAiChatModel.ResponseFormat.builder()
                 .type(OpenAiChatModel.ResponseFormat.Type.JSON_SCHEMA)
                 .jsonSchema(CANDIDATE_DRAFT_JSON_SCHEMA)
                 .build();
 
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
+        return OpenAiChatOptions.builder()
                 .model(modelName)
+                .temperature(0.0)
                 .maxCompletionTokens(MAX_COMPLETION_TOKENS)
                 .timeout(TIMEOUT)
                 .maxRetries(0)
                 .responseFormat(jsonSchema)
-                .build();
-
-        return OpenAiChatModel.builder()
-                .openAiClient(client)
-                .options(options)
                 .build();
     }
 

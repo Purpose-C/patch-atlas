@@ -1,4 +1,4 @@
--- three business tables only. Flyway history is separate.
+-- Three business tables only. Flyway history is separate.
 
 CREATE TABLE verification_run (
     id                          UUID PRIMARY KEY,

@@ -1,4 +1,4 @@
--- network mode is immutable Verification Run input.
+-- Network mode is an immutable Verification Run input.
 
 ALTER TABLE verification_run
     ADD COLUMN network_mode VARCHAR(16) NOT NULL DEFAULT 'OFFLINE';

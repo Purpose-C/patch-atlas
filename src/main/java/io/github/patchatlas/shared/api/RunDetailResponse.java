@@ -7,6 +7,7 @@ import java.util.UUID;
 public record RunDetailResponse(
         UUID runId,
         String mode,
+        String runPurpose,
         String state,
         String caseId,
         Instant createdAt,
@@ -45,7 +46,11 @@ public record RunDetailResponse(
             String amount, String currency, String pricingEffectiveDate, String pricingSource) {}
 
     public record Candidate(
-            String patchText, String patchSha256, String targetClass, String targetMethod) {}
+            String patchText,
+            String patchSha256,
+            String targetClass,
+            String targetMethod,
+            String patchProvenance) {}
 
     public record Result(
             String verdict, String failureStage, String failureCategory, String failureSummary) {}

@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * ��Run 生命周期迁移表（tasks/specs/016-postgresql-run-recovery.md）。
+ * Run 生命周期迁移表。
  */
 class RunStateMachineTest {
 

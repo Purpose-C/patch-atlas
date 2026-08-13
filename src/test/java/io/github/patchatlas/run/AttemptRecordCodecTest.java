@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** ��Attempt codec round-trip 与 fail-closed。 */
+/** Attempt codec round-trip 与 fail-closed。 */
 class AttemptRecordCodecTest {
 
     private final AttemptRecordCodec codec = new AttemptRecordCodec();

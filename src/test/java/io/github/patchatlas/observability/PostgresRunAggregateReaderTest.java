@@ -21,7 +21,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/** ��只读聚合不伪造 NULL usage，也不改 Run 状态。 */
+/** 只读聚合不伪造 NULL usage，也不改 Run 状态。 */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class PostgresRunAggregateReaderTest {
@@ -80,7 +80,7 @@ class PostgresRunAggregateReaderTest {
         assertThat(reader.usageRuns("openai", RecordedUsageStatus.PARTIALLY_RECORDED)).isEqualTo(1);
         assertThat(reader.usageRuns("openai", RecordedUsageStatus.RECORDED_FOR_ALL_ATTEMPTS)).isZero();
         assertThat(reader.tokens("openai", "input")).isEqualTo(115);
-        assertThat(reader.tokensForModel("openai", "gpt-4.1-mini", "output")).isEqualTo(25);
+        assertThat(reader.tokensForModelSnapshot("openai", "gpt-4.1-mini").output()).isEqualTo(25);
 
         long versionBefore = version(tracked);
         reader.usageRecords("openai");
@@ -92,7 +92,7 @@ class PostgresRunAggregateReaderTest {
     void estimatedTokensIgnoreUnmatchedModel() throws Exception {
         insertUsage("openai", "gpt-4.1-mini", 1, 1, 1_000_000, 0, 1_000_000);
         insertUsage("openai", "other", 1, 1, 9_000_000, 0, 9_000_000);
-        assertThat(reader.tokensForModel("openai", "gpt-4.1-mini", "input")).isEqualTo(1_000_000);
+        assertThat(reader.tokensForModelSnapshot("openai", "gpt-4.1-mini").input()).isEqualTo(1_000_000);
         assertThat(reader.tokens("openai", "input")).isEqualTo(10_000_000);
     }
 

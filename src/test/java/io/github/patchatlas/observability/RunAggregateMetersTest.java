@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** ��预注册封闭 tag，FunctionCounter 从只读聚合读取。 */
+/** 预注册封闭 tag，FunctionCounter 从只读聚合读取。 */
 class RunAggregateMetersTest {
 
     @Test
@@ -112,9 +112,6 @@ class RunAggregateMetersTest {
     @Test
     void registersCostGaugeOnlyWhenPricingExists() {
         ScriptedRunAggregateReader reader = new ScriptedRunAggregateReader();
-        reader.tokensForModel("openai", "gpt-4.1-mini", "input", 1_000_000);
-        reader.tokensForModel("openai", "gpt-4.1-mini", "output", 500_000);
-        reader.tokensForModel("openai", "gpt-4.1-mini", "total", 1_500_000);
         reader.tokensForModelSnapshot("openai", "gpt-4.1-mini", 1_000_000, 500_000, 1_500_000);
         PricingReference pricing = PricingReference.parse(new PricingFields(
                         "openai", "gpt-4.1-mini", "2.00", "8.00", "2026-08-13", "fixture"))

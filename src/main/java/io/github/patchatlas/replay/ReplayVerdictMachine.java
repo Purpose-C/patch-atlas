@@ -5,7 +5,7 @@ import java.util.Objects;
 /**
  * 纯状态机：只根据归一化的 {@link StableSideEvidence} 与真实的 {@link FixedSide} 产生 {@link ReplayVerdict}。
  *
- * <p>不调用 Docker、不解析 XML、不清理文件、不读日志。完整判定表见 规格。
+ * <p>不调用 Docker、不解析 XML、不清理文件、不读日志。完整判定表见领域裁决规则。
  */
 public final class ReplayVerdictMachine {
 

@@ -1,4 +1,4 @@
--- generation attempt budget + model usage on verification_run only.
+-- Generation attempt budget + model usage on verification_run only.
 
 ALTER TABLE verification_run
     ADD COLUMN generation_attempt_count SMALLINT NOT NULL DEFAULT 0,

@@ -22,7 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * ��续租、token/version fence、过期接管与恢复上限。
+ * 续租、token/version fence、过期接管与恢复上限。
  */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)

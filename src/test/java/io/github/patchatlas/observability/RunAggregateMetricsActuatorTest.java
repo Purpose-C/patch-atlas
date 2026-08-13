@@ -20,7 +20,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-/** ��/actuator/metrics 可按白名单 tag 读取确定值。 */
+/** /actuator/metrics 可按白名单 tag 读取确定值。 */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
 class RunAggregateMetricsActuatorTest {

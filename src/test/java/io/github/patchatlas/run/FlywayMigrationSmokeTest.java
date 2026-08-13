@@ -19,7 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * ��真实 PostgreSQL 上 Flyway V1 三表与关键约束 smoke。
+ * 真实 PostgreSQL 上 Flyway V1 三表与关键约束 smoke。
  * 默认被 excludedGroups 排除；{@code -Dgroups=database} 启用。
  */
 @Tag("database")
@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(5);
+        assertThat(first.migrationsExecuted).isEqualTo(6);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -197,6 +197,61 @@ class FlywayMigrationSmokeTest {
                             """
                                     .formatted(runId)))
                     .hasMessageContaining("candidate_test_patch");
+        }
+    }
+
+    @Test
+    void v6DefaultsAndConstrainsRunPurposeAndPatchProvenance() throws Exception {
+        migrate();
+        UUID runId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'QUEUED', 0
+                    )
+                    """
+                            .formatted(runId));
+            statement.execute(
+                    """
+                    INSERT INTO candidate_test_patch (
+                      run_id, patch_text, patch_sha256, target_class, target_method
+                    ) VALUES (
+                      '%s', 'diff --git a/x b/x',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                      'fixtures.T', 'm'
+                    )
+                    """
+                            .formatted(runId));
+
+            try (ResultSet rs = statement.executeQuery(
+                    """
+                    SELECT r.run_purpose, c.patch_provenance
+                      FROM verification_run r
+                      JOIN candidate_test_patch c ON c.run_id = r.id
+                     WHERE r.id = '%s'
+                    """
+                            .formatted(runId))) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("run_purpose")).isEqualTo("STANDARD");
+                assertThat(rs.getString("patch_provenance")).isEqualTo("AGENT_GENERATED");
+            }
+
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE verification_run SET run_purpose = 'OTHER' WHERE id = '"
+                                    + runId
+                                    + "'"))
+                    .hasMessageContaining("verification_run_purpose_chk");
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE candidate_test_patch SET patch_provenance = 'OTHER' WHERE run_id = '"
+                                    + runId
+                                    + "'"))
+                    .hasMessageContaining("candidate_test_patch_provenance_chk");
         }
     }
 

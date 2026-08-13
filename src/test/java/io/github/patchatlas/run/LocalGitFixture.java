@@ -89,6 +89,32 @@ public final class LocalGitFixture {
         }
     }
 
+    /** Buggy 不含 known trigger；Fixed 已包含它，模拟 GitBug Java 的校准布局。 */
+    public static Fixture initHistoricalWithKnownTrigger(Path root) throws Exception {
+        Path origin = root.resolve("origin");
+        Files.createDirectories(origin);
+        try (Git git = Git.init().setDirectory(origin.toFile()).call()) {
+            PersonIdent author = new PersonIdent("fixture", "fixture@example.com");
+            Path testFile = origin.resolve("src/test/java/fixtures/OldTest.java");
+            Files.createDirectories(testFile.getParent());
+            Files.writeString(testFile, EXISTING_TEST, StandardCharsets.UTF_8);
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("buggy").setAuthor(author).setCommitter(author).call();
+            String buggy = git.getRepository().resolve("HEAD").getName();
+
+            Files.writeString(
+                    testFile,
+                    EXISTING_TEST.replace(
+                            "  void already() {}\n",
+                            "  void already() {}\n\n  @Test\n  void added() {}\n"),
+                    StandardCharsets.UTF_8);
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("fixed-with-trigger").setAuthor(author).setCommitter(author).call();
+            String fixed = git.getRepository().resolve("HEAD").getName();
+            return new Fixture(origin, buggy, fixed);
+        }
+    }
+
     public static RepositoryWorkspaceFetcher fetcher(Path originDir) {
         return (repositoryUrl, revision, parentDir, directoryName) -> {
             Path target = parentDir.resolve(directoryName).normalize();

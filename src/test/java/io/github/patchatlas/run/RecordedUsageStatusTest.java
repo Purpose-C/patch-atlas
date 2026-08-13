@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-/** ��Recorded Usage Status 只由 record count 与 attempt count 机械派生。 */
+/** Recorded Usage Status 只由 record count 与 attempt count 机械派生。 */
 class RecordedUsageStatusTest {
 
     @Test

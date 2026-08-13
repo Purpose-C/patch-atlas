@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * 租约 / 版本 / 恢复次数领域规则（��无数据库）。
+ * 租约 / 版本 / 恢复次数领域规则（纯领域规则，无数据库）。
  */
 class RunLeaseRulesTest {
 
