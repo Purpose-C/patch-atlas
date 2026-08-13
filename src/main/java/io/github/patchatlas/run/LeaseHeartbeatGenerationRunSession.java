@@ -1,6 +1,7 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.ModelUsage;
+import io.github.patchatlas.observability.RunEvents;
 import java.util.Objects;
 
 /**
@@ -19,12 +20,15 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
         try {
             PostgresRunStore.ReservedGenerationAttempt reserved =
                     heartbeat.reserveGenerationAttempt(provider, modelName);
+            RunEvents.generationAttemptReserved(
+                    reserved.claim().runId(), reserved.ordinal(), provider, modelName);
             return new ReserveResult.Reserved(reserved.claim(), reserved.ordinal());
         } catch (GenerationAttemptsExhaustedException exhausted) {
             RunDetails failed = heartbeat.fail(new RunFailure(
                     FailureStage.GENERATION,
                     FailureCategory.GENERATION_EXHAUSTED,
                     "generation attempts exhausted"));
+            RunEvents.runFailed(failed.runId(), failed.mode(), failed.failure().orElseThrow());
             return new ReserveResult.Exhausted(failed);
         } catch (StaleClaimException stale) {
             return new ReserveResult.Stale(stale);
@@ -33,17 +37,24 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
 
     @Override
     public ClaimedRun recordModelUsage(ModelUsage usage) {
-        return heartbeat.recordModelUsage(usage);
+        ClaimedRun claimed = heartbeat.recordModelUsage(usage);
+        RunEvents.generationUsageRecorded(
+                claimed.runId(), usage.inputTokens(), usage.outputTokens(), usage.totalTokens(), null);
+        return claimed;
     }
 
     @Override
     public ClaimedRun commitCandidate(GatedCandidate gated) {
-        return heartbeat.commitCandidate(gated);
+        ClaimedRun claimed = heartbeat.commitCandidate(gated);
+        RunEvents.candidateCommitted(claimed.runId());
+        return claimed;
     }
 
     @Override
     public RunDetails fail(RunFailure failure) {
-        return heartbeat.fail(failure);
+        RunDetails details = heartbeat.fail(failure);
+        RunEvents.runFailed(details.runId(), details.mode(), failure);
+        return details;
     }
 
 }

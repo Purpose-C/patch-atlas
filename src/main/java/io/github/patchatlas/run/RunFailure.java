@@ -29,8 +29,8 @@ public record RunFailure(FailureStage stage, FailureCategory category, String su
         requireStageCategory(stage, category);
     }
 
-    static void requireStageCategory(FailureStage stage, FailureCategory category) {
-        boolean ok = switch (stage) {
+    public static boolean legalPair(FailureStage stage, FailureCategory category) {
+        return switch (stage) {
             case GENERATION -> GENERATION_CATEGORIES.contains(category);
             case PATCH_GATE -> category == FailureCategory.PATCH_REJECTED
                     || category == FailureCategory.WORKSPACE_UNSAFE;
@@ -38,7 +38,10 @@ public record RunFailure(FailureStage stage, FailureCategory category, String su
             case REPLAY -> category == FailureCategory.REPLAY_SYSTEM_ERROR;
             case RECOVERY -> category == FailureCategory.RECOVERY_EXHAUSTED;
         };
-        if (!ok) {
+    }
+
+    static void requireStageCategory(FailureStage stage, FailureCategory category) {
+        if (!legalPair(stage, category)) {
             throw new IllegalArgumentException(
                     "illegal failure pair " + stage + " / " + category);
         }

@@ -36,7 +36,13 @@ public record RunDetailResponse(
             String modelName,
             long inputTokens,
             long outputTokens,
-            long totalTokens) {}
+            long totalTokens,
+            Integer usageRecordCount,
+            String usageStatus,
+            EstimatedCost estimatedCost) {}
+
+    public record EstimatedCost(
+            String amount, String currency, String pricingEffectiveDate, String pricingSource) {}
 
     public record Candidate(
             String patchText, String patchSha256, String targetClass, String targetMethod) {}

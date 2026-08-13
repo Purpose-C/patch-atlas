@@ -42,6 +42,9 @@ function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
       inputTokens: 10,
       outputTokens: 20,
       totalTokens: 30,
+      usageRecordCount: 2,
+      usageStatus: 'RECORDED_FOR_ALL_ATTEMPTS',
+      estimatedCost: null,
     },
     candidate: {
       patchText: 'diff --git a/x b/x\n+evil <script>alert(1)</script>',
@@ -147,6 +150,111 @@ describe('RunDetailView', () => {
     expect(text).toContain('42 ms')
     expect(text).toContain('org.opentest4j.AssertionFailedError')
 
+    wrapper.unmount()
+  })
+
+  it.each([
+    {
+      usageStatus: 'TRACKING_UNAVAILABLE' as const,
+      usageRecordCount: null,
+      label: '用量跟踪不可用',
+    },
+    {
+      usageStatus: 'NONE_RECORDED' as const,
+      usageRecordCount: 0,
+      label: '未记录用量',
+    },
+    {
+      usageStatus: 'PARTIALLY_RECORDED' as const,
+      usageRecordCount: 1,
+      label: '部分尝试已记录用量',
+    },
+    {
+      usageStatus: 'RECORDED_FOR_ALL_ATTEMPTS' as const,
+      usageRecordCount: 2,
+      label: '全部尝试已记录用量',
+    },
+  ] as const)('renders $usageStatus as $label', async ({ usageStatus, usageRecordCount, label }) => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generation: {
+          ...sampleDetail().generation,
+          usageStatus,
+          usageRecordCount,
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain(label)
+    wrapper.unmount()
+  })
+
+  it('shows estimated cost and pricing reference as plain text', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generation: {
+          ...sampleDetail().generation,
+          usageStatus: 'RECORDED_FOR_ALL_ATTEMPTS',
+          usageRecordCount: 2,
+          estimatedCost: {
+            amount: '2.00000000',
+            currency: 'USD',
+            pricingEffectiveDate: '2026-08-13',
+            pricingSource: 'fixture',
+          },
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('Estimated cost (recorded usage)')
+    expect(text).toContain('2.00000000')
+    expect(text).toContain('USD')
+    expect(text).toContain('已记录用量的估算下界')
+    expect(text).toContain('2026-08-13')
+    expect(text).toContain('fixture')
+    expect(text).not.toContain('$0')
+    wrapper.unmount()
+  })
+
+  it('shows cost unavailable without $0 when pricing is missing', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generation: {
+          ...sampleDetail().generation,
+          estimatedCost: null,
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain('Estimated cost (recorded usage)')
+    expect(wrapper.text()).toContain('不可用')
+    expect(wrapper.text()).not.toContain('$0')
+    expect(wrapper.text()).not.toContain('$')
+    wrapper.unmount()
+  })
+
+  it('adds a lower-bound hint for partial recorded usage with a cost', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generation: {
+          ...sampleDetail().generation,
+          usageStatus: 'PARTIALLY_RECORDED',
+          usageRecordCount: 1,
+          estimatedCost: {
+            amount: '0.00001234',
+            currency: 'USD',
+            pricingEffectiveDate: '2026-08-13',
+            pricingSource: 'fixture',
+          },
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain('部分尝试已记录用量')
+    expect(wrapper.text()).toContain('Estimated cost (recorded usage)')
+    expect(wrapper.text()).toContain('0.00001234')
+    expect(wrapper.text()).toContain('已记录用量的估算下界')
     wrapper.unmount()
   })
 

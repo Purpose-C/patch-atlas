@@ -75,6 +75,12 @@ class GenerationRunSessionPostgresTest {
 
             ClaimedRun afterUsage = session.recordModelUsage(new ModelUsage(11, 22, 33));
             assertThat(afterUsage.version()).isGreaterThan(claimed.version());
+            assertThat(usageRecordCount(claimed.runId())).isEqualTo(1);
+            RunDetailView detail = store.findRunDetail(claimed.runId()).orElseThrow();
+            assertThat(detail.generation().usageRecordCount()).isEqualTo(1);
+            assertThat(detail.generation().usageStatus())
+                    .isEqualTo(RecordedUsageStatus.RECORDED_FOR_ALL_ATTEMPTS);
+            assertThat(detail.generation().inputTokens()).isEqualTo(11);
 
             var r2 = session.reserveGenerationAttempt("fake", "fixture-v1");
             assertThat(((GenerationRunSession.ReserveResult.Reserved) r2).attemptOrdinal())
@@ -166,6 +172,49 @@ class GenerationRunSessionPostgresTest {
                      WHERE id = '%s'
                     """
                             .formatted(runId));
+        }
+    }
+
+    @Test
+    void recordModelUsageKeepsLegacyNullCount() throws Exception {
+        store.submit(live("legacy-null"));
+        ClaimedRun claimed = store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow();
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store,
+                ClaimHandle.from(claimed),
+                "w1",
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(30))) {
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            session.reserveGenerationAttempt("openai", "gpt-4.1-mini");
+            markUsageCountNull(claimed.runId());
+            session.recordModelUsage(new ModelUsage(4, 5, 9));
+            assertThat(usageRecordCount(claimed.runId())).isNull();
+        }
+    }
+
+    private Integer usageRecordCount(UUID runId) throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                        POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+                var statement = connection.prepareStatement(
+                        "SELECT model_usage_record_count FROM verification_run WHERE id = ?")) {
+            statement.setObject(1, runId);
+            try (var result = statement.executeQuery()) {
+                result.next();
+                int value = result.getInt(1);
+                return result.wasNull() ? null : value;
+            }
+        }
+    }
+
+    private void markUsageCountNull(UUID runId) throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                        POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "UPDATE verification_run SET model_usage_record_count = NULL WHERE id = '"
+                            + runId
+                            + "'");
         }
     }
 

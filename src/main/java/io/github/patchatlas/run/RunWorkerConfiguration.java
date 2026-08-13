@@ -6,6 +6,7 @@ import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
+import io.github.patchatlas.sandbox.SandboxExecutionObserver;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -76,14 +77,25 @@ public class RunWorkerConfiguration {
     }
 
     @Bean
-    SideReplayRunner sideReplayRunner(SandboxRunner sandboxRunner, RunWorkerProperties properties) {
-        return new SideReplayRunner(sandboxRunner, requireWorkspaceRoot(properties));
+    SideReplayRunner sideReplayRunner(
+            SandboxRunner sandboxRunner,
+            RunWorkerProperties properties,
+            ObjectProvider<SandboxExecutionObserver> observer) {
+        return new SideReplayRunner(
+                sandboxRunner,
+                requireWorkspaceRoot(properties),
+                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
     }
 
     @Bean
     DependencyWarmupRunner dependencyWarmupRunner(
-            SandboxRunner sandboxRunner, RunWorkerProperties properties) {
-        return new DependencyWarmupRunner(sandboxRunner, requireWorkspaceRoot(properties));
+            SandboxRunner sandboxRunner,
+            RunWorkerProperties properties,
+            ObjectProvider<SandboxExecutionObserver> observer) {
+        return new DependencyWarmupRunner(
+                sandboxRunner,
+                requireWorkspaceRoot(properties),
+                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
     }
 
     @Bean
@@ -170,7 +182,9 @@ public class RunWorkerConfiguration {
             this.properties = properties;
         }
 
-        @Scheduled(fixedDelayString = "${patchatlas.worker.poll-interval:2s}")
+        @Scheduled(
+                initialDelayString = "${patchatlas.worker.poll-interval:2s}",
+                fixedDelayString = "${patchatlas.worker.poll-interval:2s}")
         public void poll() {
             // 连续消费当前队列；空则返回。tick 内部防重入。
             drain.drain(Math.max(1, properties.getStartupMaxRuns()));

@@ -1,6 +1,8 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.observability.RunCorrelation;
+import io.github.patchatlas.observability.RunEvents;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,11 +40,33 @@ public final class Issue2TestWorker {
 
     public Optional<RunDetails> processNext(String owner) {
         Objects.requireNonNull(owner, "owner");
-        Optional<ClaimedRun> claimed = store.claimNext(owner, leaseDuration);
+        Optional<ClaimedRun> claimed = store.claimNext(owner, leaseDuration, this::onRecoveryExhausted);
         if (claimed.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(process(claimed.get(), owner));
+        ClaimedRun run = claimed.get();
+        try (var ignored = RunCorrelation.open(run.runId())) {
+            if (run.recoveryCount() > 0) {
+                RunEvents.runRecovered(run.runId(), run.mode(), run.recoveryCount());
+            } else {
+                RunEvents.runClaimed(run.runId(), run.mode(), run.recoveryCount());
+            }
+            try {
+                return Optional.of(process(run, owner));
+            } catch (StaleClaimException stale) {
+                throw stale;
+            } catch (RuntimeException ex) {
+                RunEvents.workerTickFailed(ex);
+                return Optional.empty();
+            }
+        }
+    }
+
+    private void onRecoveryExhausted(RunDetails details) {
+        RunEvents.runFailed(
+                details.runId(),
+                details.mode(),
+                details.failure().orElseThrow());
     }
 
     private RunDetails process(ClaimedRun claimed, String owner) {

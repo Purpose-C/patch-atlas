@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { fetchRun, isTerminalState, type RunDetail } from '../api/runs'
+import {
+  fetchRun,
+  isTerminalState,
+  type RecordedUsageStatus,
+  type RunDetail,
+} from '../api/runs'
 
 const POLL_MS = 3000
 
@@ -131,6 +136,19 @@ onUnmounted(() => {
   stopPoll()
   document.removeEventListener('visibilitychange', onVisibility)
 })
+
+function usageStatusLabel(status: RecordedUsageStatus): string {
+  switch (status) {
+    case 'TRACKING_UNAVAILABLE':
+      return '用量跟踪不可用'
+    case 'NONE_RECORDED':
+      return '未记录用量'
+    case 'PARTIALLY_RECORDED':
+      return '部分尝试已记录用量'
+    case 'RECORDED_FOR_ALL_ATTEMPTS':
+      return '全部尝试已记录用量'
+  }
+}
 </script>
 
 <template>
@@ -213,6 +231,21 @@ onUnmounted(() => {
                 detail.generation.totalTokens
               }}
             </dd>
+          </div>
+          <div>
+            <dt>用量记录</dt>
+            <dd>{{ usageStatusLabel(detail.generation.usageStatus) }}</dd>
+          </div>
+          <div>
+            <dt>Estimated cost (recorded usage)</dt>
+            <dd v-if="detail.generation.estimatedCost">
+              {{ detail.generation.estimatedCost.amount }}
+              {{ detail.generation.estimatedCost.currency }}
+              （已记录用量的估算下界）
+              · Pricing reference {{ detail.generation.estimatedCost.pricingEffectiveDate }} ·
+              {{ detail.generation.estimatedCost.pricingSource }}
+            </dd>
+            <dd v-else>不可用</dd>
           </div>
         </dl>
       </section>

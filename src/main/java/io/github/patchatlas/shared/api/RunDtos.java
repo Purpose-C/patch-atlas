@@ -1,6 +1,9 @@
 package io.github.patchatlas.shared.api;
 
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.observability.EstimatedModelCost;
+import io.github.patchatlas.observability.EstimatedModelCostCalculator;
+import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.RunAttemptView;
 import io.github.patchatlas.run.RunDetailView;
@@ -84,6 +87,10 @@ final class RunDtos {
     }
 
     static RunDetailResponse toDetailResponse(RunDetailView d) {
+        return toDetailResponse(d, Optional.empty());
+    }
+
+    static RunDetailResponse toDetailResponse(RunDetailView d, Optional<PricingReference> pricing) {
         Optional<RunDetailView.CandidateView> candidate = d.candidate();
         RunDetailResponse.Result result = null;
         if (d.state() == RunState.COMPLETED) {
@@ -119,7 +126,10 @@ final class RunDtos {
                         d.generation().modelName(),
                         d.generation().inputTokens(),
                         d.generation().outputTokens(),
-                        d.generation().totalTokens()),
+                        d.generation().totalTokens(),
+                        d.generation().usageRecordCount(),
+                        d.generation().usageStatus().name(),
+                        estimatedCost(d.generation(), pricing)),
                 candidate
                         .map(c -> new RunDetailResponse.Candidate(
                                 c.patchText(),
@@ -129,6 +139,27 @@ final class RunDtos {
                         .orElse(null),
                 result,
                 d.attempts().stream().map(RunDtos::toAttempt).toList());
+    }
+
+    private static RunDetailResponse.EstimatedCost estimatedCost(
+            RunDetailView.GenerationMeta generation, Optional<PricingReference> pricing) {
+        return EstimatedModelCostCalculator.estimate(
+                        pricing.orElse(null),
+                        generation.modelProvider(),
+                        generation.modelName(),
+                        generation.inputTokens(),
+                        generation.outputTokens(),
+                        generation.totalTokens())
+                .map(RunDtos::toEstimatedCost)
+                .orElse(null);
+    }
+
+    private static RunDetailResponse.EstimatedCost toEstimatedCost(EstimatedModelCost cost) {
+        return new RunDetailResponse.EstimatedCost(
+                cost.amount().toPlainString(),
+                cost.currency(),
+                cost.pricingEffectiveDate().toString(),
+                cost.pricingSource());
     }
 
     private static RunDetailResponse.Attempt toAttempt(RunAttemptView a) {

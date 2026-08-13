@@ -29,6 +29,7 @@ import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
 import io.github.patchatlas.sandbox.ScriptedSandboxRunner;
+import io.github.patchatlas.observability.PricingSettings;
 import io.github.patchatlas.shared.api.ApiExceptionHandler;
 import io.github.patchatlas.shared.api.RunController;
 import java.nio.file.Files;
@@ -97,8 +98,11 @@ class RunApiVerticalSliceTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<PostgresRunStore> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(store);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PricingSettings> pricing = mock(ObjectProvider.class);
+        when(pricing.getIfAvailable()).thenReturn(null);
 
-        mockMvc = MockMvcBuilders.standaloneSetup(new RunController(provider))
+        mockMvc = MockMvcBuilders.standaloneSetup(new RunController(provider, pricing))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
 

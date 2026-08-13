@@ -20,11 +20,16 @@ spring:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
 
+logging:
+  structured:
+    format:
+      console: logstash
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
 ---
 # 激活后：DataSource + 事务 + Flyway 自动配置生效，Run Store 可装配。
@@ -62,3 +67,11 @@ patchatlas:
     openai:
       model: ${PATCHATLAS_OPENAI_MODEL:}
       base-url: ${PATCHATLAS_OPENAI_BASE_URL:https://api.openai.com}
+  observability:
+    pricing:
+      provider: ${PATCHATLAS_PRICING_PROVIDER:}
+      model: ${PATCHATLAS_PRICING_MODEL:}
+      input-usd-per-million-tokens: ${PATCHATLAS_PRICING_INPUT_USD_PER_MILLION_TOKENS:}
+      output-usd-per-million-tokens: ${PATCHATLAS_PRICING_OUTPUT_USD_PER_MILLION_TOKENS:}
+      effective-date: ${PATCHATLAS_PRICING_EFFECTIVE_DATE:}
+      source: ${PATCHATLAS_PRICING_SOURCE:}

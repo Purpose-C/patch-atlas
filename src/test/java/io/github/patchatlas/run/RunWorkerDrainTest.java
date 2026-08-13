@@ -139,6 +139,31 @@ class RunWorkerDrainTest {
     }
 
     @Test
+    void staleClaimLogsClaimStaleNotTickFailed() {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+                        io.github.patchatlas.observability.RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        UUID runId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        Issue2TestWorker worker = mock(Issue2TestWorker.class);
+        when(worker.processNext("owner-a")).thenThrow(new StaleClaimException(runId, "stale write"));
+
+        try {
+            RunWorkerDrain drain = new RunWorkerDrain(worker, "owner-a");
+            assertThat(drain.tick()).isEmpty();
+            assertThat(appender.list)
+                    .extracting(event -> String.valueOf(event.getKeyValuePairs()))
+                    .anyMatch(kv -> kv.contains("claim.stale"))
+                    .noneMatch(kv -> kv.contains("worker.tick.failed"));
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
     void workerRuntimeExceptionIsSwallowedAndUnlocks() {
         Issue2TestWorker worker = mock(Issue2TestWorker.class);
         when(worker.processNext("owner-a"))

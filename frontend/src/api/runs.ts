@@ -37,6 +37,19 @@ export interface RunListResponse {
   nextCursor: string | null
 }
 
+export type RecordedUsageStatus =
+  | 'TRACKING_UNAVAILABLE'
+  | 'NONE_RECORDED'
+  | 'PARTIALLY_RECORDED'
+  | 'RECORDED_FOR_ALL_ATTEMPTS'
+
+export interface EstimatedCost {
+  amount: string
+  currency: string
+  pricingEffectiveDate: string
+  pricingSource: string
+}
+
 export interface RunDetail {
   runId: string
   mode: string
@@ -62,6 +75,9 @@ export interface RunDetail {
     inputTokens: number
     outputTokens: number
     totalTokens: number
+    usageRecordCount: number | null
+    usageStatus: RecordedUsageStatus
+    estimatedCost: EstimatedCost | null
   }
   candidate: {
     patchText: string

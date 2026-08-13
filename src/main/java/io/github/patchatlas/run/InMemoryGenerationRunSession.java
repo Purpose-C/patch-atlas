@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.ModelUsage;
+import io.github.patchatlas.observability.RunEvents;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.VerificationMode;
 import java.time.Instant;
@@ -53,6 +54,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
         }
         generationAttemptCount++;
         claim = bump(claim);
+        RunEvents.generationAttemptReserved(claim.runId(), generationAttemptCount, provider, modelName);
         return new ReserveResult.Reserved(claim, generationAttemptCount);
     }
 
@@ -64,6 +66,8 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
         outputTokens = safeAdd(outputTokens, usage.outputTokens());
         totalTokens = safeAdd(totalTokens, usage.totalTokens());
         claim = bump(claim);
+        RunEvents.generationUsageRecorded(
+                claim.runId(), usage.inputTokens(), usage.outputTokens(), usage.totalTokens(), null);
         return claim;
     }
 
@@ -80,6 +84,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
                 claim.recoveryCount(),
                 claim.replayRound(),
                 Optional.of(gated.patch()));
+        RunEvents.candidateCommitted(claim.runId());
         return claim;
     }
 
@@ -143,6 +148,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
                 claim.replayRound(),
                 Optional.empty());
         // mark terminal by nulling lease shape - store FAIL clears lease; keep claim unusable
+        RunEvents.runFailed(terminal.runId(), terminal.mode(), failure);
         return terminal;
     }
 

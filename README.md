@@ -42,10 +42,12 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据
 - Fake/真实模型 adapter，以及最多三轮 Buggy-only 生成修正；
 - 可恢复的 Java/网络执行策略、生产 Docker/Replay adapter 与 Worker 完整装配；
 - `POST/GET /api/runs` 幂等创建、keyset 列表与可审计详情；
+- Run 详情区分四种 Recorded Usage Status，并在有价格配置时展示已记录用量的估算费用；
+- Actuator 指标、沙箱执行 Timer 与 Logstash 结构化领域日志；
 - 受控 off-by-one 校准案例；
 - spring-cloud-openfeign #1326 真实历史案例与缓存数据。
 
-目前尚未实现前端提交表单、SSE/指标看板、完整可观测性、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。
+目前尚未实现前端提交表单、SSE/指标看板、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。估算费用不是账单。
 
 **安全提示**：本实例为单用户自托管，默认无认证。不要直接暴露到公网。API Key 仅经后端环境变量注入，永不进入前端。
 
@@ -105,6 +107,39 @@ export PATCHATLAS_WORKER_ENABLED=true   # 或 application 配置 patchatlas.work
 # patchatlas.worker.workspace-root=/var/patchatlas/workspaces
 ```
 
+可选费用估算（全部给出才启用；缺省表示费用不可用，不是 `$0`）：
+
+```bash
+export PATCHATLAS_PRICING_PROVIDER=openai
+export PATCHATLAS_PRICING_MODEL=gpt-4.1-mini
+export PATCHATLAS_PRICING_INPUT_USD_PER_MILLION_TOKENS=0.40
+export PATCHATLAS_PRICING_OUTPUT_USD_PER_MILLION_TOKENS=1.60
+export PATCHATLAS_PRICING_EFFECTIVE_DATE=2026-08-13
+export PATCHATLAS_PRICING_SOURCE=operator-config
+```
+
+默认 console 为 Logstash JSON。领域事件只带白名单字段，例如：
+
+```json
+{"@timestamp":"2026-08-13T11:34:06.544444+09:00","message":"run claimed","logger_name":"io.github.patchatlas.observability.RunEvents","level":"INFO","run_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","event":"run.claimed","mode":"LIVE","recovery_count":0}
+```
+
+`run_id` 是唯一 Run Correlation ID。日志不包含 Issue 正文、Patch、完整沙箱日志、Idempotency-Key、异常 message 或 API Key。
+
+启用 persistence 后可读取 Run 聚合指标（tag 仅为封闭枚举）：
+
+```http
+GET /actuator/metrics/patchatlas.run.completed?tag=mode:live&tag=verdict:valid_reproduction
+GET /actuator/metrics/patchatlas.run.failed
+GET /actuator/metrics/patchatlas.generation.attempts?tag=provider:openai
+GET /actuator/metrics/patchatlas.model.usage.records?tag=provider:openai
+GET /actuator/metrics/patchatlas.model.usage.runs?tag=provider:openai&tag=status:recorded_for_all_attempts
+GET /actuator/metrics/patchatlas.model.tokens?tag=provider:openai&tag=type:total
+GET /actuator/metrics/patchatlas.sandbox.execution.duration?tag=command_type:test&tag=timed_out:false
+```
+
+完整定价配置存在时还有 `patchatlas.model.cost.estimated`。沙箱 Timer 随进程重启归零，恢复重跑按实际执行再计一次；终态 Run 计数以 PostgreSQL 为准，不因恢复或重复 terminal 调用翻倍。
+
 创建 Run（异步，不在 HTTP 中等待模型/Docker）：
 
 ```http
@@ -144,6 +179,7 @@ RUNNER=docker bash fixtures/off-by-one/run-replay.sh
 ## 文档
 
 - [系统架构与设计决策](docs/architecture.md)
+- [ADR-003：Run 聚合指标与执行遥测](docs/adr/ADR-003-persisted-run-metrics-and-execution-telemetry.md)
 - [领域语言](CONTEXT.md)
 - [Benchmark 方法与指标](benchmark-cases/README.md)
 - [spring-cloud-openfeign #1326 案例](benchmark-cases/spring-cloud-openfeign-1326.md)

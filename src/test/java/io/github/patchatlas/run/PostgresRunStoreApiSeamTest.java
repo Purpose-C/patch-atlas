@@ -217,6 +217,10 @@ class PostgresRunStoreApiSeamTest {
         assertThat(attempt.networkMode()).isPresent();
         assertThat(attempt.networkMode().orElseThrow()).contains("OFFLINE");
 
+        assertThat(detail.generation().usageRecordCount()).isZero();
+        assertThat(detail.generation().usageStatus())
+                .isEqualTo(RecordedUsageStatus.NONE_RECORDED);
+
         RunAttemptView.TargetTestCaseView tc = attempt.targetTestCase().orElseThrow();
         assertThat(tc.className()).isEqualTo("c.T");
         assertThat(tc.methodName()).isEqualTo("m");

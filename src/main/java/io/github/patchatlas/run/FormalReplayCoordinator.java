@@ -4,6 +4,7 @@ import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.PatchRejectionCategory;
+import io.github.patchatlas.observability.RunEvents;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.time.Duration;
@@ -48,6 +49,7 @@ public final class FormalReplayCoordinator {
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
             ClaimedRun opened = beat.openReplayRound();
+            RunEvents.replayStarted(opened.runId(), opened.replayRound());
             ReplayWorkspaceProjection projection =
                     store.loadReplayWorkspaceProjection(opened.runId());
             List<CandidateWorkspaceFactory.WorkspaceSession> sessions = new ArrayList<>(2);
@@ -56,31 +58,41 @@ public final class FormalReplayCoordinator {
                 try {
                     prepared = prepareWorkspaces(opened, projection, candidate, sessions);
                 } catch (PatchGateRejectedException gateEx) {
-                    return beat.fail(gateEx.failure());
+                    return failed(beat, gateEx.failure());
                 } catch (DependencyWarmupFailedException warmupEx) {
-                    return beat.fail(new RunFailure(
-                            FailureStage.REPLAY,
-                            FailureCategory.REPLAY_SYSTEM_ERROR,
-                            warmupEx.getMessage()));
+                    return failed(
+                            beat,
+                            new RunFailure(
+                                    FailureStage.REPLAY,
+                                    FailureCategory.REPLAY_SYSTEM_ERROR,
+                                    warmupEx.getMessage()));
                 } catch (StaleClaimException stale) {
                     throw stale;
                 } catch (Exception ex) {
-                    return beat.fail(new RunFailure(
-                            FailureStage.WORKSPACE,
-                            FailureCategory.WORKSPACE_UNSAFE,
-                            bound("replay workspace prepare failed: "
-                                    + ex.getClass().getSimpleName())));
+                    return failed(
+                            beat,
+                            new RunFailure(
+                                    FailureStage.WORKSPACE,
+                                    FailureCategory.WORKSPACE_UNSAFE,
+                                    bound("replay workspace prepare failed: "
+                                            + ex.getClass().getSimpleName())));
                 }
 
                 try {
-                    return beat.complete(replayer.replay(opened, candidate, prepared));
+                    RunDetails completed = beat.complete(replayer.replay(opened, candidate, prepared));
+                    completed.verdict()
+                            .ifPresent(verdict -> RunEvents.runCompleted(
+                                    completed.runId(), completed.mode(), verdict));
+                    return completed;
                 } catch (StaleClaimException stale) {
                     throw stale;
                 } catch (Exception ex) {
-                    return beat.fail(new RunFailure(
-                            FailureStage.REPLAY,
-                            FailureCategory.REPLAY_SYSTEM_ERROR,
-                            bound("replay failed: " + ex.getClass().getSimpleName())));
+                    return failed(
+                            beat,
+                            new RunFailure(
+                                    FailureStage.REPLAY,
+                                    FailureCategory.REPLAY_SYSTEM_ERROR,
+                                    bound("replay failed: " + ex.getClass().getSimpleName())));
                 }
             } finally {
                 closeSessions(sessions);
@@ -183,6 +195,12 @@ public final class FormalReplayCoordinator {
                 ? FailureStage.WORKSPACE
                 : FailureStage.PATCH_GATE;
         return new RunFailure(stage, category, rejected.reason());
+    }
+
+    private static RunDetails failed(LeaseHeartbeat beat, RunFailure failure) {
+        RunDetails details = beat.fail(failure);
+        RunEvents.runFailed(details.runId(), details.mode(), failure);
+        return details;
     }
 
     private static String bound(String summary) {

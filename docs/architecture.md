@@ -42,10 +42,11 @@ Spring Boot 模块化单体
     ├── replay：执行事实、稳定性归约与 Live/Historical 裁决
     ├── agent：模型 adapter、Candidate Draft 解析与 Patch Gate
     ├── run：Verification Run 编排、租约恢复与 PostgreSQL 持久化
+    ├── observability：Run 聚合指标、费用估算与结构化领域日志
     └── shared：当前状态接口等薄入口
 ```
 
-依赖方向保持为 `run → agent / replay / repository / sandbox`；`agent` 不依赖 `run`，也无法取得 Fixed Revision 等 Oracle Data。尚未出现真实调用链的 `analysis` 与 `report` 不提前创建空接口或模块。
+依赖方向保持为 `run → agent / replay / repository / sandbox`；`observability` 只读 Run 事实并观察沙箱执行，不改写终态。`agent` 不依赖 `run`，也无法取得 Fixed Revision 等 Oracle Data。尚未出现真实调用链的 `analysis` 与 `report` 不提前创建空接口或模块。
 
 ## 设计决策
 
@@ -101,7 +102,20 @@ Worker 启用时由单进程串行调度入口持续领取 Run；启动恢复与
 
 列表与详情使用独立 REST 读取投影，不序列化持久化对象。列表采用 `created_at + run_id` 的稳定 keyset 分页；详情可以展示 Issue、执行策略、模型用量、Candidate Test Patch 与正式 Replay Attempt，但不返回 Source Snapshots、lease、宿主路径、原始模型响应或生成预验证。Run 的 `FAILED` 是可查询的领域终态，不映射成 GET 请求的 HTTP 失败。
 
-Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由，并只对非终态 Run 做有限轮询。Issue、Patch、日志和诊断均按不可信纯文本渲染。V1 不提供前端创建表单、宽泛 CORS 或认证，因此默认部署不应直接暴露到公网。
+Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由，并只对非终态 Run 做有限轮询。Issue、Patch、日志和诊断均按不可信纯文本渲染。详情页 Generation 区域区分四种 Recorded Usage Status，并在有完整 Pricing Reference 时展示已记录用量的估算费用；价格缺失或 model 不匹配时显示不可用，不把未知 usage 显示成已知零。V1 不提供前端创建表单、宽泛 CORS 或认证，因此默认部署不应直接暴露到公网。
+
+### 可观测性边界
+
+可观测性分成两类，决策见 [ADR-003](adr/ADR-003-persisted-run-metrics-and-execution-telemetry.md)：
+
+- **Run Aggregate Metrics** 从 PostgreSQL 已持久化的 Verification Run 只读派生。终态、Generation Attempt、Recorded Model Usage 与 token 以数据库为权威，可跨重启重建；同一终态 Run 只贡献一次。
+- **Execution Telemetry** 记录本进程真实发生的沙箱执行。恢复后重跑按实际活动再次计时，不冒充持久化账本或 Evidence Report。
+
+指标通过 Actuator `/actuator/metrics` 读取。tag 仅使用封闭枚举；`runId`、model、Issue、仓库和异常文本不得成为维度。完整 Pricing Reference 才会注册费用 Gauge；金额是当前配置对已记录 usage 的估算下界，不是账单，也不持久化 Price Snapshot。
+
+默认 console 使用 Spring Boot 内建 Logstash JSON。领域事件经 `RunEvents` 写出固定 `event` 与白名单字段；`run_id` 只放在 MDC，避免与 key-value 重复。日志不回显 Issue 正文、Patch、完整沙箱日志、Idempotency-Key、异常 message 或 API Key。进程崩溃可以漏记或重复日志，不能当作恰好一次账本。
+
+观测失败不得覆盖 `SandboxExecution`、改变 Replay Verdict 或把 Run 写成 `FAILED`。
 
 ## 安全模型
 
@@ -143,11 +157,11 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - Candidate Draft 生成、Patch Gate 和最多三轮 Buggy-only 修正；
 - PostgreSQL Verification Run、租约 fencing 与崩溃恢复；
 - 生产 Worker、可恢复 Maven 执行策略与安全依赖预热；
+- Verification Run 的 REST API 与 Vue 列表/详情；
+- Run 聚合指标、沙箱执行遥测、结构化领域日志与估算费用；
 - 受控校准案例和一个真实 Spring 历史案例。
 
 尚未实现：
 
-- Verification Run 的 REST API 与结果界面；
-- 完整可观测性与费用指标；
 - 3–5 个真实历史 Bug 的 Agent Benchmark；
 - 示例报告、演示 Tag 与一条命令启动的交付包装。

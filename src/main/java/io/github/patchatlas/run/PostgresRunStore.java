@@ -223,6 +223,7 @@ public final class PostgresRunStore {
                                r.java_version, r.network_mode,
                                r.generation_attempt_count, r.model_provider, r.model_name,
                                r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
+                               r.model_usage_record_count,
                                r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
                                r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
                                c.patch_text, c.patch_sha256, c.target_class, c.target_method
@@ -365,8 +366,14 @@ public final class PostgresRunStore {
     }
 
     public Optional<ClaimedRun> claimNext(String owner, Duration leaseDuration) {
+        return claimNext(owner, leaseDuration, ignored -> {});
+    }
+
+    public Optional<ClaimedRun> claimNext(
+            String owner, Duration leaseDuration, java.util.function.Consumer<RunDetails> onRecoveryExhausted) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(leaseDuration, "leaseDuration");
+        Objects.requireNonNull(onRecoveryExhausted, "onRecoveryExhausted");
         if (owner.isBlank() || owner.length() > RunLease.MAX_OWNER_CHARS) {
             throw new IllegalArgumentException("invalid lease owner");
         }
@@ -375,7 +382,11 @@ public final class PostgresRunStore {
         }
         long leaseSeconds = Math.max(1L, leaseDuration.toSeconds());
 
-        return tx.execute(status -> claimNextInTransaction(owner, leaseSeconds));
+        java.util.List<RunDetails> exhausted = new java.util.ArrayList<>();
+        Optional<ClaimedRun> result = tx.execute(
+                status -> claimNextInTransaction(owner, leaseSeconds, exhausted));
+        exhausted.forEach(onRecoveryExhausted);
+        return result;
     }
 
     /**
@@ -538,6 +549,10 @@ public final class PostgresRunStore {
                                SET model_input_tokens = model_input_tokens + :inTok,
                                    model_output_tokens = model_output_tokens + :outTok,
                                    model_total_tokens = model_total_tokens + :totTok,
+                                   model_usage_record_count = CASE
+                                       WHEN model_usage_record_count IS NULL THEN NULL
+                                       ELSE model_usage_record_count + 1
+                                   END,
                                    version = :version,
                                    updated_at = CURRENT_TIMESTAMP
                              WHERE id = :id
@@ -875,7 +890,8 @@ public final class PostgresRunStore {
         });
     }
 
-    private Optional<ClaimedRun> claimNextInTransaction(String owner, long leaseSeconds) {
+    private Optional<ClaimedRun> claimNextInTransaction(
+            String owner, long leaseSeconds, java.util.List<RunDetails> exhausted) {
         // 有界重试：recovery 耗尽会消耗一行，继续找下一候选
         for (int attempt = 0; attempt < 32; attempt++) {
             Optional<UUID> candidateId = selectClaimCandidate();
@@ -895,6 +911,7 @@ public final class PostgresRunStore {
             // 过期接管
             if (!RunLeaseRules.canReclaim(row.recoveryCount)) {
                 markRecoveryExhausted(row);
+                findRun(row.id).ifPresent(exhausted::add);
                 continue;
             }
             return Optional.of(reclaimExpired(row, owner, leaseSeconds));
@@ -1387,7 +1404,8 @@ public final class PostgresRunStore {
                         rs.getString("model_name"),
                         rs.getLong("model_input_tokens"),
                         rs.getLong("model_output_tokens"),
-                        rs.getLong("model_total_tokens")),
+                        rs.getLong("model_total_tokens"),
+                        nullableInteger(rs, "model_usage_record_count")),
                 candidate,
                 verdict,
                 failure,
@@ -1512,6 +1530,14 @@ public final class PostgresRunStore {
 
     private static Instant toInstant(Timestamp ts) {
         return ts == null ? null : ts.toInstant();
+    }
+
+    private static Integer nullableInteger(ResultSet rs, String column) throws SQLException {
+        Object value = rs.getObject(column);
+        if (value == null) {
+            return null;
+        }
+        return ((Number) value).intValue();
     }
 
     private record ClaimRow(

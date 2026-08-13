@@ -4,7 +4,9 @@ import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
+import io.github.patchatlas.sandbox.SandboxExecutionObserver;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
+import io.github.patchatlas.sandbox.SandboxObservations;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -15,10 +17,17 @@ public final class DependencyWarmupRunner {
 
     private final SandboxRunner sandboxRunner;
     private final Path allowedWorkspaceRoot;
+    private final SandboxExecutionObserver observer;
 
     public DependencyWarmupRunner(SandboxRunner sandboxRunner, Path allowedWorkspaceRoot) {
+        this(sandboxRunner, allowedWorkspaceRoot, SandboxExecutionObserver.NOOP);
+    }
+
+    public DependencyWarmupRunner(
+            SandboxRunner sandboxRunner, Path allowedWorkspaceRoot, SandboxExecutionObserver observer) {
         this.sandboxRunner = Objects.requireNonNull(sandboxRunner, "sandboxRunner");
         this.allowedWorkspaceRoot = WorkspaceTrust.normalizeAllowedRoot(allowedWorkspaceRoot);
+        this.observer = Objects.requireNonNull(observer, "observer");
     }
 
     /**
@@ -35,6 +44,7 @@ public final class DependencyWarmupRunner {
         MavenDependencyWarmupCommand warmup = new MavenDependencyWarmupCommand(
                 command.modulePath(), command.testSelector(), command.javaVersion());
         SandboxExecution execution = sandboxRunner.execute(workspace, warmup);
+        SandboxObservations.recordSafely(observer, warmup, execution);
         if (execution.status() != SandboxExecutionStatus.COMPLETED) {
             return Optional.of("dependency warmup failed: " + execution.status().name());
         }

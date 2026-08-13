@@ -2,6 +2,8 @@ package io.github.patchatlas.replay;
 
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
+import io.github.patchatlas.sandbox.SandboxExecutionObserver;
+import io.github.patchatlas.sandbox.SandboxObservations;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,11 +21,19 @@ public final class SideReplayRunner {
     private final Path allowedWorkspaceRoot;
     private final SurefireReportCleaner cleaner;
     private final SurefireReportParser parser;
+    private final SandboxExecutionObserver observer;
+
     public SideReplayRunner(SandboxRunner sandboxRunner, Path allowedWorkspaceRoot) {
+        this(sandboxRunner, allowedWorkspaceRoot, SandboxExecutionObserver.NOOP);
+    }
+
+    public SideReplayRunner(
+            SandboxRunner sandboxRunner, Path allowedWorkspaceRoot, SandboxExecutionObserver observer) {
         this.sandboxRunner = Objects.requireNonNull(sandboxRunner, "sandboxRunner");
         this.allowedWorkspaceRoot = WorkspaceTrust.normalizeAllowedRoot(allowedWorkspaceRoot);
         this.cleaner = new SurefireReportCleaner();
         this.parser = new SurefireReportParser();
+        this.observer = Objects.requireNonNull(observer, "observer");
     }
 
     public SideExecutionResult runSide(Path workspace, MavenTestCommand command, TargetTest targetTest) {
@@ -52,6 +62,7 @@ public final class SideReplayRunner {
         }
 
         SandboxExecution execution = sandboxRunner.execute(workspace, command);
+        SandboxObservations.recordSafely(observer, command, execution);
 
         final Path reportsDir;
         try {

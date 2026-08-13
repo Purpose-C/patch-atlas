@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.observability.RunEvents;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,8 +73,11 @@ public final class RunWorkerDrain {
                 return Optional.empty();
             }
             return worker.processNext(owner);
+        } catch (StaleClaimException stale) {
+            RunEvents.claimStale(stale.runId());
+            return Optional.empty();
         } catch (RuntimeException ex) {
-            log.warn("worker tick failed: {}", ex.getClass().getSimpleName());
+            RunEvents.workerTickFailed(ex);
             return Optional.empty();
         } finally {
             tickLock.unlock();

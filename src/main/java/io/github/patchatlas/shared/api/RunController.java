@@ -1,5 +1,8 @@
 package io.github.patchatlas.shared.api;
 
+import io.github.patchatlas.observability.PricingReference;
+import io.github.patchatlas.observability.PricingSettings;
+import io.github.patchatlas.observability.RunEvents;
 import io.github.patchatlas.run.IdempotencyKey;
 import io.github.patchatlas.run.IdempotentSubmitResult;
 import io.github.patchatlas.run.PostgresRunStore;
@@ -29,9 +32,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class RunController {
 
     private final ObjectProvider<PostgresRunStore> storeProvider;
+    private final ObjectProvider<PricingSettings> pricingSettings;
 
-    public RunController(ObjectProvider<PostgresRunStore> storeProvider) {
+    public RunController(
+            ObjectProvider<PostgresRunStore> storeProvider,
+            ObjectProvider<PricingSettings> pricingSettings) {
         this.storeProvider = storeProvider;
+        this.pricingSettings = pricingSettings;
     }
 
     @PostMapping
@@ -44,12 +51,19 @@ public class RunController {
         String fingerprint = SubmissionFingerprint.sha256Hex(submission);
         IdempotentSubmitResult result = store.submitIdempotent(key, fingerprint, submission);
         return switch (result) {
-            case IdempotentSubmitResult.Accepted accepted -> ResponseEntity.accepted()
-                    .location(URI.create("/api/runs/" + accepted.runId()))
-                    .body(new RunCreateResponse(accepted.runId(), accepted.state().name()));
-            case IdempotentSubmitResult.Conflict ignored -> throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Idempotency-Key already used with a different request body");
+            case IdempotentSubmitResult.Accepted accepted -> {
+                RunEvents.runSubmitted(
+                        accepted.runId(), submission.mode(), accepted.state(), accepted.created());
+                yield ResponseEntity.accepted()
+                        .location(URI.create("/api/runs/" + accepted.runId()))
+                        .body(new RunCreateResponse(accepted.runId(), accepted.state().name()));
+            }
+            case IdempotentSubmitResult.Conflict conflict -> {
+                RunEvents.submissionConflict(conflict.existingRunId());
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Idempotency-Key already used with a different request body");
+            }
         };
     }
 
@@ -74,7 +88,9 @@ public class RunController {
         PostgresRunStore store = requireStore();
         RunDetailView detail = store.findRunDetail(runId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "run not found"));
-        return RunDtos.toDetailResponse(detail);
+        Optional<PricingReference> pricing =
+                Optional.ofNullable(pricingSettings.getIfAvailable()).flatMap(PricingSettings::reference);
+        return RunDtos.toDetailResponse(detail, pricing);
     }
 
     private PostgresRunStore requireStore() {

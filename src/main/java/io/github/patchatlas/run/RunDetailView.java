@@ -64,11 +64,17 @@ public record RunDetailView(
             String modelName,
             long inputTokens,
             long outputTokens,
-            long totalTokens) {
+            long totalTokens,
+            Integer usageRecordCount) {
         public GenerationMeta {
             if (attemptCount < 0) {
                 throw new IllegalArgumentException("attemptCount must not be negative");
             }
+            RecordedUsageStatus.from(usageRecordCount, attemptCount);
+        }
+
+        public RecordedUsageStatus usageStatus() {
+            return RecordedUsageStatus.from(usageRecordCount, attemptCount);
         }
     }
 
