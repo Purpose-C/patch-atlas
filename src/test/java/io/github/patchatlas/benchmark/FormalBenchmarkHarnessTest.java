@@ -24,6 +24,7 @@ import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -51,11 +52,10 @@ class FormalBenchmarkHarnessTest {
         if (!Files.isDirectory(workspaceRoot)) {
             throw new IllegalStateException("workspace root must be an existing directory");
         }
-        Path gitbugRoot = Path.of(requiredEnv("PATCHATLAS_GITBUG_JAVA_ROOT")).toRealPath();
-        Path bugsDirectory = gitbugRoot.resolve("data/bugs");
-        if (!Files.isDirectory(bugsDirectory)) {
-            throw new IllegalStateException("GitBug-Java data/bugs directory is missing");
-        }
+        boolean isDryRun = BenchmarkActions.DRY_RUN.equals(parsed);
+        List<GitBugJavaMetadataReader.CaseMetadata> metadata = isDryRun
+                ? List.of()
+                : readGitBugMetadata();
 
         DataSource dataSource = dataSource();
         BenchmarkArtifacts artifacts = new BenchmarkArtifacts();
@@ -69,7 +69,7 @@ class FormalBenchmarkHarnessTest {
         DependencyWarmupRunner warmup = new DependencyWarmupRunner(sandbox, workspaceRoot);
         TempCandidateWorkspaceFactory workspaces = new TempCandidateWorkspaceFactory(
                 workspaceRoot, new GitCloneWorkspaceFetcher());
-        TestGenerator generator = parsed.startsWith("agent-")
+        TestGenerator generator = parsed.startsWith("agent-") || BenchmarkActions.DRY_RUN.equals(parsed)
                 ? openAiGenerator()
                 : FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
                         CallFailureCategory.MODEL_CONFIGURATION_ERROR, "model not required"));
@@ -101,7 +101,7 @@ class FormalBenchmarkHarnessTest {
                 runStore,
                 replay,
                 new BenchmarkEvidenceExporter(),
-                new GitBugJavaMetadataReader().read(bugsDirectory),
+                metadata,
                 OWNER,
                 Issue2TestWorker.DEFAULT_LEASE);
         FormalBenchmarkRunner runner = new FormalBenchmarkRunner(
@@ -138,6 +138,15 @@ class FormalBenchmarkHarnessTest {
         return new SpringAiTestGenerator(
                 GeneratorConfiguration.identityForVendor(vendor, model),
                 OpenAiChatModelFactory.create(key, model, baseUrl));
+    }
+
+    private static List<GitBugJavaMetadataReader.CaseMetadata> readGitBugMetadata() throws java.io.IOException {
+        Path gitbugRoot = Path.of(requiredEnv("PATCHATLAS_GITBUG_JAVA_ROOT")).toRealPath();
+        Path bugsDirectory = gitbugRoot.resolve("data/bugs");
+        if (!Files.isDirectory(bugsDirectory)) {
+            throw new IllegalStateException("GitBug-Java data/bugs directory is missing");
+        }
+        return new GitBugJavaMetadataReader().read(bugsDirectory);
     }
 
     private static DataSource dataSource() {
