@@ -43,6 +43,7 @@ Spring Boot 模块化单体
     ├── agent：模型 adapter、Candidate Draft 解析与 Patch Gate
     ├── run：Verification Run 编排、租约恢复与 PostgreSQL 持久化
     ├── observability：Run 聚合指标、费用估算与结构化领域日志
+    ├── benchmark：Frozen Cohort 选样、Generator Context 构造、运行入口与证据导出
     └── shared：当前状态接口等薄入口
 ```
 
@@ -149,7 +150,7 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 
 已实现：
 
-- Spring Boot 与 Vue 基础纵向阶段；
+- Spring Boot 与 Vue 基础纵向能力；
 - 公开 GitHub 仓库和完整 Commit SHA 校验；
 - Docker Maven Runner、资源限制、超时清理与缓存复用；
 - Surefire XML 解析、失败分类与稳定性归约；

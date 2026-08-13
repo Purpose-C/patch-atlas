@@ -13,10 +13,8 @@ frontend/coverage/
 *.log
 *.orig
 .DS_Store
-graphify-out/*
-!graphify-out/GRAPH_REPORT.md
-!graphify-out/graph.html
-!graphify-out/graph.json
+# 知识图是生成产物：陈旧或索引到私有文档时会泄漏，重新生成并通过公开面闸门后再决定是否入库。
+graphify-out/
 .patch-atlas-cache/
 
 # 第三方仓库源码只保存在本地工作区，公开仓库仅提交案例元数据。
@@ -28,4 +26,6 @@ samples/
 
 tasks/
 AGENTS.md
+
+# 领域语言的对外副本在 docs/domain-language.md；本文件是 Agent 本地上下文，不入库。
 CONTEXT.md

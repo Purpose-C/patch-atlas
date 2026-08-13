@@ -70,7 +70,6 @@ patch-atlas/
 ├── fixtures/            可控的缺陷校准仓库
 ├── benchmark-cases/     真实历史案例元数据与执行证据
 ├── docs/                产品架构与工程决策
-├── graphify-out/        可交互代码知识图与结构报告
 ├── .github/workflows/   持续集成
 ├── pom.xml
 └── README.md
@@ -180,13 +179,9 @@ RUNNER=docker bash fixtures/off-by-one/run-replay.sh
 
 - [系统架构与设计决策](docs/architecture.md)
 - [ADR-003：Run 聚合指标与执行遥测](docs/adr/ADR-003-persisted-run-metrics-and-execution-telemetry.md)
-- [领域语言](CONTEXT.md)
+- [领域语言](docs/domain-language.md)
 - [Benchmark 方法与指标](benchmark-cases/README.md)
 - [spring-cloud-openfeign #1326 案例](benchmark-cases/spring-cloud-openfeign-1326.md)
-- [代码知识图报告](graphify-out/GRAPH_REPORT.md)
-- [交互式代码知识图](graphify-out/graph.html)
-
-知识图只索引公开产品代码，并提交最终报告、交互页面和机器可读 JSON。生成缓存、查询记忆和本地路径清单不会进入仓库。
 
 ## 安全边界
 

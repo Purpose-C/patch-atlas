@@ -10,9 +10,9 @@
 
 ## 背景
 
-把模型输出限制为 Candidate Test Patch，并由 Patch Gate 保护 workspace；又规定每个 Verification Run 最多持久化一个候选，并在候选提交时原子进入 `REPLAYING`。需要允许模型根据 Buggy 侧失败事实最多修正三轮。
+模型输出被限制为 Candidate Test Patch，并由 Patch Gate 保护 workspace；每个 Verification Run 最多持久化一个候选，并在候选提交时原子进入 `REPLAYING`。同时需要允许模型根据 Buggy 侧失败事实最多修正三轮。
 
-如果第一份语法合法的模型输出立刻成为已提交候选，后续修正就会要求覆盖候选行、让状态从 `REPLAYING` 倒退，或为一次 Run 保存多个候选。这三种做法都会破坏 的唯一候选与恢复不变量。
+如果第一份语法合法的模型输出立刻成为已提交候选，后续修正就会要求覆盖候选行、让状态从 `REPLAYING` 倒退，或为一次 Run 保存多个候选。这三种做法都会破坏唯一候选与崩溃恢复不变量。
 
 另一方面，如果把生成阶段的执行直接当作正式 Replay 证据，崩溃恢复、workspace 生命周期和证据持久化将耦合在一起。Historical Verification 也更容易让 Fixed 侧事实越过 Oracle 边界进入修正循环。
 
