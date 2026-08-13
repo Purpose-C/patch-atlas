@@ -18,7 +18,7 @@ RUNNER=docker bash run-replay.sh
 
 成功输出 `REPLAY OK`。脚本结束会自动把 fixture 还原到 fixed 状态。
 
-## 已知 caveat(待后续阶段替换)
+## 已知 caveat
 
 - docker 模式当前允许容器联网解析 Maven 依赖;生产版会改用预热的离线 `.m2` + `--network none`。
 - 这是可控 fixture,不是真实历史 Bug;真实 Defects4J / Spring 案例见 `benchmark-cases/`。
