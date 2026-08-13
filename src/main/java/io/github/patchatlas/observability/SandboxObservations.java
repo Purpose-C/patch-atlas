@@ -1,5 +1,6 @@
 package io.github.patchatlas.observability;
 
+import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.sandbox.MavenSandboxCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;

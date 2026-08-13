@@ -2,7 +2,7 @@ package io.github.patchatlas.shared.api;
 
 import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.observability.PricingSettings;
-import io.github.patchatlas.observability.RunEvents;
+import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.run.IdempotencyKey;
 import io.github.patchatlas.run.IdempotentSubmitResult;
 import io.github.patchatlas.run.PostgresRunStore;

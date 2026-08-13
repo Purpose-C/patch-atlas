@@ -4,6 +4,7 @@ import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.GenerationFeedback;
 import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import java.util.Objects;
+import java.util.Optional;
 
 /** 单次调用失败 → 可修正反馈或终态 RunFailure。 */
 final class CallFailureMapper {
@@ -15,6 +16,15 @@ final class CallFailureMapper {
     }
 
     private CallFailureMapper() {}
+
+    /** 将 Outcome 适配为统一编排决策（Correctable → Retry，Terminal → Fail）。 */
+    public static CandidateGenerationCoordinator.AttemptDecision toDecision(Outcome outcome) {
+        return switch (outcome) {
+            case Outcome.Correctable c -> new CandidateGenerationCoordinator.AttemptDecision.Retry(
+                    Optional.empty(), c.feedback());
+            case Outcome.Terminal t -> new CandidateGenerationCoordinator.AttemptDecision.Fail(t.failure());
+        };
+    }
 
     public static Outcome map(CallFailureCategory category, String summary, boolean hasRemainingQuota) {
         Objects.requireNonNull(category, "category");

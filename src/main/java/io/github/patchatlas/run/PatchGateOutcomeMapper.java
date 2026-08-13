@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.GenerationFeedback;
 import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.agent.PatchRejectionCategory;
@@ -18,6 +19,17 @@ final class PatchGateOutcomeMapper {
     }
 
     private PatchGateOutcomeMapper() {}
+
+    /** 将 Outcome 适配为统一编排决策（Correctable → Retry，Terminal → Fail）。
+     * Retry 的 draft 由调用方提供（gate 拒绝时保留当前 draft 以便修正）。 */
+    public static CandidateGenerationCoordinator.AttemptDecision toDecision(
+            Outcome outcome, CandidateDraft draft) {
+        return switch (outcome) {
+            case Outcome.Correctable c -> new CandidateGenerationCoordinator.AttemptDecision.Retry(
+                    Optional.of(draft), c.feedback());
+            case Outcome.Terminal t -> new CandidateGenerationCoordinator.AttemptDecision.Fail(t.failure());
+        };
+    }
 
     public static Outcome map(PatchRejectionCategory category, String reason) {
         Objects.requireNonNull(category, "category");

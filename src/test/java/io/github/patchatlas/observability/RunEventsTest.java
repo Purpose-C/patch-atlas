@@ -10,6 +10,8 @@ import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FailureCategory;
 import io.github.patchatlas.run.FailureStage;
+import io.github.patchatlas.run.RunCorrelation;
+import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.run.RunFailure;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;

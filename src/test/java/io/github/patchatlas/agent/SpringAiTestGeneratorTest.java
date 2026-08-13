@@ -9,6 +9,7 @@ import com.openai.errors.RateLimitException;
 import com.openai.errors.UnauthorizedException;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.TargetTest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,80 @@ class SpringAiTestGeneratorTest {
         assertThat(captured.toString()).contains("feedback.category=STRUCTURED_OUTPUT_INVALID");
         assertThat(captured.toString()).contains("feedback.summary=bad envelope");
         assertThat(captured.toString()).doesNotContain("previousDraft");
+    }
+
+    @Test
+    void retriesHttp429WithBoundedBackoffWithoutChangingLogicalAttempt() {
+        AtomicInteger calls = new AtomicInteger();
+        List<Duration> delays = new ArrayList<>();
+        ChatModel model = prompt -> {
+            if (calls.incrementAndGet() <= 3) {
+                throw rateLimit();
+            }
+            return response(
+                    "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 1, 1, 2);
+        };
+        SpringAiTestGenerator generator = new SpringAiTestGenerator(
+                GeneratorIdentity.openai("gpt-test"),
+                model,
+                new CandidateDraftParser(),
+                delays::add);
+        assertThat(generator.generate(GenerationRequest.first(sampleInput(), 1)))
+                .isInstanceOf(GenerationResult.GeneratedDraft.class);
+        assertThat(calls.get()).isEqualTo(4);
+        assertThat(delays).containsExactly(
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(10),
+                Duration.ofSeconds(20));
+    }
+
+    @Test
+    void exhaustedHttp429RetriesMapToUnavailable() {
+        AtomicInteger calls = new AtomicInteger();
+        ChatModel model = prompt -> {
+            calls.incrementAndGet();
+            throw rateLimit();
+        };
+        SpringAiTestGenerator generator = new SpringAiTestGenerator(
+                GeneratorIdentity.openai("gpt-test"),
+                model,
+                new CandidateDraftParser(),
+                delay -> {});
+        GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
+        assertThat(result).isInstanceOf(GenerationResult.GenerationCallFailure.class);
+        assertThat(((GenerationResult.GenerationCallFailure) result).category())
+                .isEqualTo(CallFailureCategory.MODEL_UNAVAILABLE);
+        assertThat(calls.get()).isEqualTo(5);
+    }
+
+    @Test
+    void backoffDelayFollowsFiveTenTwentyFortySequence() {
+        assertThat(SpringAiTestGenerator.backoffDelay(0)).isEqualTo(Duration.ofSeconds(5));
+        assertThat(SpringAiTestGenerator.backoffDelay(1)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(SpringAiTestGenerator.backoffDelay(2)).isEqualTo(Duration.ofSeconds(20));
+        assertThat(SpringAiTestGenerator.backoffDelay(3)).isEqualTo(Duration.ofSeconds(40));
+    }
+
+    @Test
+    void exhaustedHttp429BackoffWaitsAtLeastSeventySeconds() {
+        List<Duration> delays = new ArrayList<>();
+        ChatModel model = prompt -> {
+            throw rateLimit();
+        };
+        SpringAiTestGenerator generator = new SpringAiTestGenerator(
+                GeneratorIdentity.openai("gpt-test"),
+                model,
+                new CandidateDraftParser(),
+                delays::add);
+        GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
+        assertThat(result).isInstanceOf(GenerationResult.GenerationCallFailure.class);
+        Duration total = delays.stream().reduce(Duration.ZERO, Duration::plus);
+        assertThat(total).isGreaterThanOrEqualTo(Duration.ofSeconds(70));
+    }
+
+    @Test
+    void backoffDelayCapsAtSixtySeconds() {
+        assertThat(SpringAiTestGenerator.backoffDelay(4)).isEqualTo(Duration.ofSeconds(60));
     }
 
     @Test

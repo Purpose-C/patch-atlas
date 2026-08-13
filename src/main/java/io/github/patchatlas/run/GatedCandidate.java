@@ -11,7 +11,7 @@ public final class GatedCandidate {
 
     private final PersistedCandidatePatch patch;
 
-    private GatedCandidate(PersistedCandidatePatch patch) {
+    GatedCandidate(PersistedCandidatePatch patch) {
         this.patch = Objects.requireNonNull(patch, "patch");
     }
 

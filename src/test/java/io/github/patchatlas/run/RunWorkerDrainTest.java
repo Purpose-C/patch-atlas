@@ -142,7 +142,7 @@ class RunWorkerDrainTest {
     void staleClaimLogsClaimStaleNotTickFailed() {
         ch.qos.logback.classic.Logger logger =
                 (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
-                        io.github.patchatlas.observability.RunEvents.class);
+                        io.github.patchatlas.run.RunEvents.class);
         ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
                 new ch.qos.logback.core.read.ListAppender<>();
         appender.start();

@@ -67,6 +67,7 @@ patchatlas:
     openai:
       model: ${PATCHATLAS_OPENAI_MODEL:}
       base-url: ${PATCHATLAS_OPENAI_BASE_URL:https://api.openai.com}
+      vendor: ${PATCHATLAS_OPENAI_VENDOR:openai}
   observability:
     pricing:
       provider: ${PATCHATLAS_PRICING_PROVIDER:}

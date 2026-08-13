@@ -19,7 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * 真实 PostgreSQL 上 Flyway V1 三表与关键约束 smoke。
+ * 真实 PostgreSQL 上 Flyway 迁移与关键约束 smoke。
  * 默认被 excludedGroups 排除；{@code -Dgroups=database} 启用。
  */
 @Tag("database")
@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(6);
+        assertThat(first.migrationsExecuted).isEqualTo(7);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();

@@ -188,3 +188,7 @@ RUNNER=docker bash fixtures/off-by-one/run-replay.sh
 Issue、源码、构建日志和模型输出均视为不可信输入。当前沙箱不挂载主机 Home、Docker Socket 或 API Key，并限制 CPU、内存、PID 与执行时间。
 
 V1 是单用户、自托管工具。联网容器仍使用 Docker bridge，共享 Maven 缓存也存在依赖投毒风险，因此当前实现不具备公开多租户安全边界。
+
+## License
+
+本项目代码以 [Apache License 2.0](LICENSE) 发布。第三方仓库源码仅在本地工作区使用，不纳入版本控制。

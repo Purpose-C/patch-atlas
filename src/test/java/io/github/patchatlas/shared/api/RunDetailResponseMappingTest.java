@@ -112,6 +112,35 @@ class RunDetailResponseMappingTest {
         assertThat(response.generation().estimatedCost()).isNull();
     }
 
+    @Test
+    void noneRecordedWithAttemptsOmitsCostEvenWithPricingConfigured() {
+        PricingReference pricing = PricingReference.parse(new PricingFields(
+                        "openai", "gpt-4.1-mini", "2.00", "8.00", "2026-08-13", "fixture"))
+                .orElseThrow();
+
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(3, "openai", "gpt-4.1-mini", 0, 0, 0, 0),
+                Optional.of(pricing));
+
+        assertThat(response.generation().usageStatus()).isEqualTo("NONE_RECORDED");
+        assertThat(response.generation().estimatedCost()).isNull();
+    }
+
+    @Test
+    void noneRecordedZeroAttemptsShowsZeroCostForCalibrationRun() {
+        PricingReference pricing = PricingReference.parse(new PricingFields(
+                        "openai", "gpt-4.1-mini", "2.00", "8.00", "2026-08-13", "fixture"))
+                .orElseThrow();
+
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, "openai", "gpt-4.1-mini", 0, 0, 0, 0),
+                Optional.of(pricing));
+
+        assertThat(response.generation().usageStatus()).isEqualTo("NONE_RECORDED");
+        assertThat(response.generation().estimatedCost()).isNotNull();
+        assertThat(response.generation().estimatedCost().amount()).isEqualTo("0.00000000");
+    }
+
     private static String status(int attempts, Integer records) {
         return RunDtos.toDetailResponse(
                         detail(attempts, "openai", "gpt-4.1-mini", 1, 1, 2, records), Optional.empty())

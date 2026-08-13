@@ -1,4 +1,4 @@
-package io.github.patchatlas.observability;
+package io.github.patchatlas.run;
 
 import java.util.UUID;
 import org.slf4j.MDC;

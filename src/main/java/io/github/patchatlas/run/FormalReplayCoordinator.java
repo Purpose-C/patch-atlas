@@ -4,7 +4,7 @@ import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.PatchRejectionCategory;
-import io.github.patchatlas.observability.RunEvents;
+import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.time.Duration;

@@ -47,7 +47,7 @@ Spring Boot 模块化单体
     └── shared：当前状态接口等薄入口
 ```
 
-依赖方向保持为 `run → agent / replay / repository / sandbox`；`observability` 只读 Run 事实并观察沙箱执行，不改写终态。`agent` 不依赖 `run`，也无法取得 Fixed Revision 等 Oracle Data。尚未出现真实调用链的 `analysis` 与 `report` 不提前创建空接口或模块。
+依赖方向保持为 `run → agent / replay / repository / sandbox`；`observability` 只读 Run 事实并观察沙箱执行，不改写终态。`RunEvents` 和 `RunCorrelation` 属于 `run` 包（领域事件是 run 的横切关注点），`observability` 通过 `SandboxObservations` 调用它们——这是 `observability → run` 的单向依赖，不构成环。`agent` 不依赖 `run`，也无法取得 Fixed Revision 等 Oracle Data。尚未出现真实调用链的 `analysis` 与 `report` 不提前创建空接口或模块。
 
 ## 设计决策
 

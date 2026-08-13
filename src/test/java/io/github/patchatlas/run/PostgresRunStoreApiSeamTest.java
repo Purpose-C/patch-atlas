@@ -286,6 +286,24 @@ class PostgresRunStoreApiSeamTest {
                 .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
     }
 
+    @Test
+    void findRunByCaseReturnsExistingPurposeScopedRun() {
+        UUID agentId = store.submitAgentBenchmark(liveSubmission("shared-case"));
+        ClaimedRun calibration = store.startCalibration(
+                historicalSubmission("shared-case"),
+                GatedCandidateTestHelper.gated(PersistedCandidatePatch.fromAccepted(PATCH, TARGET)),
+                "calibrator",
+                Duration.ofMinutes(5));
+
+        RunDetailView agent = store.findRunByCase("shared-case", RunPurpose.AGENT_BENCHMARK).orElseThrow();
+        RunDetailView cal = store.findRunByCase("shared-case", RunPurpose.CALIBRATION).orElseThrow();
+
+        assertThat(agent.runId()).isEqualTo(agentId);
+        assertThat(cal.runId()).isEqualTo(calibration.runId());
+        assertThat(store.findRunByCase("shared-case", RunPurpose.STANDARD)).isEmpty();
+        assertThat(store.findRunByCase("missing-case", RunPurpose.AGENT_BENCHMARK)).isEmpty();
+    }
+
     private ClaimedRun claimAndGenerate(String caseId) {
         RunSubmission s = liveSubmission(caseId);
         store.submitIdempotent(

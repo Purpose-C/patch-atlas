@@ -11,6 +11,7 @@ import com.openai.errors.UnauthorizedException;
 import com.openai.errors.UnexpectedStatusCodeException;
 import com.openai.errors.UnprocessableEntityException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,9 +32,19 @@ import org.springframework.ai.chat.prompt.Prompt;
 /**
  * 单次模型调用 adapter：构造 prompt → Spring AI {@link ChatModel} → 严格 Draft 解析。
  *
- * <p>异常在边界映射为稳定枚举摘要，不回显供应商正文/URL/凭据。传输层仅对可恢复失败重试一次。
+ * <p>异常在边界映射为稳定枚举摘要，不回显供应商正文/URL/凭据。
+ * 对 HTTP 429 与其它可恢复传输失败施加有界指数退避（最多 4 次重试，序列 5/10/20/40 秒，
+ * 累计上限 75 秒、单次上限 60 秒），退避不消耗逻辑 Generation Attempt。
  */
 public final class SpringAiTestGenerator implements TestGenerator {
+
+    static final int MAX_TRANSPORT_RETRIES = 4;
+    static final Duration MAX_BACKOFF = Duration.ofSeconds(60);
+
+    @FunctionalInterface
+    interface Sleeper {
+        void sleep(Duration delay) throws InterruptedException;
+    }
 
     private static final Pattern SENSITIVE =
             Pattern.compile("(?i)(api[_-]?key|password|secret|token|authorization)\\s*[=:]\\s*\\S+");
@@ -43,6 +54,7 @@ public final class SpringAiTestGenerator implements TestGenerator {
     private final GeneratorIdentity identity;
     private final ChatModel chatModel;
     private final CandidateDraftParser draftParser;
+    private final Sleeper sleeper;
 
     public SpringAiTestGenerator(GeneratorIdentity identity, ChatModel chatModel) {
         this(identity, chatModel, new CandidateDraftParser());
@@ -50,12 +62,21 @@ public final class SpringAiTestGenerator implements TestGenerator {
 
     public SpringAiTestGenerator(
             GeneratorIdentity identity, ChatModel chatModel, CandidateDraftParser draftParser) {
+        this(identity, chatModel, draftParser, SpringAiTestGenerator::sleepUninterruptibly);
+    }
+
+    SpringAiTestGenerator(
+            GeneratorIdentity identity,
+            ChatModel chatModel,
+            CandidateDraftParser draftParser,
+            Sleeper sleeper) {
         this.identity = Objects.requireNonNull(identity, "identity");
-        if (!"openai".equals(identity.provider())) {
-            throw new IllegalArgumentException("SpringAiTestGenerator requires openai provider");
+        if (!"openai".equals(identity.provider()) && !"agnes".equals(identity.provider())) {
+            throw new IllegalArgumentException("SpringAiTestGenerator requires openai or agnes provider");
         }
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
         this.draftParser = Objects.requireNonNull(draftParser, "draftParser");
+        this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
     }
 
     @Override
@@ -77,7 +98,7 @@ public final class SpringAiTestGenerator implements TestGenerator {
 
         final ChatResponse response;
         try {
-            response = callWithOneTransportRetry(prompt);
+            response = callWithBoundedBackoff(prompt);
         } catch (MappedCallFailure mapped) {
             return new GenerationResult.GenerationCallFailure(
                     mapped.category(), stableSummary(mapped.category(), mapped.cause()));
@@ -118,20 +139,37 @@ public final class SpringAiTestGenerator implements TestGenerator {
         };
     }
 
-    private ChatResponse callWithOneTransportRetry(Prompt prompt) throws MappedCallFailure {
-        try {
-            return chatModel.call(prompt);
-        } catch (RuntimeException first) {
-            CallFailureCategory category = mapException(first);
-            if (category != CallFailureCategory.MODEL_UNAVAILABLE || !isTransportRetryable(first)) {
-                throw new MappedCallFailure(category, first);
-            }
+    private ChatResponse callWithBoundedBackoff(Prompt prompt) throws MappedCallFailure {
+        RuntimeException last = null;
+        for (int attempt = 0; attempt <= MAX_TRANSPORT_RETRIES; attempt++) {
             try {
                 return chatModel.call(prompt);
-            } catch (RuntimeException second) {
-                throw new MappedCallFailure(mapException(second), second);
+            } catch (RuntimeException ex) {
+                last = ex;
+                CallFailureCategory category = mapException(ex);
+                if (category != CallFailureCategory.MODEL_UNAVAILABLE
+                        || !isTransportRetryable(ex)
+                        || attempt == MAX_TRANSPORT_RETRIES) {
+                    throw new MappedCallFailure(category, ex);
+                }
+                try {
+                    sleeper.sleep(backoffDelay(attempt));
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new MappedCallFailure(CallFailureCategory.MODEL_UNAVAILABLE, interrupted);
+                }
             }
         }
+        throw new MappedCallFailure(CallFailureCategory.MODEL_UNAVAILABLE, last);
+    }
+
+    static Duration backoffDelay(int failedAttemptIndex) {
+        long seconds = Math.min(MAX_BACKOFF.toSeconds(), 5L << failedAttemptIndex);
+        return Duration.ofSeconds(seconds);
+    }
+
+    private static void sleepUninterruptibly(Duration delay) throws InterruptedException {
+        Thread.sleep(delay.toMillis());
     }
 
     static CallFailureCategory mapException(Throwable ex) {

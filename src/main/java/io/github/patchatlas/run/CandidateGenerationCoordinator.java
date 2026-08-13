@@ -33,6 +33,22 @@ public final class CandidateGenerationCoordinator {
         record RunFailed(RunDetails details) implements Result {}
     }
 
+    /**
+     * 单次 attempt 的统一编排决策：提交候选 / 带反馈重试 / 终态失败。
+     *
+     * <p>三个 mapper 的 Outcome 经 {@code toDecision(...)} 适配为此类型，让 {@link #run}
+     * 的控制流保持扁平。Success → Commit，Correctable → Retry，Terminal → Fail。
+     */
+    public sealed interface AttemptDecision
+            permits AttemptDecision.Commit, AttemptDecision.Retry, AttemptDecision.Fail {
+        record Commit(GatedCandidate gated) implements AttemptDecision {}
+
+        record Retry(Optional<CandidateDraft> draft, GenerationFeedback feedback)
+                implements AttemptDecision {}
+
+        record Fail(RunFailure failure) implements AttemptDecision {}
+    }
+
     private final TestGenerator generator;
     private final PatchGate patchGate;
     private final CandidateWorkspaceFactory workspaceFactory;
@@ -78,118 +94,37 @@ public final class CandidateGenerationCoordinator {
             GeneratorIdentity identity = generator.identity();
             GenerationRunSession.ReserveResult reserveResult =
                     session.reserveGenerationAttempt(identity.provider(), identity.modelName());
-            switch (reserveResult) {
-                case GenerationRunSession.ReserveResult.Exhausted exhausted -> {
-                    return new Result.RunFailed(exhausted.failedRun());
+            if (reserveResult instanceof GenerationRunSession.ReserveResult.Exhausted exhausted) {
+                return new Result.RunFailed(exhausted.failedRun());
+            }
+            if (reserveResult instanceof GenerationRunSession.ReserveResult.Stale stale) {
+                throw stale.cause();
+            }
+            GenerationRunSession.ReserveResult.Reserved slot =
+                    (GenerationRunSession.ReserveResult.Reserved) reserveResult;
+            int ordinal = slot.attemptOrdinal();
+            ClaimedRun claimAfterReserve = slot.claim();
+
+            GenerationRequest request = buildRequest(generationInput, ordinal, previousDraft, feedback);
+            GenerationResult call = generator.generate(request);
+            recordUsageIfPresent(session, call.usage());
+
+            AttemptDecision decision = decideAttempt(
+                    call, ordinal, claimAfterReserve, generationInput, executionPolicy);
+            switch (decision) {
+                case AttemptDecision.Commit commit -> {
+                    // commitCandidate 移出 workspace try 范围：
+                    // 提交期的任何数据库错误都应向上传播，让 Run 经租约过期恢复，
+                    // 而不是被 workspace catch 吞掉、错误地终结为 WORKSPACE_UNSAFE。
+                    ClaimedRun replaying = session.commitCandidate(commit.gated());
+                    return new Result.CandidateCommitted(replaying);
                 }
-                case GenerationRunSession.ReserveResult.Stale stale -> throw stale.cause();
-                case GenerationRunSession.ReserveResult.Reserved slot -> {
-                    int ordinal = slot.attemptOrdinal();
-                    ClaimedRun claimAfterReserve = slot.claim();
-
-                    GenerationRequest request;
-                    if (previousDraft.isPresent()) {
-                        request = GenerationRequest.correction(
-                                generationInput,
-                                ordinal,
-                                previousDraft.orElseThrow(),
-                                feedback.orElseThrow());
-                    } else if (feedback.isPresent()) {
-                        request = GenerationRequest.feedbackOnly(
-                                generationInput, ordinal, feedback.orElseThrow());
-                    } else {
-                        request = GenerationRequest.first(generationInput, ordinal);
-                    }
-
-                    GenerationResult call = generator.generate(request);
-                    recordUsageIfPresent(session, call.usage());
-
-                    switch (call) {
-                        case GenerationResult.GenerationCallFailure failure -> {
-                            boolean remaining = ordinal < GenerationRequest.MAX_ATTEMPTS;
-                            CallFailureMapper.Outcome mapped = CallFailureMapper.map(
-                                    failure.category(), failure.summary(), remaining);
-                            switch (mapped) {
-                                case CallFailureMapper.Outcome.Terminal terminal -> {
-                                    return new Result.RunFailed(session.fail(terminal.failure()));
-                                }
-                                case CallFailureMapper.Outcome.Correctable correctable -> {
-                                    previousDraft = Optional.empty();
-                                    feedback = Optional.of(correctable.feedback());
-                                    continue;
-                                }
-                            }
-                        }
-                        case GenerationResult.GeneratedDraft draftResult -> {
-                            CandidateDraft draft = draftResult.draft();
-                            // 使用预占后的 claim，避免 currentClaim 与心跳竞态
-                            try (CandidateWorkspaceFactory.WorkspaceSession workspace =
-                                    workspaceFactory.open(
-                                            claimAfterReserve, generationInput, executionPolicy)) {
-                                MavenTestCommand command = commandForDraft(workspace, draft);
-                                Optional<String> warmupFailure = dependencyWarmupRunner.warm(
-                                        workspace.workspace(), command);
-                                if (warmupFailure.isPresent()) {
-                                    return new Result.RunFailed(session.fail(new RunFailure(
-                                            FailureStage.REPLAY,
-                                            FailureCategory.REPLAY_SYSTEM_ERROR,
-                                            warmupFailure.orElseThrow())));
-                                }
-                                PatchPreparationResult prepared = patchGate.prepare(
-                                        workspace.workspace(),
-                                        workspace.modulePath(),
-                                        draft,
-                                        workspace.executionPolicy());
-                                if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
-                                    PatchGateOutcomeMapper.Outcome gateOutcome =
-                                            PatchGateOutcomeMapper.map(
-                                                    rejected.category(), rejected.reason());
-                                    switch (gateOutcome) {
-                                        case PatchGateOutcomeMapper.Outcome.Terminal terminal -> {
-                                            return new Result.RunFailed(session.fail(terminal.failure()));
-                                        }
-                                        case PatchGateOutcomeMapper.Outcome.Correctable correctable -> {
-                                            previousDraft = Optional.of(draft);
-                                            feedback = Optional.of(correctable.feedback());
-                                            continue;
-                                        }
-                                    }
-                                }
-                                PatchPreparationResult.PreparedCandidate preparedOk =
-                                        (PatchPreparationResult.PreparedCandidate) prepared;
-
-                                SideExecutionResult side = sideReplayRunner.runSide(
-                                        preparedOk.workspace(),
-                                        preparedOk.command(),
-                                        preparedOk.targetTest());
-                                PrevalidationFeedbackMapper.Outcome pre =
-                                        PrevalidationFeedbackMapper.map(side);
-                                switch (pre) {
-                                    case PrevalidationFeedbackMapper.Outcome.Success ignored -> {
-                                        GatedCandidate gated = GatedCandidate.afterSuccessfulGate(
-                                                draft, preparedOk);
-                                        ClaimedRun replaying = session.commitCandidate(gated);
-                                        return new Result.CandidateCommitted(replaying);
-                                    }
-                                    case PrevalidationFeedbackMapper.Outcome.Correctable correctable -> {
-                                        previousDraft = Optional.of(draft);
-                                        feedback = Optional.of(correctable.feedback());
-                                        continue;
-                                    }
-                                    case PrevalidationFeedbackMapper.Outcome.Terminal terminal -> {
-                                        return new Result.RunFailed(session.fail(terminal.failure()));
-                                    }
-                                }
-                            } catch (StaleClaimException stale) {
-                                throw stale;
-                            } catch (Exception ex) {
-                                return new Result.RunFailed(session.fail(new RunFailure(
-                                        FailureStage.WORKSPACE,
-                                        FailureCategory.WORKSPACE_UNSAFE,
-                                        bound("workspace: " + ex.getClass().getSimpleName()))));
-                            }
-                        }
-                    }
+                case AttemptDecision.Retry retry -> {
+                    previousDraft = retry.draft();
+                    feedback = Optional.of(retry.feedback());
+                }
+                case AttemptDecision.Fail fail -> {
+                    return new Result.RunFailed(session.fail(fail.failure()));
                 }
             }
         }
@@ -197,6 +132,84 @@ public final class CandidateGenerationCoordinator {
                 FailureStage.GENERATION,
                 FailureCategory.GENERATION_EXHAUSTED,
                 "generation attempts exhausted")));
+    }
+
+    /** 根据模型调用结果分派到调用失败映射或 workspace 预验证编排，返回统一决策。 */
+    private AttemptDecision decideAttempt(
+            GenerationResult call,
+            int ordinal,
+            ClaimedRun claimAfterReserve,
+            GenerationInput generationInput,
+            MavenExecutionPolicy executionPolicy) {
+        if (call instanceof GenerationResult.GenerationCallFailure failure) {
+            boolean remaining = ordinal < GenerationRequest.MAX_ATTEMPTS;
+            return CallFailureMapper.toDecision(
+                    CallFailureMapper.map(failure.category(), failure.summary(), remaining));
+        }
+        CandidateDraft draft = ((GenerationResult.GeneratedDraft) call).draft();
+        return attemptInWorkspace(draft, claimAfterReserve, generationInput, executionPolicy);
+    }
+
+    /**
+     * 打开 workspace → 预热 → Gate → 预验证，返回统一决策。
+     *
+     * <p>catch 仅覆盖 workspace 操作（open/prepare/runSide）；{@code commitCandidate}
+     * 不在此范围内调用，故 commit 期的 StaleClaimException 不会被误判为 WORKSPACE_UNSAFE。
+     * workspace 期 StaleClaimException 直接抛出（lease fencing 不得被吞）。
+     */
+    private AttemptDecision attemptInWorkspace(
+            CandidateDraft draft,
+            ClaimedRun claimAfterReserve,
+            GenerationInput generationInput,
+            MavenExecutionPolicy executionPolicy) {
+        try (CandidateWorkspaceFactory.WorkspaceSession workspace =
+                workspaceFactory.open(claimAfterReserve, generationInput, executionPolicy)) {
+            MavenTestCommand command = commandForDraft(workspace, draft);
+            Optional<String> warmupFailure = dependencyWarmupRunner.warm(workspace.workspace(), command);
+            if (warmupFailure.isPresent()) {
+                return new AttemptDecision.Fail(new RunFailure(
+                        FailureStage.REPLAY,
+                        FailureCategory.REPLAY_SYSTEM_ERROR,
+                        warmupFailure.orElseThrow()));
+            }
+            PatchPreparationResult prepared = patchGate.prepare(
+                    workspace.workspace(),
+                    workspace.modulePath(),
+                    draft,
+                    workspace.executionPolicy());
+            if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
+                return PatchGateOutcomeMapper.toDecision(
+                        PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()), draft);
+            }
+            PatchPreparationResult.PreparedCandidate preparedOk =
+                    (PatchPreparationResult.PreparedCandidate) prepared;
+            SideExecutionResult side = sideReplayRunner.runSide(
+                    preparedOk.workspace(), preparedOk.command(), preparedOk.targetTest());
+            return PrevalidationFeedbackMapper.toDecision(
+                    PrevalidationFeedbackMapper.map(side), draft, preparedOk);
+        } catch (StaleClaimException stale) {
+            throw stale;
+        } catch (Exception ex) {
+            return new AttemptDecision.Fail(new RunFailure(
+                    FailureStage.WORKSPACE,
+                    FailureCategory.WORKSPACE_UNSAFE,
+                    bound("workspace: " + ex.getClass().getSimpleName())));
+        }
+    }
+
+    private static GenerationRequest buildRequest(
+            GenerationInput generationInput,
+            int ordinal,
+            Optional<CandidateDraft> previousDraft,
+            Optional<GenerationFeedback> feedback) {
+        if (previousDraft.isPresent()) {
+            return GenerationRequest.correction(
+                    generationInput, ordinal, previousDraft.orElseThrow(), feedback.orElseThrow());
+        }
+        if (feedback.isPresent()) {
+            return GenerationRequest.feedbackOnly(generationInput, ordinal, feedback.orElseThrow());
+        }
+        return GenerationRequest.first(generationInput, ordinal);
     }
 
     private static void recordUsageIfPresent(GenerationRunSession session, Optional<ModelUsage> usage) {

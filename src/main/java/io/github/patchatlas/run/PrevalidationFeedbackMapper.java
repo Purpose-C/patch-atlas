@@ -1,7 +1,9 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.GenerationFeedback;
 import io.github.patchatlas.agent.GenerationFeedbackCategory;
+import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.AttemptPhase;
 import io.github.patchatlas.replay.RunOutcome;
@@ -23,6 +25,19 @@ final class PrevalidationFeedbackMapper {
     }
 
     private PrevalidationFeedbackMapper() {}
+
+    /** 将 Outcome 适配为统一编排决策（Success → Commit，Correctable → Retry，Terminal → Fail）。
+     * Commit 的 GatedCandidate / Retry 的 draft 由调用方提供。 */
+    public static CandidateGenerationCoordinator.AttemptDecision toDecision(
+            Outcome outcome, CandidateDraft draft, PatchPreparationResult.PreparedCandidate prepared) {
+        return switch (outcome) {
+            case Outcome.Success ignored -> new CandidateGenerationCoordinator.AttemptDecision.Commit(
+                    GatedCandidate.afterSuccessfulGate(draft, prepared));
+            case Outcome.Correctable c -> new CandidateGenerationCoordinator.AttemptDecision.Retry(
+                    Optional.of(draft), c.feedback());
+            case Outcome.Terminal t -> new CandidateGenerationCoordinator.AttemptDecision.Fail(t.failure());
+        };
+    }
 
     public static Outcome map(SideExecutionResult side) {
         Objects.requireNonNull(side, "side");

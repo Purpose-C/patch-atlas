@@ -352,8 +352,51 @@ public final class PostgresRunStore {
         if (header.isEmpty()) {
             return Optional.empty();
         }
-        RunDetailView base = header.orElseThrow();
-        List<RunAttemptView> attempts = loadAttemptViews(runId, base.candidate().map(c -> c.targetTest()));
+        return completeDetail(header.orElseThrow());
+    }
+
+    /**
+     * 只读查找同一 caseId + Run Purpose 的正式 Run；用于 Benchmark 幂等，不创建映射表。
+     */
+    public Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose) {
+        Objects.requireNonNull(caseId, "caseId");
+        Objects.requireNonNull(purpose, "purpose");
+        if (caseId.isBlank()) {
+            throw new IllegalArgumentException("caseId must not be blank");
+        }
+        Optional<RunDetailView> header = jdbc.sql(
+                        """
+                        SELECT r.id, r.mode, r.run_purpose, r.state, r.case_id,
+                               r.repository_url, r.issue_url, r.issue_title, r.issue_body,
+                               r.buggy_revision, r.fixed_revision, r.module_path,
+                               r.java_version, r.network_mode,
+                               r.generation_attempt_count, r.model_provider, r.model_name,
+                               r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
+                               r.model_usage_record_count,
+                               r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
+                               r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
+                          FROM verification_run r
+                          LEFT JOIN candidate_test_patch c ON c.run_id = r.id
+                         WHERE r.case_id = :caseId
+                           AND r.run_purpose = :purpose
+                         ORDER BY r.created_at ASC, r.id ASC
+                         LIMIT 1
+                        """)
+                .param("caseId", caseId)
+                .param("purpose", purpose.name())
+                .query((rs, rowNum) -> mapDetailHeader(rs))
+                .optional();
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        return completeDetail(header.orElseThrow());
+    }
+
+    private Optional<RunDetailView> completeDetail(RunDetailView base) {
+        List<RunAttemptView> attempts =
+                loadAttemptViews(base.runId(), base.candidate().map(c -> c.targetTest()));
         return Optional.of(new RunDetailView(
                 base.runId(),
                 base.mode(),
@@ -546,21 +589,9 @@ public final class PostgresRunStore {
             if (updated != 1) {
                 throw new StaleClaimException(handle.runId(), "stale renew on run " + handle.runId());
             }
-            Instant expiresAt = loadLeaseExpiry(handle.runId());
-            Optional<PersistedCandidatePatch> candidate = Optional.empty();
-            if (handle.state() == RunState.REPLAYING) {
-                candidate = Optional.of(loadCandidateRequired(handle.runId()));
-            }
-            ClaimRow row = loadClaimRow(handle.runId());
-            return new ClaimedRun(
-                    handle.runId(),
-                    row.mode,
-                    handle.state(),
-                    newVersion,
-                    new RunLease(handle.leaseToken(), owner, expiresAt),
-                    row.recoveryCount,
-                    row.replayRound,
-                    candidate);
+            return reloadClaimed(handle.runId(), handle.leaseToken(), handle.state())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "run disappeared after renew: " + handle.runId()));
         });
     }
 
@@ -688,17 +719,9 @@ public final class PostgresRunStore {
             if (updated != 1) {
                 throw new StaleClaimException(handle.runId(), "stale usage on " + handle.runId());
             }
-            ClaimRow row = loadClaimRow(handle.runId());
-            Instant expiresAt = loadLeaseExpiry(handle.runId());
-            return new ClaimedRun(
-                    handle.runId(),
-                    row.mode,
-                    RunState.GENERATING,
-                    newVersion,
-                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
-                    row.recoveryCount,
-                    row.replayRound,
-                    Optional.empty());
+            return reloadClaimed(handle.runId(), handle.leaseToken(), RunState.GENERATING)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "run disappeared after model usage: " + handle.runId()));
         });
     }
 
@@ -723,9 +746,11 @@ public final class PostgresRunStore {
             int inserted = jdbc.sql(
                             """
                             INSERT INTO candidate_test_patch (
-                              run_id, patch_text, patch_sha256, target_class, target_method
+                              run_id, patch_text, patch_sha256, target_class, target_method,
+                              patch_provenance
                             ) VALUES (
-                              :runId, :patchText, :patchSha, :targetClass, :targetMethod
+                              :runId, :patchText, :patchSha, :targetClass, :targetMethod,
+                              :patchProvenance
                             )
                             """)
                     .param("runId", handle.runId())
@@ -733,6 +758,7 @@ public final class PostgresRunStore {
                     .param("patchSha", candidate.patchSha256())
                     .param("targetClass", candidate.targetTest().className())
                     .param("targetMethod", candidate.targetTest().methodName())
+                    .param("patchProvenance", candidate.provenance().name())
                     .update();
             if (inserted != 1) {
                 throw new IllegalStateException("failed to insert candidate for " + handle.runId());
@@ -759,17 +785,9 @@ public final class PostgresRunStore {
                         handle.runId(), "stale commitCandidate on run " + handle.runId());
             }
 
-            ClaimRow row = loadClaimRow(handle.runId());
-            Instant expiresAt = loadLeaseExpiry(handle.runId());
-            return new ClaimedRun(
-                    handle.runId(),
-                    row.mode,
-                    RunState.REPLAYING,
-                    newVersion,
-                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
-                    row.recoveryCount,
-                    row.replayRound,
-                    Optional.of(candidate));
+            return reloadClaimed(handle.runId(), handle.leaseToken(), RunState.REPLAYING)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "run disappeared after commitCandidate: " + handle.runId()));
         });
     }
 
@@ -804,18 +822,9 @@ public final class PostgresRunStore {
                 throw new StaleClaimException(
                         handle.runId(), "stale openReplayRound on run " + handle.runId());
             }
-            ClaimRow row = loadClaimRow(handle.runId());
-            Instant expiresAt = loadLeaseExpiry(handle.runId());
-            PersistedCandidatePatch candidate = loadCandidateRequired(handle.runId());
-            return new ClaimedRun(
-                    handle.runId(),
-                    row.mode,
-                    RunState.REPLAYING,
-                    newVersion,
-                    new RunLease(handle.leaseToken(), loadLeaseOwner(handle.runId()), expiresAt),
-                    row.recoveryCount,
-                    row.replayRound,
-                    Optional.of(candidate));
+            return reloadClaimed(handle.runId(), handle.leaseToken(), RunState.REPLAYING)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "run disappeared after openReplayRound: " + handle.runId()));
         });
     }
 
@@ -1083,16 +1092,9 @@ public final class PostgresRunStore {
         if (updated != 1) {
             throw new IllegalStateException("stale claim on QUEUED run " + row.id);
         }
-        Instant expiresAt = loadLeaseExpiry(row.id);
-        return new ClaimedRun(
-                row.id,
-                row.mode,
-                RunState.GENERATING,
-                newVersion,
-                new RunLease(token, owner, expiresAt),
-                row.recoveryCount,
-                row.replayRound,
-                Optional.empty());
+        return reloadClaimed(row.id, token, RunState.GENERATING)
+                .orElseThrow(() -> new IllegalStateException(
+                        "run disappeared after claim: " + row.id));
     }
 
     private ClaimedRun reclaimExpired(ClaimRow row, String owner, long leaseSeconds) {
@@ -1130,20 +1132,9 @@ public final class PostgresRunStore {
             throw new IllegalStateException("stale reclaim on run " + row.id);
         }
 
-        Optional<PersistedCandidatePatch> candidate = Optional.empty();
-        if (row.state == RunState.REPLAYING) {
-            candidate = Optional.of(loadCandidateRequired(row.id));
-        }
-        Instant expiresAt = loadLeaseExpiry(row.id);
-        return new ClaimedRun(
-                row.id,
-                row.mode,
-                row.state,
-                newVersion,
-                new RunLease(token, owner, expiresAt),
-                newRecovery,
-                row.replayRound,
-                candidate);
+        return reloadClaimed(row.id, token, row.state)
+                .orElseThrow(() -> new IllegalStateException(
+                        "run disappeared after reclaim: " + row.id));
     }
 
     private void markRecoveryExhausted(ClaimRow row) {
@@ -1180,31 +1171,58 @@ public final class PostgresRunStore {
     /** 从当前 handle 重建 ClaimedRun（含 candidate）。 */
     public Optional<ClaimedRun> findClaimed(ClaimHandle handle) {
         Objects.requireNonNull(handle, "handle");
-        ClaimRow row = loadClaimRow(handle.runId());
-        if (row == null || row.state != handle.state() || row.version != handle.version()) {
-            return Optional.empty();
-        }
-        Instant expiresAt;
-        String owner;
-        try {
-            expiresAt = loadLeaseExpiry(handle.runId());
-            owner = loadLeaseOwner(handle.runId());
-        } catch (RuntimeException ex) {
-            return Optional.empty();
-        }
-        Optional<PersistedCandidatePatch> candidate = Optional.empty();
-        if (row.state == RunState.REPLAYING) {
-            candidate = Optional.of(loadCandidateRequired(handle.runId()));
-        }
-        return Optional.of(new ClaimedRun(
-                row.id,
-                row.mode,
-                row.state,
-                row.version,
-                new RunLease(handle.leaseToken(), owner, expiresAt),
-                row.recoveryCount,
-                row.replayRound,
-                candidate));
+        return reloadClaimed(handle.runId(), handle.leaseToken(), handle.state())
+                .filter(c -> c.version() == handle.version());
+    }
+
+    /**
+     * 单查询重建 {@link ClaimedRun}：verification_run LEFT JOIN candidate_test_patch，
+     * 一次读取 claim 行、lease 列与 candidate 列。按 state + lease_token 过滤；
+     * lease_expires_at / lease_owner 为 NULL 的行视为无租约，不返回。
+     */
+    private Optional<ClaimedRun> reloadClaimed(UUID runId, UUID leaseToken, RunState expectedState) {
+        return jdbc.sql(
+                        """
+                        SELECT r.id, r.mode, r.state, r.version, r.recovery_count, r.replay_round,
+                               r.lease_owner, r.lease_expires_at,
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
+                          FROM verification_run r
+                          LEFT JOIN candidate_test_patch c ON c.run_id = r.id
+                         WHERE r.id = :runId
+                           AND r.state = :expectedState
+                           AND r.lease_token = :leaseToken
+                           AND r.lease_expires_at IS NOT NULL
+                           AND r.lease_owner IS NOT NULL
+                        """)
+                .param("runId", runId)
+                .param("expectedState", expectedState.name())
+                .param("leaseToken", leaseToken)
+                .query((rs, rowNum) -> {
+                    Optional<PersistedCandidatePatch> candidate = Optional.empty();
+                    String patchText = rs.getString("patch_text");
+                    if (patchText != null) {
+                        candidate = Optional.of(PersistedCandidatePatch.restore(
+                                patchText,
+                                rs.getString("patch_sha256"),
+                                rs.getString("target_class"),
+                                rs.getString("target_method"),
+                                TestPatchProvenance.valueOf(rs.getString("patch_provenance"))));
+                    }
+                    return new ClaimedRun(
+                            runId,
+                            VerificationMode.valueOf(rs.getString("mode")),
+                            RunState.valueOf(rs.getString("state")),
+                            rs.getLong("version"),
+                            new RunLease(
+                                    leaseToken,
+                                    rs.getString("lease_owner"),
+                                    rs.getTimestamp("lease_expires_at").toInstant()),
+                            rs.getInt("recovery_count"),
+                            rs.getInt("replay_round"),
+                            candidate);
+                })
+                .optional();
     }
 
     private ClaimRow loadClaimRow(UUID id) {
@@ -1235,16 +1253,6 @@ public final class PostgresRunStore {
                 .query(Timestamp.class)
                 .single();
         return ts.toInstant();
-    }
-
-    private String loadLeaseOwner(UUID id) {
-        return jdbc.sql(
-                        """
-                        SELECT lease_owner FROM verification_run WHERE id = :id
-                        """)
-                .param("id", id)
-                .query(String.class)
-                .single();
     }
 
     private void insertSideAttempts(

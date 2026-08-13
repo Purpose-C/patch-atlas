@@ -1,6 +1,6 @@
 package io.github.patchatlas.run;
 
-import io.github.patchatlas.observability.RunEvents;
+import io.github.patchatlas.run.RunEvents;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;

@@ -94,6 +94,36 @@ class PostgresRunStoreCompleteTest {
     }
 
     @Test
+    void commitCandidatePersistsAgentGeneratedProvenance() {
+        ClaimedRun generating = claimLive("cand-agent-prov");
+        PersistedCandidatePatch candidate = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
+
+        ClaimedRun replaying =
+                store.commitCandidate(ClaimHandle.from(generating), GatedCandidateTestHelper.gated(candidate));
+
+        assertThat(replaying.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+        RunDetails details = store.findRun(replaying.runId()).orElseThrow();
+        assertThat(details.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+    }
+
+    @Test
+    void commitCandidatePersistsKnownTriggerProvenanceWithoutRewrite() {
+        ClaimedRun generating = claimLive("cand-known-prov");
+        PersistedCandidatePatch candidate = PersistedCandidatePatch.fromKnownTrigger(PATCH, TARGET);
+
+        ClaimedRun replaying =
+                store.commitCandidate(ClaimHandle.from(generating), GatedCandidateTestHelper.gated(candidate));
+
+        assertThat(replaying.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+        RunDetails details = store.findRun(replaying.runId()).orElseThrow();
+        assertThat(details.candidate()).get().extracting(PersistedCandidatePatch::provenance)
+                .isEqualTo(TestPatchProvenance.KNOWN_TRIGGER);
+    }
+
+    @Test
     void duplicateCandidateIsRejected() {
         ClaimedRun generating = claimLive("cand-dup");
         PersistedCandidatePatch candidate = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);

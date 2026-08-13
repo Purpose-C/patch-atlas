@@ -1,7 +1,7 @@
 package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.ModelUsage;
-import io.github.patchatlas.observability.RunEvents;
+import io.github.patchatlas.run.RunEvents;
 import java.util.Objects;
 
 /**

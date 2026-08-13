@@ -145,7 +145,12 @@ final class RunDtos {
 
     private static RunDetailResponse.EstimatedCost estimatedCost(
             RunDetailView.GenerationMeta generation, Optional<PricingReference> pricing) {
-        if (generation.usageStatus() == io.github.patchatlas.run.RecordedUsageStatus.TRACKING_UNAVAILABLE) {
+        var status = generation.usageStatus();
+        if (status == io.github.patchatlas.run.RecordedUsageStatus.TRACKING_UNAVAILABLE) {
+            return null;
+        }
+        if (status == io.github.patchatlas.run.RecordedUsageStatus.NONE_RECORDED
+                && generation.attemptCount() > 0) {
             return null;
         }
         return EstimatedModelCostCalculator.estimate(
