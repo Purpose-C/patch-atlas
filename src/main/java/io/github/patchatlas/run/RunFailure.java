@@ -34,7 +34,8 @@ public record RunFailure(FailureStage stage, FailureCategory category, String su
             case GENERATION -> GENERATION_CATEGORIES.contains(category);
             case PATCH_GATE -> category == FailureCategory.PATCH_REJECTED
                     || category == FailureCategory.WORKSPACE_UNSAFE;
-            case WORKSPACE -> category == FailureCategory.WORKSPACE_UNSAFE;
+            case WORKSPACE -> category == FailureCategory.WORKSPACE_UNSAFE
+                    || category == FailureCategory.WORKSPACE_ERROR;
             case REPLAY -> category == FailureCategory.REPLAY_SYSTEM_ERROR;
             case RECOVERY -> category == FailureCategory.RECOVERY_EXHAUSTED;
         };

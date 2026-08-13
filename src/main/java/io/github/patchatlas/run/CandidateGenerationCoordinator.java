@@ -110,12 +110,12 @@ public final class CandidateGenerationCoordinator {
             recordUsageIfPresent(session, call.usage());
 
             AttemptDecision decision = decideAttempt(
-                    call, ordinal, claimAfterReserve, generationInput, executionPolicy);
+                    call, ordinal, claimAfterReserve, generationInput, executionPolicy, session);
             switch (decision) {
                 case AttemptDecision.Commit commit -> {
                     // commitCandidate 移出 workspace try 范围：
                     // 提交期的任何数据库错误都应向上传播，让 Run 经租约过期恢复，
-                    // 而不是被 workspace catch 吞掉、错误地终结为 WORKSPACE_UNSAFE。
+                    // 而不是被 workspace catch 吞掉、错误地终结为 WORKSPACE_ERROR。
                     ClaimedRun replaying = session.commitCandidate(commit.gated());
                     return new Result.CandidateCommitted(replaying);
                 }
@@ -140,28 +140,32 @@ public final class CandidateGenerationCoordinator {
             int ordinal,
             ClaimedRun claimAfterReserve,
             GenerationInput generationInput,
-            MavenExecutionPolicy executionPolicy) {
+            MavenExecutionPolicy executionPolicy,
+            GenerationRunSession session) {
         if (call instanceof GenerationResult.GenerationCallFailure failure) {
             boolean remaining = ordinal < GenerationRequest.MAX_ATTEMPTS;
             return CallFailureMapper.toDecision(
                     CallFailureMapper.map(failure.category(), failure.summary(), remaining));
         }
         CandidateDraft draft = ((GenerationResult.GeneratedDraft) call).draft();
-        return attemptInWorkspace(draft, claimAfterReserve, generationInput, executionPolicy);
+        return attemptInWorkspace(draft, claimAfterReserve, generationInput, executionPolicy, session);
     }
 
     /**
      * 打开 workspace → 预热 → Gate → 预验证，返回统一决策。
      *
      * <p>catch 仅覆盖 workspace 操作（open/prepare/runSide）；{@code commitCandidate}
-     * 不在此范围内调用，故 commit 期的 StaleClaimException 不会被误判为 WORKSPACE_UNSAFE。
+     * 不在此范围内调用，故 commit 期的 StaleClaimException 不会被误判为 WORKSPACE_ERROR。
      * workspace 期 StaleClaimException 直接抛出（lease fencing 不得被吞）。
+     * 兜底异常是 WORKSPACE_ERROR；只有 Patch Gate 显式判定的越界写/symlink 才是
+     * WORKSPACE_UNSAFE。
      */
     private AttemptDecision attemptInWorkspace(
             CandidateDraft draft,
             ClaimedRun claimAfterReserve,
             GenerationInput generationInput,
-            MavenExecutionPolicy executionPolicy) {
+            MavenExecutionPolicy executionPolicy,
+            GenerationRunSession session) {
         try (CandidateWorkspaceFactory.WorkspaceSession workspace =
                 workspaceFactory.open(claimAfterReserve, generationInput, executionPolicy)) {
             MavenTestCommand command = commandForDraft(workspace, draft);
@@ -190,10 +194,7 @@ public final class CandidateGenerationCoordinator {
         } catch (StaleClaimException stale) {
             throw stale;
         } catch (Exception ex) {
-            return new AttemptDecision.Fail(new RunFailure(
-                    FailureStage.WORKSPACE,
-                    FailureCategory.WORKSPACE_UNSAFE,
-                    bound("workspace: " + ex.getClass().getSimpleName())));
+            return new AttemptDecision.Fail(WorkspaceFailureSummarizer.failure(ex, session.purpose()));
         }
     }
 
@@ -223,12 +224,5 @@ public final class CandidateGenerationCoordinator {
                 draft.targetTest().className() + "#" + draft.targetTest().methodName(),
                 workspace.executionPolicy().networkMode(),
                 workspace.executionPolicy().javaVersion());
-    }
-
-    private static String bound(String s) {
-        if (s.length() <= RunFailure.MAX_SUMMARY_CHARS) {
-            return s;
-        }
-        return s.substring(0, RunFailure.MAX_SUMMARY_CHARS);
     }
 }

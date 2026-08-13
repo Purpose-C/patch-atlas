@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(7);
+        assertThat(first.migrationsExecuted).isEqualTo(8);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -252,6 +252,48 @@ class FlywayMigrationSmokeTest {
                                     + runId
                                     + "'"))
                     .hasMessageContaining("candidate_test_patch_provenance_chk");
+        }
+    }
+
+    @Test
+    void v8AllowsWorkspaceErrorDistinctFromWorkspaceUnsafe() throws Exception {
+        migrate();
+        UUID errorId = UUID.randomUUID();
+        UUID unsafeId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      failure_stage, failure_category, failure_summary, completed_at
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'FAILED', 1,
+                      'WORKSPACE', 'WORKSPACE_ERROR', 'workspace: IllegalArgumentException',
+                      CURRENT_TIMESTAMP
+                    )
+                    """
+                            .formatted(errorId));
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      failure_stage, failure_category, failure_summary, completed_at
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'FAILED', 1,
+                      'WORKSPACE', 'WORKSPACE_UNSAFE', 'symlink', CURRENT_TIMESTAMP
+                    )
+                    """
+                            .formatted(unsafeId));
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE verification_run SET failure_category = 'GENERATION_FAILURE' WHERE id = '"
+                                    + errorId
+                                    + "'"))
+                    .hasMessageContaining("verification_run_failure_pair_chk");
         }
     }
 

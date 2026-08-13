@@ -10,9 +10,11 @@ import java.util.Objects;
 public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSession {
 
     private final LeaseHeartbeat heartbeat;
+    private final RunPurpose purpose;
 
-    public LeaseHeartbeatGenerationRunSession(LeaseHeartbeat heartbeat) {
+    public LeaseHeartbeatGenerationRunSession(LeaseHeartbeat heartbeat, RunPurpose purpose) {
         this.heartbeat = Objects.requireNonNull(heartbeat, "heartbeat");
+        this.purpose = Objects.requireNonNull(purpose, "purpose");
     }
 
     @Override
@@ -55,6 +57,11 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
         RunDetails details = heartbeat.fail(failure);
         RunEvents.runFailed(details.runId(), details.mode(), failure);
         return details;
+    }
+
+    @Override
+    public RunPurpose purpose() {
+        return purpose;
     }
 
 }

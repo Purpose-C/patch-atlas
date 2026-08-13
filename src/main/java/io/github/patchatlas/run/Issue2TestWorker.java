@@ -89,7 +89,8 @@ public final class Issue2TestWorker {
                 store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
             GenerationInput input = store.loadGenerationInput(claimed.runId());
             var executionPolicy = store.loadExecutionPolicy(claimed.runId());
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            RunPurpose purpose = store.findRunDetail(claimed.runId()).orElseThrow().purpose();
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, purpose);
             CandidateGenerationCoordinator.Result result =
                     generationCoordinator.run(input, executionPolicy, session);
             return switch (result) {

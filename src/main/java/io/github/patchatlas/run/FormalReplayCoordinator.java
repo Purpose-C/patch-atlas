@@ -52,6 +52,7 @@ public final class FormalReplayCoordinator {
             RunEvents.replayStarted(opened.runId(), opened.replayRound());
             ReplayWorkspaceProjection projection =
                     store.loadReplayWorkspaceProjection(opened.runId());
+            RunPurpose purpose = store.findRunDetail(opened.runId()).orElseThrow().purpose();
             List<CandidateWorkspaceFactory.WorkspaceSession> sessions = new ArrayList<>(2);
             try {
                 final PreparedReplayWorkspace prepared;
@@ -69,13 +70,8 @@ public final class FormalReplayCoordinator {
                 } catch (StaleClaimException stale) {
                     throw stale;
                 } catch (Exception ex) {
-                    return failed(
-                            beat,
-                            new RunFailure(
-                                    FailureStage.WORKSPACE,
-                                    FailureCategory.WORKSPACE_UNSAFE,
-                                    bound("replay workspace prepare failed: "
-                                            + ex.getClass().getSimpleName())));
+                    return failed(beat, WorkspaceFailureSummarizer.failure(
+                            ex, purpose, "replay workspace prepare failed: "));
                 }
 
                 try {

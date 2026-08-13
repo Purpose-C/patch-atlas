@@ -47,6 +47,22 @@ class TerminalRunRulesTest {
     }
 
     @Test
+    void workspaceStageAllowsUnsafeAndError() {
+        assertThat(RunFailure.legalPair(FailureStage.WORKSPACE, FailureCategory.WORKSPACE_UNSAFE))
+                .isTrue();
+        assertThat(RunFailure.legalPair(FailureStage.WORKSPACE, FailureCategory.WORKSPACE_ERROR))
+                .isTrue();
+        assertThatCode(() -> new RunFailure(
+                        FailureStage.WORKSPACE,
+                        FailureCategory.WORKSPACE_ERROR,
+                        "workspace: IllegalArgumentException"))
+                .doesNotThrowAnyException();
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RunFailure(
+                        FailureStage.WORKSPACE, FailureCategory.PATCH_REJECTED, "nope"));
+    }
+
+    @Test
     void recoveryExhaustedIsFailedWithRecoveryStage() {
         RunFailure failure = new RunFailure(
                 FailureStage.RECOVERY, FailureCategory.RECOVERY_EXHAUSTED, "max recoveries reached");

@@ -380,6 +380,48 @@ class CandidateGenerationCoordinatorTest {
     }
 
     @Test
+    void workspaceRuntimeFailureIsWorkspaceErrorAndAgentBenchmarkDoesNotEchoMessage() {
+        TargetTest illegal = new TargetTest(LocalGitFixture.TARGET_CLASS, "1badMethod");
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, illegal)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+        InMemoryGenerationRunSession session =
+                newSession(VerificationMode.LIVE, RunPurpose.AGENT_BENCHMARK);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+        var failed = (CandidateGenerationCoordinator.Result.RunFailed) result;
+        RunFailure failure = failed.details().failure().orElseThrow();
+        assertThat(failure.stage()).isEqualTo(FailureStage.WORKSPACE);
+        assertThat(failure.category()).isEqualTo(FailureCategory.WORKSPACE_ERROR);
+        assertThat(failure.summary()).isEqualTo("workspace: IllegalArgumentException");
+        assertThat(failure.summary()).doesNotContain("testSelector");
+        assertThat(failure.summary()).doesNotContain("1badMethod");
+        assertThat(session.generationAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    void diagnosticWorkspaceFailureEchoesExceptionMessage() {
+        TargetTest illegal = new TargetTest(LocalGitFixture.TARGET_CLASS, "1badMethod");
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, illegal)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+        InMemoryGenerationRunSession session =
+                newSession(VerificationMode.LIVE, RunPurpose.DIAGNOSTIC);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+        var failed = (CandidateGenerationCoordinator.Result.RunFailed) result;
+        assertThat(failed.details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.WORKSPACE_ERROR);
+        assertThat(failed.details().failure().orElseThrow().summary())
+                .contains("IllegalArgumentException")
+                .contains("testSelector must be a class or class#method selector");
+    }
+
+    @Test
     void staleClaimDuringCandidateCommitEscapesWithoutRecordingWorkspaceFailure() {
         FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
                 new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET)));
@@ -408,6 +450,11 @@ class CandidateGenerationCoordinatorTest {
             public RunDetails fail(RunFailure failure) {
                 failCalls.incrementAndGet();
                 return delegate.fail(failure);
+            }
+
+            @Override
+            public RunPurpose purpose() {
+                return delegate.purpose();
             }
         };
 
@@ -475,6 +522,10 @@ class CandidateGenerationCoordinatorTest {
     }
 
     private InMemoryGenerationRunSession newSession(VerificationMode mode) {
+        return newSession(mode, RunPurpose.STANDARD);
+    }
+
+    private InMemoryGenerationRunSession newSession(VerificationMode mode, RunPurpose purpose) {
         ClaimedRun claim = new ClaimedRun(
                 UUID.randomUUID(),
                 mode,
@@ -484,7 +535,7 @@ class CandidateGenerationCoordinatorTest {
                 0,
                 0,
                 Optional.empty());
-        return new InMemoryGenerationRunSession(claim);
+        return new InMemoryGenerationRunSession(claim, purpose);
     }
 
     private static GenerationInput generationInput(String buggySha) {

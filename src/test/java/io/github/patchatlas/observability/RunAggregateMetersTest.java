@@ -168,6 +168,7 @@ class RunAggregateMetersTest {
                         FailureCategory.MODEL_REFUSED,
                         FailureCategory.PATCH_REJECTED,
                         FailureCategory.WORKSPACE_UNSAFE,
+                        FailureCategory.WORKSPACE_ERROR,
                         FailureCategory.REPLAY_SYSTEM_ERROR,
                         FailureCategory.RECOVERY_EXHAUSTED);
         assertThat(RecordedUsageStatus.values())
@@ -185,7 +186,7 @@ class RunAggregateMetersTest {
                 }
             }
         }
-        assertThat(legalPairs).isEqualTo(11);
+        assertThat(legalPairs).isEqualTo(12);
         assertThat(expectedFailedTags()).hasSize(VerificationMode.values().length * legalPairs);
     }
 

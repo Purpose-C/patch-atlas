@@ -66,7 +66,7 @@ class GenerationRunSessionPostgresTest {
                 "w1",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
 
             var r1 = session.reserveGenerationAttempt("fake", "fixture-v1");
             assertThat(r1).isInstanceOf(GenerationRunSession.ReserveResult.Reserved.class);
@@ -120,7 +120,7 @@ class GenerationRunSessionPostgresTest {
                 "new",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
             var reserved = session.reserveGenerationAttempt("fake", "m");
             assertThat(reserved).isInstanceOf(GenerationRunSession.ReserveResult.Reserved.class);
             assertThat(((GenerationRunSession.ReserveResult.Reserved) reserved).attemptOrdinal())
@@ -141,7 +141,7 @@ class GenerationRunSessionPostgresTest {
                 "a",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
             session.reserveGenerationAttempt("fake", "m");
             session.reserveGenerationAttempt("fake", "m");
         }
@@ -152,7 +152,7 @@ class GenerationRunSessionPostgresTest {
 
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(b), "b", Duration.ofMinutes(5), Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
             var r3 = session.reserveGenerationAttempt("fake", "m");
             assertThat(((GenerationRunSession.ReserveResult.Reserved) r3).attemptOrdinal())
                     .isEqualTo(3);
@@ -185,7 +185,7 @@ class GenerationRunSessionPostgresTest {
                 "w1",
                 Duration.ofMinutes(5),
                 Duration.ofSeconds(30))) {
-            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat);
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
             session.reserveGenerationAttempt("openai", "gpt-4.1-mini");
             markUsageCountNull(claimed.runId());
             session.recordModelUsage(new ModelUsage(4, 5, 9));

@@ -25,4 +25,6 @@ public interface GenerationRunSession {
     ClaimedRun commitCandidate(GatedCandidate gated);
 
     RunDetails fail(RunFailure failure);
+
+    RunPurpose purpose();
 }

@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InMemoryGenerationRunSession implements GenerationRunSession {
 
     private ClaimedRun claim;
+    private final RunPurpose purpose;
     private int generationAttemptCount;
     private String modelProvider;
     private String modelName;
@@ -25,7 +26,12 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
     private final AtomicLong version = new AtomicLong();
 
     public InMemoryGenerationRunSession(ClaimedRun initial) {
+        this(initial, RunPurpose.STANDARD);
+    }
+
+    public InMemoryGenerationRunSession(ClaimedRun initial, RunPurpose purpose) {
         this.claim = Objects.requireNonNull(initial, "initial");
+        this.purpose = Objects.requireNonNull(purpose, "purpose");
         if (initial.state() != RunState.GENERATING) {
             throw new IllegalArgumentException("session requires GENERATING claim");
         }
@@ -91,6 +97,11 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
     @Override
     public synchronized RunDetails fail(RunFailure failure) {
         return failInternal(failure);
+    }
+
+    @Override
+    public RunPurpose purpose() {
+        return purpose;
     }
 
     public int generationAttemptCount() {
