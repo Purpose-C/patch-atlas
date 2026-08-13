@@ -3,7 +3,6 @@ package io.github.patchatlas.replay;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
-import io.github.patchatlas.observability.SandboxObservations;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -62,7 +61,11 @@ public final class SideReplayRunner {
         }
 
         SandboxExecution execution = sandboxRunner.execute(workspace, command);
-        SandboxObservations.recordSafely(observer, command, execution);
+        try {
+            observer.record(command, execution);
+        } catch (RuntimeException ignored) {
+            // 观测失败不得改变沙箱事实
+        }
 
         final Path reportsDir;
         try {

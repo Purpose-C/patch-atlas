@@ -6,7 +6,6 @@ import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
-import io.github.patchatlas.observability.SandboxObservations;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -44,7 +43,11 @@ public final class DependencyWarmupRunner {
         MavenDependencyWarmupCommand warmup = new MavenDependencyWarmupCommand(
                 command.modulePath(), command.testSelector(), command.javaVersion());
         SandboxExecution execution = sandboxRunner.execute(workspace, warmup);
-        SandboxObservations.recordSafely(observer, warmup, execution);
+        try {
+            observer.record(warmup, execution);
+        } catch (RuntimeException ignored) {
+            // 观测失败不得改变沙箱事实
+        }
         if (execution.status() != SandboxExecutionStatus.COMPLETED) {
             return Optional.of("dependency warmup failed: " + execution.status().name());
         }
