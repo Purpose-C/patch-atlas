@@ -36,15 +36,19 @@ class Issue2TestRuntimeTest {
     }
 
     @Test
-    void createAndOfShareTheSameWorkerShape() throws Exception {
+    void createAndOfBothProduceWorker() throws Exception {
         Path root = Files.createDirectories(temp.resolve("ws"));
         FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
                 CallFailureCategory.MODEL_UNAVAILABLE, "unused"));
         ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(0));
+        PostgresRunStore store = new PostgresRunStore(unusedDataSource());
 
         Issue2TestRuntime created =
                 Issue2TestRuntime.create(generator, root, sandbox, LocalGitFixture.fetcher(root));
-        assertThat(created.replayCoordinator()).isNotNull();
+        assertThat(created.replayCoordinator()).isInstanceOf(FormalReplayCoordinator.class);
+        assertThat(created.worker(
+                        store, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT))
+                .isInstanceOf(Issue2TestWorker.class);
 
         SideReplayRunner side = new SideReplayRunner(sandbox, root);
         Issue2TestRuntime fromParts = Issue2TestRuntime.of(
@@ -54,12 +58,10 @@ class Issue2TestRuntimeTest {
                 new DependencyWarmupRunner(sandbox, root),
                 side,
                 new EngineRunReplayer(side));
-        assertThat(fromParts.replayCoordinator()).isNotNull();
+        assertThat(fromParts.replayCoordinator()).isInstanceOf(FormalReplayCoordinator.class);
         assertThat(fromParts.worker(
-                        new PostgresRunStore(unusedDataSource()),
-                        Issue2TestWorker.DEFAULT_LEASE,
-                        Issue2TestWorker.DEFAULT_HEARTBEAT))
-                .isNotNull();
+                        store, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT))
+                .isInstanceOf(Issue2TestWorker.class);
     }
 
     private static javax.sql.DataSource unusedDataSource() {
