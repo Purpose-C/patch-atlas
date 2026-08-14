@@ -12,22 +12,12 @@ public final class LeaseHeartbeatReplayRunSession implements ReplayRunSession {
     private final LeaseHeartbeat heartbeat;
     private final PostgresRunStore store;
     private final RunPurpose purpose;
-    private final boolean closeHeartbeat;
-
-    public LeaseHeartbeatReplayRunSession(
-            LeaseHeartbeat heartbeat, PostgresRunStore store, RunPurpose purpose) {
-        this(heartbeat, store, purpose, false);
-    }
 
     private LeaseHeartbeatReplayRunSession(
-            LeaseHeartbeat heartbeat,
-            PostgresRunStore store,
-            RunPurpose purpose,
-            boolean closeHeartbeat) {
+            LeaseHeartbeat heartbeat, PostgresRunStore store, RunPurpose purpose) {
         this.heartbeat = Objects.requireNonNull(heartbeat, "heartbeat");
         this.store = Objects.requireNonNull(store, "store");
         this.purpose = Objects.requireNonNull(purpose, "purpose");
-        this.closeHeartbeat = closeHeartbeat;
     }
 
     /**
@@ -49,7 +39,7 @@ public final class LeaseHeartbeatReplayRunSession implements ReplayRunSession {
                 .purpose();
         LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval);
-        return new LeaseHeartbeatReplayRunSession(beat, store, purpose, true);
+        return new LeaseHeartbeatReplayRunSession(beat, store, purpose);
     }
 
     @Override
@@ -78,8 +68,6 @@ public final class LeaseHeartbeatReplayRunSession implements ReplayRunSession {
 
     @Override
     public void close() {
-        if (closeHeartbeat) {
-            heartbeat.close();
-        }
+        heartbeat.close();
     }
 }
