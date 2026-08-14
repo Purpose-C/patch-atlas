@@ -5,15 +5,20 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 薄 wrapper：只接受 {@code freeze / calibrate / agent-4 / agent-5 / agent-6 / verify / dry-run} 七个封闭动作。
+ * 薄 wrapper：只接受封闭动作，不接受任意 shell、任意 caseId 或动态选择表达式。
  *
- * <p>不接受任意 shell、任意 caseId 或动态选择表达式。
+ * <p>协议九个：{@code freeze / calibrate / calibrate-1 / calibrate-2 / calibrate-3 /
+ * agent-4 / agent-5 / agent-6 / verify}。单例 {@code calibrate-N} 让第一例充当金丝雀。
+ * {@code dry-run} 仍是 DIAGNOSTIC 入口，不进入正式分母。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
  */
 public final class BenchmarkActions {
 
     public static final String FREEZE = "freeze";
     public static final String CALIBRATE = "calibrate";
+    public static final String CALIBRATE_1 = "calibrate-1";
+    public static final String CALIBRATE_2 = "calibrate-2";
+    public static final String CALIBRATE_3 = "calibrate-3";
     public static final String AGENT_4 = "agent-4";
     public static final String AGENT_5 = "agent-5";
     public static final String AGENT_6 = "agent-6";
@@ -21,7 +26,16 @@ public final class BenchmarkActions {
     public static final String DRY_RUN = "dry-run";
 
     private static final Set<String> CLOSED_ACTIONS = Set.of(
-            FREEZE, CALIBRATE, AGENT_4, AGENT_5, AGENT_6, VERIFY, DRY_RUN);
+            FREEZE,
+            CALIBRATE,
+            CALIBRATE_1,
+            CALIBRATE_2,
+            CALIBRATE_3,
+            AGENT_4,
+            AGENT_5,
+            AGENT_6,
+            VERIFY,
+            DRY_RUN);
 
     private BenchmarkActions() {}
 
@@ -46,7 +60,18 @@ public final class BenchmarkActions {
         };
     }
 
-    /** 校验动作是否为正式运行（calibrate / agent-N），需要真实模型和 Docker。 */
+    /** 单例 Calibration 动作对应的 cohort 位置（1–3）。 */
+    public static int calibratePosition(String action) {
+        return switch (parseAction(action)) {
+            case CALIBRATE_1 -> 1;
+            case CALIBRATE_2 -> 2;
+            case CALIBRATE_3 -> 3;
+            default -> throw new IllegalArgumentException(
+                    action + " is not a single-case calibration action");
+        };
+    }
+
+    /** 校验动作是否为正式运行（calibrate / calibrate-N / agent-N），需要真实模型和 Docker。 */
     public static boolean isFormalRun(String action) {
         String parsed = parseAction(action);
         return !FREEZE.equals(parsed) && !VERIFY.equals(parsed) && !DRY_RUN.equals(parsed);

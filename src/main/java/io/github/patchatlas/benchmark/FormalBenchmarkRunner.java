@@ -110,6 +110,12 @@ public final class FormalBenchmarkRunner {
 
         return switch (parsed) {
             case BenchmarkActions.CALIBRATE -> runPositions(cohort, 1, 3, RunPurpose.CALIBRATION);
+            case BenchmarkActions.CALIBRATE_1,
+                    BenchmarkActions.CALIBRATE_2,
+                    BenchmarkActions.CALIBRATE_3 -> {
+                int position = BenchmarkActions.calibratePosition(parsed);
+                yield runPositions(cohort, position, position, RunPurpose.CALIBRATION);
+            }
             case BenchmarkActions.AGENT_4, BenchmarkActions.AGENT_5, BenchmarkActions.AGENT_6 -> {
                 int position = BenchmarkActions.agentPosition(parsed);
                 yield runPositions(cohort, position, position, RunPurpose.AGENT_BENCHMARK);

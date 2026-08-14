@@ -129,6 +129,58 @@ class FormalBenchmarkRunnerTest {
     }
 
     @Test
+    void calibrateOneLaunchesOnlyPositionOne() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(readyPreflight(), store, ops, true).execute("calibrate-1", validCohort());
+
+        assertThat(ops.launchedCalibrationCaseIds).containsExactly("case-1");
+        assertThat(ops.agentLaunches.get()).isZero();
+        assertThat(store.findRunByCase("case-2", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(store.findRunByCase("case-3", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        List<RunDetailView> details = ((FormalBenchmarkRunner.Outcome.Finished) outcome).details();
+        assertThat(details).hasSize(1);
+        assertThat(details.getFirst().caseId()).isEqualTo("case-1");
+        assertThat(details.getFirst().purpose()).isEqualTo(RunPurpose.CALIBRATION);
+        assertThat(details.getFirst().generation().attemptCount()).isZero();
+    }
+
+    @Test
+    void calibrateTwoLaunchesOnlyPositionTwo() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(readyPreflight(), store, ops, true).execute("calibrate-2", validCohort());
+
+        assertThat(ops.launchedCalibrationCaseIds).containsExactly("case-2");
+        assertThat(store.findRunByCase("case-1", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(store.findRunByCase("case-3", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(((FormalBenchmarkRunner.Outcome.Finished) outcome).details())
+                .extracting(RunDetailView::caseId)
+                .containsExactly("case-2");
+    }
+
+    @Test
+    void calibrateThreeLaunchesOnlyPositionThree() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(readyPreflight(), store, ops, true).execute("calibrate-3", validCohort());
+
+        assertThat(ops.launchedCalibrationCaseIds).containsExactly("case-3");
+        assertThat(store.findRunByCase("case-1", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(store.findRunByCase("case-2", RunPurpose.CALIBRATION)).isEmpty();
+        assertThat(((FormalBenchmarkRunner.Outcome.Finished) outcome).details())
+                .extracting(RunDetailView::caseId)
+                .containsExactly("case-3");
+    }
+
+    @Test
     void agentActionUsesAgentLaunch() {
         ScriptedStore store = new ScriptedStore();
         CountingOps ops = new CountingOps(store);
@@ -314,6 +366,7 @@ class FormalBenchmarkRunnerTest {
         private final AtomicInteger calibrationLaunches = new AtomicInteger();
         private final AtomicInteger agentLaunches = new AtomicInteger();
         private final AtomicInteger verifyCalls = new AtomicInteger();
+        private final List<String> launchedCalibrationCaseIds = new ArrayList<>();
 
         private CountingOps(ScriptedStore store) {
             this.store = store;
@@ -322,6 +375,7 @@ class FormalBenchmarkRunnerTest {
         @Override
         public UUID launchCalibration(CohortCase cohortCase) {
             calibrationLaunches.incrementAndGet();
+            launchedCalibrationCaseIds.add(cohortCase.caseId());
             return store.create(
                     cohortCase.caseId(),
                     RunPurpose.CALIBRATION,
