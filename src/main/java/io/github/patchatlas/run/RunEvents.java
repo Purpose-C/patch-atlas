@@ -8,6 +8,7 @@ import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
 import io.github.patchatlas.sandbox.MavenSandboxCommand;
 import io.github.patchatlas.sandbox.SandboxExecution;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -108,6 +109,13 @@ public final class RunEvents {
             }
             builder.log("generation usage recorded");
         }
+    }
+
+    public static void workspaceCloned(Duration elapsed) {
+        Objects.requireNonNull(elapsed, "elapsed");
+        info("workspace.cloned")
+                .addKeyValue("duration_ms", elapsed.toMillis())
+                .log("workspace cloned");
     }
 
     public static void candidateCommitted(UUID runId) {

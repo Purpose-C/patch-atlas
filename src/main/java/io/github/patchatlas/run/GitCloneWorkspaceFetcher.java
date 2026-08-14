@@ -50,6 +50,7 @@ public final class GitCloneWorkspaceFetcher implements RepositoryWorkspaceFetche
         }
 
         Path workDir = success.workDir();
+        RunEvents.workspaceCloned(success.elapsed());
         hardResetTo(workDir, sha);
 
         RevisionCheckResult check = revisionValidator.check(workDir.toFile(), sha);

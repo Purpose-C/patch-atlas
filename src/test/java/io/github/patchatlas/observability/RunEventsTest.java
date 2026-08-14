@@ -101,6 +101,7 @@ class RunEventsTest {
             RunEvents.generationAttemptRejected(
                     RUN, 2, GenerationFeedbackCategory.PATCH_POLICY_REJECTED, "path outside test sources");
             RunEvents.generationUsageRecorded(RUN, 11, 22, 33, 1);
+            RunEvents.workspaceCloned(Duration.ofMillis(42));
             RunEvents.candidateCommitted(RUN);
             RunEvents.replayStarted(RUN, 1);
             RunEvents.runCompleted(RUN, VerificationMode.LIVE, ReplayVerdict.REPRODUCTION_CANDIDATE);
@@ -122,7 +123,7 @@ class RunEventsTest {
             RunCorrelation.clear();
         }
 
-        assertThat(appender.list).hasSize(16);
+        assertThat(appender.list).hasSize(17);
         assertEvent(0, "run.submitted", Level.INFO, "submission_outcome", "created");
         assertEvent(1, "run.submission.conflict", Level.WARN);
         assertEvent(2, "run.claimed", Level.INFO);
@@ -130,15 +131,16 @@ class RunEventsTest {
         assertEvent(4, "generation.attempt.reserved", Level.INFO, "attempt_ordinal", "1");
         assertEvent(5, "generation.attempt.rejected", Level.INFO, "feedback_category", "PATCH_POLICY_REJECTED");
         assertEvent(6, "generation.usage.recorded", Level.INFO, "input_tokens", "11");
-        assertEvent(7, "candidate.committed", Level.INFO);
-        assertEvent(8, "replay.started", Level.INFO, "replay_round", "1");
-        assertEvent(9, "run.completed", Level.INFO, "verdict", "REPRODUCTION_CANDIDATE");
-        assertEvent(10, "run.failed", Level.INFO, "failure_category", "GENERATION_EXHAUSTED");
-        assertEvent(11, "claim.stale", Level.WARN);
-        assertEvent(12, "worker.tick.failed", Level.WARN, "error_type", "IllegalStateException");
-        assertEvent(13, "sandbox.executed", Level.INFO, "command_type", "test");
-        assertEvent(14, "sandbox.executed", Level.WARN, "timed_out", "true");
-        assertEvent(15, "observability.recording.failed", Level.WARN, "component", "sandbox");
+        assertEvent(7, "workspace.cloned", Level.INFO, "duration_ms", "42");
+        assertEvent(8, "candidate.committed", Level.INFO);
+        assertEvent(9, "replay.started", Level.INFO, "replay_round", "1");
+        assertEvent(10, "run.completed", Level.INFO, "verdict", "REPRODUCTION_CANDIDATE");
+        assertEvent(11, "run.failed", Level.INFO, "failure_category", "GENERATION_EXHAUSTED");
+        assertEvent(12, "claim.stale", Level.WARN);
+        assertEvent(13, "worker.tick.failed", Level.WARN, "error_type", "IllegalStateException");
+        assertEvent(14, "sandbox.executed", Level.INFO, "command_type", "test");
+        assertEvent(15, "sandbox.executed", Level.WARN, "timed_out", "true");
+        assertEvent(16, "observability.recording.failed", Level.WARN, "component", "sandbox");
 
         for (ILoggingEvent event : appender.list) {
             Map<String, String> fields = fields(event);

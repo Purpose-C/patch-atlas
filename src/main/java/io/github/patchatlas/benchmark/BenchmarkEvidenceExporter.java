@@ -7,6 +7,8 @@ import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.TestPatchProvenance;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -241,8 +243,61 @@ public final class BenchmarkEvidenceExporter {
                 exports);
 
         artifacts.write(outputDir.resolve("results.json"), export);
-        writeMarkdownReport(outputDir, cohort, export, results);
+        GenerationRejectionLog rejections = readRejections(protocolPath.getParent(), results);
+        writeMarkdownReport(outputDir, cohort, export, results, rejections);
         return export;
+    }
+
+    public record GenerationRejection(int attemptOrdinal, String feedbackCategory, String feedbackSummary) {
+        public GenerationRejection {
+            if (attemptOrdinal < 1) {
+                throw new IllegalArgumentException("attemptOrdinal must be >= 1");
+            }
+            Objects.requireNonNull(feedbackCategory, "feedbackCategory");
+            Objects.requireNonNull(feedbackSummary, "feedbackSummary");
+        }
+    }
+
+    public record CaseRejections(String caseId, List<GenerationRejection> rejections) {
+        public CaseRejections {
+            Objects.requireNonNull(caseId, "caseId");
+            rejections = List.copyOf(Objects.requireNonNull(rejections, "rejections"));
+        }
+    }
+
+    public record GenerationRejectionLog(List<CaseRejections> cases) {
+        public GenerationRejectionLog {
+            cases = List.copyOf(Objects.requireNonNull(cases, "cases"));
+        }
+    }
+
+    private GenerationRejectionLog readRejections(Path artifactsRoot, List<CaseResult> results)
+            throws IOException {
+        if (artifactsRoot == null) {
+            return null;
+        }
+        Path path = artifactsRoot.resolve("generation-rejections.json");
+        if (!java.nio.file.Files.isRegularFile(path)) {
+            return null;
+        }
+        GenerationRejectionLog log = artifacts.readJson(path, GenerationRejectionLog.class);
+        for (CaseResult result : results) {
+            if (result.purpose() != RunPurpose.AGENT_BENCHMARK || result.generationAttemptCount() == 0) {
+                continue;
+            }
+            CaseRejections found = log.cases().stream()
+                    .filter(item -> result.caseId().equals(item.caseId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "generation rejections missing for " + result.caseId()));
+            if (found.rejections().size() != result.generationAttemptCount()) {
+                throw new IllegalStateException(
+                        "generation rejection count mismatch for " + result.caseId()
+                                + ": log=" + found.rejections().size()
+                                + " attempts=" + result.generationAttemptCount());
+            }
+        }
+        return log;
     }
 
     private static CaseResultExport toExport(CohortCase cohortCase, CaseResult result) {
@@ -273,7 +328,12 @@ public final class BenchmarkEvidenceExporter {
     }
 
     private void writeMarkdownReport(
-            Path outputDir, Cohort cohort, ResultsExport export, List<CaseResult> results) throws IOException {
+            Path outputDir,
+            Cohort cohort,
+            ResultsExport export,
+            List<CaseResult> results,
+            GenerationRejectionLog rejections)
+            throws IOException {
         StringBuilder md = new StringBuilder();
         md.append("# Benchmark Evidence Report\n\n");
         md.append("- Dataset: GitBug-Java @ ").append(cohort.datasetRevision()).append('\n');
@@ -321,8 +381,71 @@ public final class BenchmarkEvidenceExporter {
                     .append('/').append(cr.totalTokens()).append(" |\n");
         }
         md.append('\n');
-        md.append("Cost estimates are lower bounds based on recorded model usage, not actual bills.\n");
 
-        artifacts.write(outputDir.resolve("evidence-report.md"), md.toString());
+        md.append("## Estimated Model Cost\n\n");
+        md.append("Estimated Model Cost is unavailable. Provider `")
+                .append(export.modelProvider())
+                .append("` has no Pricing Reference in this batch. ")
+                .append("Missing cost must not be shown as a zero bill. ")
+                .append("Token columns above are recorded usage, not a bill.\n\n");
+
+        md.append("## Interpretation Limits\n\n");
+        md.append("Failed Candidate Drafts are not persisted (ADR-002). ")
+                .append("The system records token counts and Patch Gate summaries, ")
+                .append("but not the rejected patch text. ")
+                .append("A generation failure therefore cannot be read as proof that ")
+                .append("the test design itself was wrong.\n\n");
+
+        if (rejections != null) {
+            int trailing = 0;
+            int hunkMismatch = 0;
+            int other = 0;
+            int total = 0;
+            for (CaseRejections item : rejections.cases()) {
+                for (GenerationRejection rejection : item.rejections()) {
+                    total++;
+                    String summary = rejection.feedbackSummary();
+                    if ("trailing non-patch text".equals(summary)) {
+                        trailing++;
+                    } else if ("hunk new count mismatch".equals(summary)) {
+                        hunkMismatch++;
+                    } else {
+                        other++;
+                    }
+                }
+            }
+            md.append("## Generation Rejection Distribution\n\n");
+            md.append("Counts are computed from structured `generation.attempt.rejected` records.\n\n");
+            md.append("| feedback_summary | Count |\n| --- | --- |\n");
+            md.append("| trailing non-patch text | ").append(trailing).append(" |\n");
+            md.append("| hunk new count mismatch | ").append(hunkMismatch).append(" |\n");
+            if (other > 0) {
+                md.append("| other | ").append(other).append(" |\n");
+            }
+            md.append("| total | ").append(total).append(" |\n\n");
+
+            md.append("These two rejection classes are not equivalent. ")
+                    .append("`hunk new count mismatch` is a safety-relevant integrity check: ")
+                    .append("a hunk whose declared line count does not match its body can corrupt a file and must be rejected. ")
+                    .append("`trailing non-patch text` is a strictness choice, not a safety property: ")
+                    .append("a parser can stop after the last hunk. ")
+                    .append("This Gate therefore measures whether a model can emit a patch that satisfies this Gate, ")
+                    .append("including a non-safety cleanliness rule. A different Gate tolerance would change the numbers. ")
+                    .append("This batch does not change the Gate; the observation belongs to follow-up work.\n\n");
+        }
+
+        boolean allAgentsExhaustedAtGate = results.stream()
+                .filter(result -> result.purpose() == RunPurpose.AGENT_BENCHMARK)
+                .allMatch(result -> result.state() == RunState.FAILED
+                        && result.failureCategory().orElse("").equals("GENERATION_EXHAUSTED")
+                        && result.generationAttemptCount() == 3
+                        && result.candidatePatchSha256().isEmpty());
+        if (allAgentsExhaustedAtGate) {
+            md.append("## Agent Outcome Layer\n\n");
+            md.append("该模型在各轮中均产出了实质性补丁内容，但始终未满足统一 diff 的格式契约；")
+                    .append("失败发生在输出契约层，本次证据不足以判断其测试设计能力。\n\n");
+        }
+
+        Files.writeString(outputDir.resolve("evidence-report.md"), md.toString(), StandardCharsets.UTF_8);
     }
 }

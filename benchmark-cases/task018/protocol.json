@@ -5,7 +5,8 @@
   "limitations" : [
     "该 model 标识无日期版本锚点，供应商可在不改名的前提下更换权重，因此本批次结果不保证长期可复现。",
     "该模型的训练数据构成与知识截止时间未公开，无法论证其对 GitBug-Java 案例的污染边界。",
-    "最大 completion token 为 32768。原定上限在 DIAGNOSTIC 演练中被证明不足：该模型将 reasoning token 计入 completion 额度，一次修正轮实测 reasoning 占用 88%（3231/3666）。过低的上限会导致推理未完成即截断、text_tokens 归零、产出空内容——那是测量误差而非能力信号。本调整在任何正式 Agent 调用之前依据演练与探针证据确定。探针确认端点接受 32768。"
+    "最大 completion token 为 32768。原定上限在 DIAGNOSTIC 演练中被证明不足：该模型将 reasoning token 计入 completion 额度，一次修正轮实测 reasoning 占用 88%（3231/3666）。过低的上限会导致推理未完成即截断、text_tokens 归零、产出空内容——那是测量误差而非能力信号。本调整在任何正式 Agent 调用之前依据演练与探针证据确定。探针确认端点接受 32768。",
+    "正式批次依赖本机挂载的 GitBug-Java 数据源读取已知触发测试补丁与 Issue 正文；仅凭公开仓库与本仓库冻结元数据无法复现校准运行。"
   ],
   "failureHandling" : "Patch Gate 的策略性拒绝可修正并进入下一次 Generation Attempt（三轮上限不变）；仅 WORKSPACE_UNSAFE 立即终态。该规则在任何正式模型调用之前确定。"
 }

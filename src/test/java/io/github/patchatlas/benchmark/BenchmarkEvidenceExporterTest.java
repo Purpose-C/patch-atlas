@@ -82,7 +82,9 @@ class BenchmarkEvidenceExporterTest {
         String md = Files.readString(tempDir.resolve("evidence-report.md"));
         assertThat(md).contains("Calibration passed").contains("3 / 3");
         assertThat(md).contains("Agent VALID_REPRODUCTION").contains("1 / 3");
-        assertThat(md).contains("lower bounds").contains("not actual bills");
+        assertThat(md).contains("Estimated Model Cost is unavailable");
+        assertThat(md).doesNotContain("$0");
+        assertThat(md).contains("Failed Candidate Drafts are not persisted");
         assertThat(md).contains("Model provider: agnes");
         assertThat(md).contains("Model: agnes-2.5-flash");
         assertThat(md).contains("openai/gpt-4.1-mini");
@@ -199,6 +201,60 @@ class BenchmarkEvidenceExporterTest {
         assertThatThrownBy(() -> exporter.export(COHORT, results, missing, tempDir))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("protocol file missing");
+    }
+
+    @Test
+    void rejectionLogDrivesDistributionAndContractLayer() throws IOException {
+        Files.writeString(tempDir.resolve("generation-rejections.json"), """
+                {
+                  "cases": [
+                    {
+                      "caseId": "case-4",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 2, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 3, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"}
+                      ]
+                    },
+                    {
+                      "caseId": "case-5",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"},
+                        {"attemptOrdinal": 2, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"},
+                        {"attemptOrdinal": 3, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"}
+                      ]
+                    },
+                    {
+                      "caseId": "case-6",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 2, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 3, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"}
+                      ]
+                    }
+                  ]
+                }
+                """);
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agentFailedNoCandidate(4, "case-4"),
+                agentFailedNoCandidate(5, "case-5"),
+                agentFailedNoCandidate(6, "case-6"));
+
+        ResultsExport export = new BenchmarkEvidenceExporter().export(COHORT, results, protocolPath, tempDir);
+
+        assertThat(export.calibrationPassed()).isEqualTo(3);
+        assertThat(export.agentReproductions()).isEqualTo(0);
+        assertThat(export.agentFailures()).isEqualTo(3);
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("| trailing non-patch text | 6 |");
+        assertThat(md).contains("| hunk new count mismatch | 3 |");
+        assertThat(md).contains("| total | 9 |");
+        assertThat(md).contains("strictness choice, not a safety property");
+        assertThat(md).contains("失败发生在输出契约层");
+        assertThat(md).contains("Failed Candidate Drafts are not persisted");
     }
 
     @Test
