@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "caseId": "jhy-jsoup-a96ebc95f9ad",
+      "rejections": [
+        {
+          "attemptOrdinal": 1,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        },
+        {
+          "attemptOrdinal": 2,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        },
+        {
+          "attemptOrdinal": 3,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        }
+      ]
+    },
+    {
+      "caseId": "jhy-jsoup-9de27fa7cd82",
+      "rejections": [
+        {
+          "attemptOrdinal": 1,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "hunk new count mismatch"
+        },
+        {
+          "attemptOrdinal": 2,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "hunk new count mismatch"
+        },
+        {
+          "attemptOrdinal": 3,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "hunk new count mismatch"
+        }
+      ]
+    },
+    {
+      "caseId": "AuthMe-ConfigMe-7bf10c513479",
+      "rejections": [
+        {
+          "attemptOrdinal": 1,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        },
+        {
+          "attemptOrdinal": 2,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        },
+        {
+          "attemptOrdinal": 3,
+          "feedbackCategory": "PATCH_POLICY_REJECTED",
+          "feedbackSummary": "trailing non-patch text"
+        }
+      ]
+    }
+  ]
+}
