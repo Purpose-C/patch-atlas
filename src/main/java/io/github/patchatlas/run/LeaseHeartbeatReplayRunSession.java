@@ -77,11 +77,6 @@ public final class LeaseHeartbeatReplayRunSession implements ReplayRunSession {
     }
 
     @Override
-    public RunPurpose purpose() {
-        return purpose;
-    }
-
-    @Override
     public void close() {
         if (closeHeartbeat) {
             heartbeat.close();

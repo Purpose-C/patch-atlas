@@ -113,11 +113,6 @@ public final class InMemoryReplayRunSession implements ReplayRunSession {
         return terminal;
     }
 
-    @Override
-    public RunPurpose purpose() {
-        return purpose;
-    }
-
     public int openRoundCount() {
         return openRoundCount;
     }

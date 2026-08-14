@@ -193,11 +193,6 @@ class FormalReplayCoordinatorTest {
             public RunDetails fail(RunFailure failure) {
                 return delegate.fail(failure);
             }
-
-            @Override
-            public RunPurpose purpose() {
-                return delegate.purpose();
-            }
         };
         FormalReplayCoordinator coordinator = coordinator(
                 factory(liveFixture), successfulWarmup(), FormalReplayCoordinatorTest::liveReplay);

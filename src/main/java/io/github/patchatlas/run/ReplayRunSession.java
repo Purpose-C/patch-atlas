@@ -25,8 +25,6 @@ public interface ReplayRunSession extends AutoCloseable {
 
     RunDetails fail(RunFailure failure);
 
-    RunPurpose purpose();
-
     @Override
     default void close() {}
 }
