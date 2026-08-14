@@ -44,6 +44,16 @@ public final class Issue2TestRuntime {
             SandboxRunner sandbox,
             RepositoryWorkspaceFetcher fetcher,
             SandboxExecutionObserver observer) {
+        return create(generator, workspaceRoot, sandbox, fetcher, observer, null);
+    }
+
+    public static Issue2TestRuntime create(
+            TestGenerator generator,
+            Path workspaceRoot,
+            SandboxRunner sandbox,
+            RepositoryWorkspaceFetcher fetcher,
+            SandboxExecutionObserver observer,
+            RunReplayer replayer) {
         Objects.requireNonNull(generator, "generator");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(sandbox, "sandbox");
@@ -57,7 +67,9 @@ public final class Issue2TestRuntime {
         CandidateWorkspaceFactory workspaces = new TempCandidateWorkspaceFactory(root, fetcher);
         SideReplayRunner sideReplay = new SideReplayRunner(sandbox, root, observer);
         DependencyWarmupRunner warmup = new DependencyWarmupRunner(sandbox, root, observer);
-        return of(generator, gate, workspaces, warmup, sideReplay, new EngineRunReplayer(sideReplay));
+        RunReplayer resolved =
+                replayer != null ? replayer : new EngineRunReplayer(sideReplay);
+        return of(generator, gate, workspaces, warmup, sideReplay, resolved);
     }
 
     /** 测试与可覆盖装配：调用方已备好 Gate、workspace、预热、Side 与 Replayer。 */

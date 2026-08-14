@@ -53,13 +53,15 @@ public class RunWorkerConfiguration {
             RunWorkerProperties properties,
             SandboxRunner sandboxRunner,
             ObjectProvider<RepositoryWorkspaceFetcher> fetcher,
-            ObjectProvider<SandboxExecutionObserver> observer) {
+            ObjectProvider<SandboxExecutionObserver> observer,
+            ObjectProvider<RunReplayer> replayer) {
         return Issue2TestRuntime.create(
                 generator,
                 requireWorkspaceRoot(properties),
                 sandboxRunner,
                 fetcher.getIfAvailable(GitCloneWorkspaceFetcher::new),
-                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
+                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP),
+                replayer.getIfAvailable());
     }
 
     @Bean
