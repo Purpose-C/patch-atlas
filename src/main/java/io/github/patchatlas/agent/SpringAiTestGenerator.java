@@ -20,6 +20,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -38,6 +40,8 @@ import org.springframework.ai.chat.prompt.Prompt;
  * 累计上限 75 秒、单次上限 60 秒），退避不消耗逻辑 Generation Attempt。
  */
 public final class SpringAiTestGenerator implements TestGenerator {
+
+    private static final Logger log = LoggerFactory.getLogger(SpringAiTestGenerator.class);
 
     static final int MAX_TRANSPORT_RETRIES = 4;
     static final Duration MAX_BACKOFF = Duration.ofSeconds(60);
@@ -159,7 +163,13 @@ public final class SpringAiTestGenerator implements TestGenerator {
                     throw new MappedCallFailure(category, ex);
                 }
                 try {
-                    sleeper.sleep(backoffDelay(attempt));
+                    Duration delay = backoffDelay(attempt);
+                    log.atInfo()
+                            .addKeyValue("event", "generation.transport.backoff")
+                            .addKeyValue("failed_attempt_index", attempt)
+                            .addKeyValue("delay_seconds", delay.toSeconds())
+                            .log("transport backoff");
+                    sleeper.sleep(delay);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     throw new MappedCallFailure(CallFailureCategory.MODEL_UNAVAILABLE, interrupted);
