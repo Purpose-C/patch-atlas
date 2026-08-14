@@ -9,6 +9,7 @@ frontend/coverage/
 .env.*
 .idea/
 .vscode/
+.claude/
 *.iml
 *.log
 *.orig
