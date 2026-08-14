@@ -145,6 +145,7 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 案例选择标准在评测前冻结，模型不能选择自己的考题；
 - Benchmark 同时报告成功与失败案例；
 - 指标至少包含定位率、测试编译率、Buggy 有效断言失败率、Fixed 通过率、完整复现率、耗时与模型成本。
+- 已知缺口:`ParentRevisionValidator` 尚未接入 `DynamicCaseQualifier`,因此 task018 冻结队列没有机械验证 Fixed Revision 的第一父提交等于 Buggy Revision。该事实在队列冻结并完成正式批次之后才被发现,按冻结原则不追溯修改该批次的过滤器、协议或证据;应在下一批 cohort 冻结之前接线。
 
 ## 当前实现状态
 
