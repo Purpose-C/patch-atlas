@@ -20,6 +20,17 @@ jobs:
           cache: maven
       - run: ./mvnw test
 
+  backend-database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw test -Dgroups=database
+
   frontend:
     runs-on: ubuntu-latest
     steps:
