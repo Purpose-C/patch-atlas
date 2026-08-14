@@ -48,9 +48,11 @@ class BenchmarkArtifactReaderTest {
         assertThat(protocol.provider()).isEqualTo("agnes");
         assertThat(protocol.model()).isEqualTo("agnes-2.5-flash");
         assertThat(protocol.endpoint()).isEqualTo("https://apihub.agnes-ai.com/v1");
-        assertThat(protocol.limitations()).hasSize(2);
+        assertThat(protocol.limitations()).hasSize(3);
         assertThat(protocol.limitations().get(0)).contains("无日期版本锚点");
         assertThat(protocol.limitations().get(1)).contains("训练数据构成");
+        assertThat(protocol.limitations().get(2)).contains("32768");
+        assertThat(protocol.limitations().get(2)).contains("测量误差而非能力信号");
         assertThat(protocol.failureHandling()).contains("Patch Gate 的策略性拒绝可修正");
     }
 

@@ -27,8 +27,13 @@ public final class OpenAiChatModelFactory {
     public static final int MAX_HTTP_BODY_BYTES = CandidateDraftParser.MAX_RESPONSE_BYTES;
 
     public static final String DEFAULT_BASE_URL = "https://api.openai.com";
-    private static final Duration TIMEOUT = Duration.ofSeconds(90);
-    private static final int MAX_COMPLETION_TOKENS = 8192;
+    /** 单轮最坏约 4–5 分钟；须覆盖 reasoning 占 completion 额度后的完整输出。 */
+    static final Duration TIMEOUT = Duration.ofSeconds(300);
+    /**
+     * 端点探针已接受该上限。原定过低的 completion 额度会在 reasoning 未完成时截断，
+     * 产出空内容，那是测量误差而非能力信号。
+     */
+    public static final int MAX_COMPLETION_TOKENS = 32768;
 
     /**
      * Candidate Draft 的原生 JSON Schema（strict）。

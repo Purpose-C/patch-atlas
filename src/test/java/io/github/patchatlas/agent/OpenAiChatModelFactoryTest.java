@@ -37,7 +37,10 @@ class OpenAiChatModelFactoryTest {
         var options = OpenAiChatModelFactory.chatOptions("gpt-4.1-mini-2025-04-14");
 
         assertThat(options.getTemperature()).isZero();
-        assertThat(options.getMaxCompletionTokens()).isEqualTo(8192);
+        assertThat(options.getMaxCompletionTokens())
+                .isEqualTo(OpenAiChatModelFactory.MAX_COMPLETION_TOKENS);
+        assertThat(options.getMaxCompletionTokens()).isEqualTo(32768);
+        assertThat(options.getTimeout()).isEqualTo(java.time.Duration.ofSeconds(300));
         assertThat(options.getModel()).isEqualTo("gpt-4.1-mini-2025-04-14");
     }
 
