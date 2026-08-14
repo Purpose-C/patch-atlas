@@ -10,12 +10,9 @@ import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.TargetTest;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -218,7 +215,7 @@ public final class BuggyOnlyGeneratorContextBuilder {
             return;
         }
         selected.add(new SelectedSource(
-                snapshot, file.blobId(), sha256(file.content()), selectionReason));
+                snapshot, file.blobId(), BenchmarkArtifacts.sha256(file.content()), selectionReason));
         selectedBytes[0] += contentBytes;
     }
 
@@ -264,15 +261,6 @@ public final class BuggyOnlyGeneratorContextBuilder {
     private static String simpleClassName(String path) {
         int slash = path.lastIndexOf('/');
         return path.substring(slash + 1, path.length() - ".java".length());
-    }
-
-    private static String sha256(String content) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(content.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
     }
 
     private static int compareByCodePoint(String left, String right) {

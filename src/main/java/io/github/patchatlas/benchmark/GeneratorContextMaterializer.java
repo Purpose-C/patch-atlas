@@ -5,12 +5,8 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadat
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.SourceReference;
 import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.BuggyFile;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,7 +65,7 @@ public final class GeneratorContextMaterializer {
                 throw new IOException(
                         "source file not found in buggy revision: " + ref.path());
             }
-            String actualSha = sha256(file.content());
+            String actualSha = BenchmarkArtifacts.sha256(file.content());
             if (!actualSha.equals(ref.contentSha256())) {
                 throw new IOException(
                         "contentSha256 mismatch for " + ref.path()
@@ -87,12 +83,4 @@ public final class GeneratorContextMaterializer {
         return List.copyOf(snapshots);
     }
 
-    private static String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 unavailable", ex);
-        }
-    }
 }
