@@ -14,7 +14,10 @@ import io.github.patchatlas.benchmark.KnownTriggerResolver.ResolvedKnownTrigger;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FormalReplayCoordinator;
 import io.github.patchatlas.run.GatedCandidate;
+import io.github.patchatlas.run.Issue2TestWorker;
+import io.github.patchatlas.run.LeaseHeartbeatReplayRunSession;
 import io.github.patchatlas.run.PostgresRunStore;
+import io.github.patchatlas.run.ReplayRunSession;
 import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
@@ -114,7 +117,14 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
                     gated,
                     owner,
                     leaseDuration);
-            replayCoordinator.run(claimed, owner);
+            try (ReplayRunSession session = LeaseHeartbeatReplayRunSession.open(
+                    runStore,
+                    claimed,
+                    owner,
+                    leaseDuration,
+                    Issue2TestWorker.DEFAULT_HEARTBEAT)) {
+                replayCoordinator.run(claimed, session);
+            }
             return claimed.runId();
         } catch (IOException ex) {
             throw new IllegalStateException("calibration launch failed", ex);

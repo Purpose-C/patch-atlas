@@ -117,20 +117,12 @@ public class RunWorkerConfiguration {
 
     @Bean
     FormalReplayCoordinator formalReplayCoordinator(
-            PostgresRunStore store,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
             DependencyWarmupRunner dependencyWarmupRunner,
-            RunReplayer replayer,
-            RunWorkerProperties properties) {
+            RunReplayer replayer) {
         return new FormalReplayCoordinator(
-                store,
-                patchGate,
-                workspaceFactory,
-                dependencyWarmupRunner,
-                replayer,
-                properties.getLeaseDuration(),
-                properties.getHeartbeatInterval());
+                patchGate, workspaceFactory, dependencyWarmupRunner, replayer);
     }
 
     @Bean

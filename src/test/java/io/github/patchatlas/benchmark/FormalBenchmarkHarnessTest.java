@@ -75,13 +75,7 @@ class FormalBenchmarkHarnessTest {
         CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
                 generator, patchGate, workspaces, warmup, sideReplay);
         FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                runStore,
-                patchGate,
-                workspaces,
-                warmup,
-                new EngineRunReplayer(sideReplay),
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+                patchGate, workspaces, warmup, new EngineRunReplayer(sideReplay));
         Issue2TestWorker worker = new Issue2TestWorker(
                 runStore,
                 generation,

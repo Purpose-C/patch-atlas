@@ -91,7 +91,7 @@ Java 版本与网络模式属于 Verification Run 的不可变执行策略。Jav
 
 ### Run 编排边界
 
-`Issue2TestWorker` 只负责领取 Run 和按状态分发。`CandidateGenerationCoordinator` 拥有生成、预热、Gate 与 Buggy 预验证；`FormalReplayCoordinator` 拥有工作区重建、预热、再次 Gate、正式 Replay 与终态写入。两条路径共用生产 `DependencyWarmupRunner` 与 `SideReplayRunner`，持久化写入只经带 claim fence 的 Run Store 动作。
+`Issue2TestWorker` 只负责领取 Run 和按状态分发。`CandidateGenerationCoordinator` 拥有生成、预热、Gate 与 Buggy 预验证；`FormalReplayCoordinator` 拥有工作区重建、预热、再次 Gate 与正式 Replay。生成与 Formal Replay 的租约、轮次和终态写入分别经 `GenerationRunSession` 与 `ReplayRunSession`。两条路径共用生产 `DependencyWarmupRunner` 与 `SideReplayRunner`。
 
 启用 Worker 时，项目默认装配 `DockerSandboxRunner` 与基于 Replay Engine 的 `RunReplayer`；部署可用自定义 adapter 覆盖默认 fallback。workspace 根目录缺失或无效时启动立即失败。
 

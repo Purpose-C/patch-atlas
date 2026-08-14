@@ -455,14 +455,19 @@ class Issue2TestWorkerRecoveryTest {
                 Duration.ofMinutes(5));
 
         FormalReplayCoordinator coordinator = new FormalReplayCoordinator(
-                store,
                 new PatchGate(histRoot),
                 new TempCandidateWorkspaceFactory(histRoot, LocalGitFixture.fetcher(hist.originDir())),
                 successfulWarmup(histRoot),
-                Issue2TestWorkerRecoveryTest::fakeLiveReplay,
+                Issue2TestWorkerRecoveryTest::fakeLiveReplay);
+        RunDetails completed;
+        try (ReplayRunSession session = LeaseHeartbeatReplayRunSession.open(
+                store,
+                replaying,
+                "calibrator",
                 Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
-        RunDetails completed = coordinator.run(replaying, "calibrator");
+                Issue2TestWorker.DEFAULT_HEARTBEAT)) {
+            completed = coordinator.run(replaying, session);
+        }
 
         assertThat(completed.state()).isEqualTo(RunState.COMPLETED);
         assertThat(completed.verdict()).contains(ReplayVerdict.VALID_REPRODUCTION);
@@ -508,13 +513,7 @@ class Issue2TestWorkerRecoveryTest {
         CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
                 generator, gate, workspaceFactory, dependencyWarmupRunner, sideReplayRunner);
         FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                store,
-                gate,
-                workspaceFactory,
-                dependencyWarmupRunner,
-                replayer,
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+                gate, workspaceFactory, dependencyWarmupRunner, replayer);
         return new Issue2TestWorker(
                 store,
                 generation,

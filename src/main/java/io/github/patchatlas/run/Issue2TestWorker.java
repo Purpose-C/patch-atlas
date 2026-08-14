@@ -79,7 +79,7 @@ public final class Issue2TestWorker {
             current = afterGenerate.get();
         }
         if (current.state() == RunState.REPLAYING) {
-            return replayCoordinator.run(current, owner);
+            return replayPhase(current, owner);
         }
         throw new IllegalStateException("unexpected claimed state " + current.state());
     }
@@ -98,6 +98,13 @@ public final class Issue2TestWorker {
                         Optional.of(committed.claim());
                 case CandidateGenerationCoordinator.Result.RunFailed ignored -> Optional.empty();
             };
+        }
+    }
+
+    private RunDetails replayPhase(ClaimedRun claimed, String owner) {
+        try (ReplayRunSession session = LeaseHeartbeatReplayRunSession.open(
+                store, claimed, owner, leaseDuration, heartbeatInterval)) {
+            return replayCoordinator.run(claimed, session);
         }
     }
 

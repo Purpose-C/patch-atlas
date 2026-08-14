@@ -184,13 +184,10 @@ class RunApiVerticalSliceTest {
         CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
                 generator, new PatchGate(workspaceRoot), factory, warmup, side);
         FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                runStore,
                 new PatchGate(workspaceRoot),
                 factory,
                 warmup,
-                RunApiVerticalSliceTest::fakeLiveReplay,
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+                RunApiVerticalSliceTest::fakeLiveReplay);
         return new Issue2TestWorker(
                 runStore,
                 generation,

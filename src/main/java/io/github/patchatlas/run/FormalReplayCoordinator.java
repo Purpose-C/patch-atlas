@@ -4,95 +4,77 @@ import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.PatchRejectionCategory;
-import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.MavenTestCommand;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Formal Replay 编排：恢复工作区、再次 Gate、执行并完成 Run。 */
+/**
+ * Formal Replay 编排：恢复工作区、再次 Gate、执行 Replay。
+ *
+ * <p>不持有 DataSource / Run Store；持久化只经 {@link ReplayRunSession}。
+ */
 public final class FormalReplayCoordinator {
 
-    private final PostgresRunStore store;
     private final PatchGate patchGate;
     private final CandidateWorkspaceFactory workspaceFactory;
     private final DependencyWarmupRunner dependencyWarmupRunner;
     private final RunReplayer replayer;
-    private final Duration leaseDuration;
-    private final Duration heartbeatInterval;
 
     public FormalReplayCoordinator(
-            PostgresRunStore store,
             PatchGate patchGate,
             CandidateWorkspaceFactory workspaceFactory,
             DependencyWarmupRunner dependencyWarmupRunner,
-            RunReplayer replayer,
-            Duration leaseDuration,
-            Duration heartbeatInterval) {
-        this.store = Objects.requireNonNull(store, "store");
+            RunReplayer replayer) {
         this.patchGate = Objects.requireNonNull(patchGate, "patchGate");
         this.workspaceFactory = Objects.requireNonNull(workspaceFactory, "workspaceFactory");
         this.dependencyWarmupRunner =
                 Objects.requireNonNull(dependencyWarmupRunner, "dependencyWarmupRunner");
         this.replayer = Objects.requireNonNull(replayer, "replayer");
-        this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration");
-        this.heartbeatInterval = Objects.requireNonNull(heartbeatInterval, "heartbeatInterval");
     }
 
-    public RunDetails run(ClaimedRun claimed, String owner) {
+    public RunDetails run(ClaimedRun claimed, ReplayRunSession session) {
+        Objects.requireNonNull(claimed, "claimed");
+        Objects.requireNonNull(session, "session");
         PersistedCandidatePatch candidate = claimed
                 .candidate()
                 .orElseThrow(() -> new IllegalStateException("REPLAYING without candidate"));
 
-        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
-                store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
-            ClaimedRun opened = beat.openReplayRound();
-            RunEvents.replayStarted(opened.runId(), opened.replayRound());
-            ReplayWorkspaceProjection projection =
-                    store.loadReplayWorkspaceProjection(opened.runId());
-            RunPurpose purpose = store.findRunDetail(opened.runId()).orElseThrow().purpose();
-            List<CandidateWorkspaceFactory.WorkspaceSession> sessions = new ArrayList<>(2);
+        ReplayRunSession.Opened opened = session.openRound();
+        List<CandidateWorkspaceFactory.WorkspaceSession> sessions = new ArrayList<>(2);
+        try {
+            final PreparedReplayWorkspace prepared;
             try {
-                final PreparedReplayWorkspace prepared;
-                try {
-                    prepared = prepareWorkspaces(opened, projection, candidate, sessions);
-                } catch (PatchGateRejectedException gateEx) {
-                    return failed(beat, gateEx.failure());
-                } catch (DependencyWarmupFailedException warmupEx) {
-                    return failed(
-                            beat,
-                            new RunFailure(
-                                    FailureStage.REPLAY,
-                                    FailureCategory.REPLAY_SYSTEM_ERROR,
-                                    warmupEx.getMessage()));
-                } catch (StaleClaimException stale) {
-                    throw stale;
-                } catch (Exception ex) {
-                    return failed(beat, WorkspaceFailureSummarizer.failure(
-                            ex, purpose, "replay workspace prepare failed: "));
-                }
-
-                try {
-                    RunDetails completed = beat.complete(replayer.replay(opened, candidate, prepared));
-                    completed.verdict()
-                            .ifPresent(verdict -> RunEvents.runCompleted(
-                                    completed.runId(), completed.mode(), verdict));
-                    return completed;
-                } catch (StaleClaimException stale) {
-                    throw stale;
-                } catch (Exception ex) {
-                    return failed(
-                            beat,
-                            new RunFailure(
-                                    FailureStage.REPLAY,
-                                    FailureCategory.REPLAY_SYSTEM_ERROR,
-                                    bound("replay failed: " + ex.getClass().getSimpleName())));
-                }
-            } finally {
-                closeSessions(sessions);
+                prepared = prepareWorkspaces(opened.claim(), opened.projection(), candidate, sessions);
+            } catch (PatchGateRejectedException gateEx) {
+                return session.fail(gateEx.failure());
+            } catch (DependencyWarmupFailedException warmupEx) {
+                return session.fail(
+                        new RunFailure(
+                                FailureStage.REPLAY,
+                                FailureCategory.REPLAY_SYSTEM_ERROR,
+                                warmupEx.getMessage()));
+            } catch (StaleClaimException stale) {
+                throw stale;
+            } catch (Exception ex) {
+                return session.fail(WorkspaceFailureSummarizer.failure(
+                        ex, opened.purpose(), "replay workspace prepare failed: "));
             }
+
+            try {
+                return session.complete(replayer.replay(opened.claim(), candidate, prepared));
+            } catch (StaleClaimException stale) {
+                throw stale;
+            } catch (Exception ex) {
+                return session.fail(
+                        new RunFailure(
+                                FailureStage.REPLAY,
+                                FailureCategory.REPLAY_SYSTEM_ERROR,
+                                bound("replay failed: " + ex.getClass().getSimpleName())));
+            }
+        } finally {
+            closeSessions(sessions);
         }
     }
 
@@ -207,12 +189,6 @@ public final class FormalReplayCoordinator {
                 ? FailureStage.WORKSPACE
                 : FailureStage.PATCH_GATE;
         return new RunFailure(stage, category, rejected.reason());
-    }
-
-    private static RunDetails failed(LeaseHeartbeat beat, RunFailure failure) {
-        RunDetails details = beat.fail(failure);
-        RunEvents.runFailed(details.runId(), details.mode(), failure);
-        return details;
     }
 
     private static String bound(String summary) {
