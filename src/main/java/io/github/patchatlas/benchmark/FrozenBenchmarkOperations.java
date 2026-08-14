@@ -11,6 +11,7 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadat
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.OracleMetadata;
 import io.github.patchatlas.benchmark.GitBugJavaMetadataReader.CaseMetadata;
 import io.github.patchatlas.benchmark.KnownTriggerResolver.ResolvedKnownTrigger;
+import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FormalReplayCoordinator;
 import io.github.patchatlas.run.GatedCandidate;
@@ -151,24 +152,42 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
 
     @Override
     public UUID launchDiagnostic() {
-        RunSubmission diagnostic = new RunSubmission(
-                VerificationMode.HISTORICAL,
-                "scof-1326-diagnostic",
-                "https://github.com/spring-cloud/spring-cloud-openfeign",
-                "Apache-2.0",
-                "https://github.com/spring-cloud/spring-cloud-openfeign/issues/1326",
-                "SpringMvcContract warns about unwrapped parameters when @GetMapping has a single URI parameter",
+        String issueTitle =
+                "SpringMvcContract warns about unwrapped parameters when @GetMapping has a single URI parameter";
+        String issueBody =
                 """
                 When a @GetMapping method has a single URI-typed parameter (e.g., @PathVariable),
                 SpringMvcContract incorrectly treats it as an unwrapped parameter and logs a warning:
                 "OpenFeign Warning: ... is not annotated". The method should be accepted without warning
-                because URI parameters are valid and do not require explicit annotations.""",
+                because URI parameters are valid and do not require explicit annotations.""";
+        CaseManifest.GeneratorContext generatorContext = new CaseManifest.GeneratorContext(
+                "scof-1326-diagnostic",
+                "https://github.com/spring-cloud/spring-cloud-openfeign",
+                "Apache-2.0",
+                "https://github.com/spring-cloud/spring-cloud-openfeign/issues/1326",
                 "3f6cd2eb9b5a9675a3b5fd0a0987ad8cfc3e8398",
-                "a91d8f565ed3682b9bc363f9f36745d30957c09d",
                 "spring-cloud-openfeign-core",
-                "17",
+                "17");
+        List<SourceSnapshot> snapshots;
+        try {
+            snapshots = materializer.selectFromIssue(generatorContext, issueTitle, issueBody);
+        } catch (IOException ex) {
+            throw new IllegalStateException("diagnostic context materialization failed", ex);
+        }
+        RunSubmission diagnostic = new RunSubmission(
+                VerificationMode.HISTORICAL,
+                generatorContext.caseId(),
+                generatorContext.repositoryUrl(),
+                generatorContext.license(),
+                generatorContext.issueUrl(),
+                issueTitle,
+                issueBody,
+                generatorContext.buggyRevision(),
+                "a91d8f565ed3682b9bc363f9f36745d30957c09d",
+                generatorContext.modulePath(),
+                generatorContext.javaVersion(),
                 MavenNetworkMode.ONLINE,
-                List.of());
+                snapshots);
         return runStore.submitDiagnostic(diagnostic);
     }
 

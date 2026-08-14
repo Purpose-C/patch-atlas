@@ -4,6 +4,7 @@ import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadata;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.SourceReference;
 import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.BuggyFile;
+import io.github.patchatlas.repository.CaseManifest;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -83,4 +84,30 @@ public final class GeneratorContextMaterializer {
         return List.copyOf(snapshots);
     }
 
+    /**
+     * 从 Issue 文本与 Buggy Revision 启发式选择 Source Snapshot。
+     * 与正式 Agent 路径使用同一 {@link BuggyOnlyGeneratorContextBuilder}，不读 Oracle。
+     */
+    public List<SourceSnapshot> selectFromIssue(
+            CaseManifest.GeneratorContext generatorContext,
+            String issueTitle,
+            String issueBody) throws IOException {
+        Objects.requireNonNull(generatorContext, "generatorContext");
+        Objects.requireNonNull(issueTitle, "issueTitle");
+        Objects.requireNonNull(issueBody, "issueBody");
+
+        BenchmarkGitWorkspace.CheckoutResult checkout = git.checkout(
+                generatorContext.repositoryUrl(),
+                generatorContext.buggyRevision(),
+                generatorContext.caseId() + "-context");
+        if (!(checkout instanceof BenchmarkGitWorkspace.CheckoutResult.Success success)) {
+            throw new IOException("checkout failed for issue context: " + generatorContext.caseId());
+        }
+
+        List<BuggyFile> files = repositoryReader.readJavaFiles(
+                success.workspace(), generatorContext.buggyRevision());
+        return new BuggyOnlyGeneratorContextBuilder()
+                .build(generatorContext, issueTitle, issueBody, files)
+                .snapshots();
+    }
 }

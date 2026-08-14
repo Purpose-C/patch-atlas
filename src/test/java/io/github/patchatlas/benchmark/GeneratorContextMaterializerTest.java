@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadata;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.SourceReference;
+import io.github.patchatlas.repository.CaseManifest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -37,6 +38,27 @@ class GeneratorContextMaterializerTest {
 
         assertThat(snapshots).hasSize(1);
         assertThat(snapshots.getFirst().relativePath()).isEqualTo("src/main/java/Foo.java");
+        assertThat(snapshots.getFirst().content()).isEqualTo(CONTENT);
+    }
+
+    @Test
+    void selectFromIssueUsesBuggyOnlyBuilderOnIssueMentions() throws Exception {
+        Fixture fixture = writeRepo(tempDir.resolve("issue-ctx"), CONTENT);
+        GeneratorContextMaterializer materializer = materializer(fixture.workspace());
+        var generatorContext = new CaseManifest.GeneratorContext(
+                "case-1",
+                REPOSITORY_URL,
+                "MIT",
+                "https://github.com/ex/repo/issues/1",
+                fixture.revision(),
+                "",
+                "17");
+
+        List<SourceSnapshot> snapshots = materializer.selectFromIssue(
+                generatorContext, "Foo fails", "See src/main/java/Foo.java");
+
+        assertThat(snapshots).extracting(SourceSnapshot::relativePath)
+                .containsExactly("src/main/java/Foo.java");
         assertThat(snapshots.getFirst().content()).isEqualTo(CONTENT);
     }
 
