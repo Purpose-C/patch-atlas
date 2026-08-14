@@ -510,16 +510,17 @@ class Issue2TestWorkerRecoveryTest {
             DependencyWarmupRunner dependencyWarmupRunner,
             SideReplayRunner sideReplayRunner,
             RunReplayer replayer) {
-        CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
-                generator, gate, workspaceFactory, dependencyWarmupRunner, sideReplayRunner);
-        FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                gate, workspaceFactory, dependencyWarmupRunner, replayer);
-        return new Issue2TestWorker(
-                store,
-                generation,
-                replay,
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+        return Issue2TestRuntime.of(
+                        generator,
+                        gate,
+                        workspaceFactory,
+                        dependencyWarmupRunner,
+                        sideReplayRunner,
+                        replayer)
+                .worker(
+                        store,
+                        Issue2TestWorker.DEFAULT_LEASE,
+                        Issue2TestWorker.DEFAULT_HEARTBEAT);
     }
 
     private static DependencyWarmupRunner successfulWarmup(Path workspaceRoot) {

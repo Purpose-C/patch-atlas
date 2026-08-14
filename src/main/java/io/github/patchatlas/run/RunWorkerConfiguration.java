@@ -1,9 +1,6 @@
 package io.github.patchatlas.run;
 
-import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
-import io.github.patchatlas.replay.SideReplayRunner;
-import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
@@ -43,32 +40,6 @@ public class RunWorkerConfiguration {
     private static final Logger log = LoggerFactory.getLogger(RunWorkerConfiguration.class);
 
     @Bean
-    CandidateWorkspaceFactory candidateWorkspaceFactory(
-            RunWorkerProperties properties, ObjectProvider<RepositoryWorkspaceFetcher> fetcher) {
-        Path root = properties.getWorkspaceRoot();
-        if (root == null) {
-            throw new IllegalStateException(
-                    "patchatlas.worker.workspace-root is required when worker is enabled");
-        }
-        Path absolute = root.toAbsolutePath().normalize();
-        if (!Files.isDirectory(absolute)) {
-            throw new IllegalStateException(
-                    "patchatlas.worker.workspace-root must be an existing directory: " + absolute);
-        }
-        RepositoryWorkspaceFetcher materializer =
-                fetcher.getIfAvailable(GitCloneWorkspaceFetcher::new);
-        return new TempCandidateWorkspaceFactory(absolute, materializer);
-    }
-
-    @Bean
-    PatchGate patchGate(RunWorkerProperties properties) {
-        Path root = Objects.requireNonNull(properties.getWorkspaceRoot(), "workspace-root")
-                .toAbsolutePath()
-                .normalize();
-        return new PatchGate(root);
-    }
-
-    @Bean
     @Fallback
     SandboxRunner defaultSandboxRunner(RunWorkerProperties properties) {
         Path root = requireWorkspaceRoot(properties);
@@ -77,66 +48,26 @@ public class RunWorkerConfiguration {
     }
 
     @Bean
-    SideReplayRunner sideReplayRunner(
-            SandboxRunner sandboxRunner,
-            RunWorkerProperties properties,
-            ObjectProvider<SandboxExecutionObserver> observer) {
-        return new SideReplayRunner(
-                sandboxRunner,
-                requireWorkspaceRoot(properties),
-                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
-    }
-
-    @Bean
-    DependencyWarmupRunner dependencyWarmupRunner(
-            SandboxRunner sandboxRunner,
-            RunWorkerProperties properties,
-            ObjectProvider<SandboxExecutionObserver> observer) {
-        return new DependencyWarmupRunner(
-                sandboxRunner,
-                requireWorkspaceRoot(properties),
-                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
-    }
-
-    @Bean
-    @Fallback
-    RunReplayer defaultRunReplayer(SideReplayRunner sideReplayRunner) {
-        return new EngineRunReplayer(sideReplayRunner);
-    }
-
-    @Bean
-    CandidateGenerationCoordinator candidateGenerationCoordinator(
+    Issue2TestRuntime issue2TestRuntime(
             TestGenerator generator,
-            PatchGate patchGate,
-            CandidateWorkspaceFactory workspaceFactory,
-            DependencyWarmupRunner dependencyWarmupRunner,
-            SideReplayRunner sideReplayRunner) {
-        return new CandidateGenerationCoordinator(
-                generator, patchGate, workspaceFactory, dependencyWarmupRunner, sideReplayRunner);
-    }
-
-    @Bean
-    FormalReplayCoordinator formalReplayCoordinator(
-            PatchGate patchGate,
-            CandidateWorkspaceFactory workspaceFactory,
-            DependencyWarmupRunner dependencyWarmupRunner,
-            RunReplayer replayer) {
-        return new FormalReplayCoordinator(
-                patchGate, workspaceFactory, dependencyWarmupRunner, replayer);
+            RunWorkerProperties properties,
+            SandboxRunner sandboxRunner,
+            ObjectProvider<RepositoryWorkspaceFetcher> fetcher,
+            ObjectProvider<SandboxExecutionObserver> observer) {
+        return Issue2TestRuntime.create(
+                generator,
+                requireWorkspaceRoot(properties),
+                sandboxRunner,
+                fetcher.getIfAvailable(GitCloneWorkspaceFetcher::new),
+                observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP));
     }
 
     @Bean
     Issue2TestWorker issue2TestWorker(
+            Issue2TestRuntime runtime,
             PostgresRunStore store,
-            CandidateGenerationCoordinator generationCoordinator,
-            FormalReplayCoordinator replayCoordinator,
             RunWorkerProperties properties) {
-        return new Issue2TestWorker(
-                store,
-                generationCoordinator,
-                replayCoordinator,
-                properties.getLeaseDuration(),
-                properties.getHeartbeatInterval());
+        return runtime.worker(store, properties.getLeaseDuration(), properties.getHeartbeatInterval());
     }
 
     @Bean

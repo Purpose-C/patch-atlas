@@ -7,8 +7,6 @@ import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.TestGenerator;
-import io.github.patchatlas.replay.DependencyWarmupRunner;
-import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.SandboxRunner;
 import java.nio.file.Path;
@@ -36,11 +34,9 @@ class RunWorkerConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(Issue2TestWorker.class);
-                    assertThat(context).hasSingleBean(DependencyWarmupRunner.class);
+                    assertThat(context).hasSingleBean(Issue2TestRuntime.class);
                     assertThat(context.getBean(SandboxRunner.class))
                             .isInstanceOf(DockerSandboxRunner.class);
-                    assertThat(context.getBean(RunReplayer.class))
-                            .isInstanceOf(EngineRunReplayer.class);
                 });
     }
 

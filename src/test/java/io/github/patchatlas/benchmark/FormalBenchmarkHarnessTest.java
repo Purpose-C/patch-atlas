@@ -9,16 +9,10 @@ import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.SpringAiTestGenerator;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
-import io.github.patchatlas.replay.DependencyWarmupRunner;
-import io.github.patchatlas.replay.SideReplayRunner;
-import io.github.patchatlas.run.CandidateGenerationCoordinator;
-import io.github.patchatlas.run.EngineRunReplayer;
-import io.github.patchatlas.run.FormalReplayCoordinator;
 import io.github.patchatlas.run.GitCloneWorkspaceFetcher;
+import io.github.patchatlas.run.Issue2TestRuntime;
 import io.github.patchatlas.run.Issue2TestWorker;
 import io.github.patchatlas.run.PostgresRunStore;
-import io.github.patchatlas.run.TempCandidateWorkspaceFactory;
-import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import java.nio.file.Files;
@@ -61,27 +55,16 @@ class FormalBenchmarkHarnessTest {
         Cohort cohort = artifacts.readCohort(artifactsRoot.resolve("cohort.json"));
         BenchmarkPreflight preflight = new BenchmarkPreflight(dataSource, workspaceRoot);
         PostgresRunStore runStore = new PostgresRunStore(dataSource);
-        PatchGate patchGate = new PatchGate(workspaceRoot);
         DockerSandboxRunner sandbox = new DockerSandboxRunner(DockerSandboxConfig.defaults(
                 workspaceRoot, workspaceRoot.resolve(".patch-atlas-cache/maven")));
-        SideReplayRunner sideReplay = new SideReplayRunner(sandbox, workspaceRoot);
-        DependencyWarmupRunner warmup = new DependencyWarmupRunner(sandbox, workspaceRoot);
-        TempCandidateWorkspaceFactory workspaces = new TempCandidateWorkspaceFactory(
-                workspaceRoot, new GitCloneWorkspaceFetcher());
         TestGenerator generator = parsed.startsWith("agent-") || BenchmarkActions.DRY_RUN.equals(parsed)
                 ? openAiGenerator()
                 : FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
                         CallFailureCategory.MODEL_CONFIGURATION_ERROR, "model not required"));
-        CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
-                generator, patchGate, workspaces, warmup, sideReplay);
-        FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                patchGate, workspaces, warmup, new EngineRunReplayer(sideReplay));
-        Issue2TestWorker worker = new Issue2TestWorker(
-                runStore,
-                generation,
-                replay,
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+        Issue2TestRuntime runtime = Issue2TestRuntime.create(
+                generator, workspaceRoot, sandbox, new GitCloneWorkspaceFetcher());
+        Issue2TestWorker worker = runtime.worker(
+                runStore, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT);
         FormalBenchmarkRunner.Store store = new PostgresBenchmarkStore(runStore);
         FrozenBenchmarkOperations operations = new FrozenBenchmarkOperations(
                 artifactsRoot,
@@ -92,7 +75,7 @@ class FormalBenchmarkHarnessTest {
                         new BuggyRepositoryReader()),
                 new KnownTriggerResolver(),
                 runStore,
-                replay,
+                runtime.replayCoordinator(),
                 new BenchmarkEvidenceExporter(),
                 metadata,
                 OWNER,

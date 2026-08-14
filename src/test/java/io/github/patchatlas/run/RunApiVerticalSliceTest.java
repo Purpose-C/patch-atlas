@@ -181,19 +181,17 @@ class RunApiVerticalSliceTest {
                 (workspace, command) -> ScriptedSandboxRunner.completed(0), workspaceRoot);
         CandidateWorkspaceFactory factory = new TempCandidateWorkspaceFactory(
                 workspaceRoot, LocalGitFixture.fetcher(fixture.originDir()));
-        CandidateGenerationCoordinator generation = new CandidateGenerationCoordinator(
-                generator, new PatchGate(workspaceRoot), factory, warmup, side);
-        FormalReplayCoordinator replay = new FormalReplayCoordinator(
-                new PatchGate(workspaceRoot),
-                factory,
-                warmup,
-                RunApiVerticalSliceTest::fakeLiveReplay);
-        return new Issue2TestWorker(
-                runStore,
-                generation,
-                replay,
-                Issue2TestWorker.DEFAULT_LEASE,
-                Issue2TestWorker.DEFAULT_HEARTBEAT);
+        return Issue2TestRuntime.of(
+                        generator,
+                        new PatchGate(workspaceRoot),
+                        factory,
+                        warmup,
+                        side,
+                        RunApiVerticalSliceTest::fakeLiveReplay)
+                .worker(
+                        runStore,
+                        Issue2TestWorker.DEFAULT_LEASE,
+                        Issue2TestWorker.DEFAULT_HEARTBEAT);
     }
 
     private static ReplayResult fakeLiveReplay(
