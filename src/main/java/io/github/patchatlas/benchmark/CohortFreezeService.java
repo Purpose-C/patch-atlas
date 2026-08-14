@@ -58,7 +58,7 @@ public final class CohortFreezeService {
         PreparedCase {
             Objects.requireNonNull(metadata, "metadata");
             Objects.requireNonNull(trigger, "trigger");
-            requireText(license, "license");
+            BenchmarkArtifacts.requireText(license, "license");
             if (!javaVersion.equals("17") && !javaVersion.equals("21")) {
                 throw new IllegalArgumentException("javaVersion must be 17 or 21");
             }
@@ -388,10 +388,4 @@ public final class CohortFreezeService {
         }
     }
 
-    private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-        return value;
-    }
 }

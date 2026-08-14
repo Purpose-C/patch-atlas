@@ -349,7 +349,7 @@ public final class BenchmarkArtifacts {
         }
     }
 
-    private static String requireText(String value, String field) {
+    static String requireText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");
         }

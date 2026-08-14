@@ -52,13 +52,13 @@ public final class DynamicCaseQualifier {
             String knownTriggerPatch,
             String javaVersion) {
         public Input {
-            requireText(caseId, "caseId");
-            requireText(repositoryUrl, "repositoryUrl");
+            BenchmarkArtifacts.requireText(caseId, "caseId");
+            BenchmarkArtifacts.requireText(repositoryUrl, "repositoryUrl");
             requireSha(buggyRevision, "buggyRevision");
             requireSha(fixedRevision, "fixedRevision");
             Objects.requireNonNull(modulePath, "modulePath");
             Objects.requireNonNull(targetTest, "targetTest");
-            requireText(knownTriggerPatch, "knownTriggerPatch");
+            BenchmarkArtifacts.requireText(knownTriggerPatch, "knownTriggerPatch");
             if (!javaVersion.equals("17") && !javaVersion.equals("21")) {
                 throw new IllegalArgumentException("javaVersion must be 17 or 21");
             }
@@ -67,8 +67,8 @@ public final class DynamicCaseQualifier {
 
     public record Stage(String name, String result, long durationMs) {
         public Stage {
-            requireText(name, "name");
-            requireText(result, "result");
+            BenchmarkArtifacts.requireText(name, "name");
+            BenchmarkArtifacts.requireText(result, "result");
             if (durationMs < 0) {
                 throw new IllegalArgumentException("durationMs must not be negative");
             }
@@ -293,13 +293,6 @@ public final class DynamicCaseQualifier {
     @FunctionalInterface
     private interface CheckedSupplier<T> {
         T get();
-    }
-
-    private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-        return value;
     }
 
     private static void requireSha(String value, String field) {
