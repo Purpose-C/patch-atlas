@@ -29,7 +29,7 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它不把
 
 ### PR 影响分析
 
-代码定位与影响分析首先服务于候选测试上下文选择。未来作为独立流程时，将输出改动方法、直接调用方、相关入口、测试关联以及分级证据。
+Issue 定位与影响分析共用同一张代码关系图。前者服务于候选测试的上下文选择；后者作为独立流程输出改动方法、直接调用方、相关入口、测试关联以及分级证据。
 
 ## 总体结构
 
@@ -144,7 +144,7 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 生成器不得读取 Fixed Revision 或人工补丁；
 - 案例选择标准在评测前冻结，模型不能选择自己的考题；
 - Benchmark 同时报告成功与失败案例；
-- 指标至少包含定位率、测试编译率、Buggy 有效断言失败率、Fixed 通过率、完整复现率、耗时与模型成本。
+- 指标至少包含 Issue 定位覆盖率、测试编译率、Buggy 有效断言失败率、Fixed 通过率、完整复现率、耗时与模型成本。
 - 已知缺口:`ParentRevisionValidator` 尚未接入 `DynamicCaseQualifier`,因此 task018 冻结队列没有机械验证 Fixed Revision 的第一父提交等于 Buggy Revision。该事实在队列冻结并完成正式批次之后才被发现,按冻结原则不追溯修改该批次的过滤器、协议或证据;应在下一批 cohort 冻结之前接线。
 
 ## 当前实现状态
@@ -161,9 +161,9 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 生产 Worker、可恢复 Maven 执行策略与安全依赖预热；
 - Verification Run 的 REST API 与 Vue 列表/详情；
 - Run 聚合指标、沙箱执行遥测、结构化领域日志与估算费用；
-- 受控校准案例和一个真实 Spring 历史案例。
+- 受控校准案例和一个真实 Spring 历史案例；
+- 冻结队列上的正式 Agent Benchmark。3 个 Calibration 案例全部 `VALID_REPRODUCTION`，3 个 Agent 案例全部未复现（`GENERATION_EXHAUSTED`）。失败集中在统一 diff 的输出契约层而非测试设计层：9 次拒绝中 6 次为 `trailing non-patch text`、3 次为 `hunk new count mismatch`。完整证据见 `benchmark-cases/task018/`。
 
 尚未实现：
 
-- 3–5 个真实历史 Bug 的 Agent Benchmark；
 - 示例报告、演示 Tag 与一条命令启动的交付包装。

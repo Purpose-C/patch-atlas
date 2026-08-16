@@ -48,9 +48,29 @@ _Avoid_: Candidate Test Patch、模型原始响应、Replay 证据
 生成器可以读取的 Issue、Buggy Revision、相关源码与现有测试风格；其中不得包含 Oracle Data。
 _Avoid_: 完整案例数据、验证上下文
 
+**影响置信度分级**:
+对「某个代码位置与本次分析目标相关」这一结论的证据强度分级，取值为 `CONFIRMED`（AST、符号解析或测试直接证明）、`INFERRED`（由依赖注入、事件或配置语义推断）、`POSSIBLE`（多实现、反射或动态行为导致的不确定影响）。系统不宣称拥有完整调用图，因此每条结论都必须同时给出分级、文件、行号与证据来源。它描述证据强度，不描述模型的自信程度。
+_Avoid_: 模型置信度、相关度评分、Replay Verdict
+
+**代码关系图**:
+由某个 Revision 的源码机械解析得到的代码实体与关系集合：节点为文件、类与方法，边为导入、调用、继承、依赖注入、事件发布订阅与切面织入，每条边带影响置信度分级。它是（仓库, Revision）的纯函数，不包含 Oracle Data，也不判断代码正确性。
+_Avoid_: 完整调用图、AST、代码索引
+
+**Issue 定位**:
+在看不到人类修复内容的前提下，依据 Issue 文本与代码关系图，确定哪些源码进入 Generator Context 的过程。它给出相关性，不给出缺陷根因。
+_Avoid_: 根因定位、缺陷检测、影响分析
+
+**影响分析**:
+依据代码关系图，确定一次代码改动波及了哪些方法、调用方与关联测试的过程；每条结论带影响置信度分级。它服务于测试选择，不判断改动是否正确。
+_Avoid_: Issue 定位、代码评审、回归风险评分
+
+**Issue 定位覆盖率**:
+Issue 定位选出的代码位置对人类修复位置的覆盖比例。它以人类修复差异为对照，因而属于 Oracle Data 的衍生指标：只在 Historical Verification 上可计算，只进 Evidence Report，绝不进入 Generator Context 或 Generation Feedback；Live Issue 上标注为不适用。
+_Avoid_: 复现率、模型置信度、影响置信度分级
+
 **Generation Attempt**:
-一次 Verification Run 中已计入全局上限的逻辑模型生成机会；正常完成时，模型基于同一份不可变 Generator Context 产出 Candidate Draft，并接受仅来自 Buggy Revision 的确定性校验。一次 Run 最多有三次，调用期间中断也不返还该机会。
-_Avoid_: API 重试、Replay Attempt、Candidate Test Patch
+一次 Verification Run 中已计入全局上限的逻辑模型生成机会；正常完成时，模型基于同一份不可变 Generator Context 产出 Candidate Draft，并接受仅来自 Buggy Revision 的确定性校验。一次 Run 最多有三次，调用期间中断也不返还该机会。它是逻辑机会而非物理调用：一次 Attempt 内部可以包含多次模型调用与工具执行，这些调用共享该次 Attempt 的工具预算，并把 token 累加到同一次 Attempt 名下。
+_Avoid_: API 重试、模型单次调用、Replay Attempt、Candidate Test Patch
 
 **Generation Feedback**:
 由候选草稿在 Buggy Revision 上的结构化校验事实形成、供下一次 Generation Attempt 修正使用的有界信息；它不得包含 Oracle Data、完整日志或主机环境信息。
@@ -112,6 +132,10 @@ _Avoid_: 候选案例池、精选案例、成功案例列表
 汇总代码位置、测试补丁、执行命令模板、退出码、日志摘要、失败分类和模型调用元数据的可追溯结果。
 _Avoid_: 模型回答、评审意见、聊天记录
 
+**Impact Report**:
+依据代码关系图对一次代码改动产出的可追溯结论：改动方法、直接调用方、相关入口与测试关联，每条带影响置信度分级和证据来源。它只做静态分析、不执行测试，因此既不含 Replay Verdict，也不是一次 Verification Run。
+_Avoid_: Evidence Report、Verification Run、回归风险评分
+
 **Run Aggregate Metrics**:
 从已持久化的 Verification Run 事实派生、可跨进程重启重建的累计度量；同一个 Run 的终态只贡献一次。
 _Avoid_: 进程 Counter、执行日志、Benchmark 成功率
@@ -125,7 +149,7 @@ _Avoid_: Run Aggregate Metrics、Replay Verdict、持久化账本
 _Avoid_: 模型账单、Generation Attempt、推算 Token
 
 **Recorded Usage Status**:
-描述 Verification Run 已记录 usage 与 Generation Attempt 的覆盖关系；它只能说明系统记录了多少次供应商 usage，不能证明供应商没有额外计费。
+描述 Verification Run 已记录 usage 与 Generation Attempt 的覆盖关系；它只能说明系统记录了多少次供应商 usage，不能证明供应商没有额外计费。由于一次 Generation Attempt 可含多次模型调用，覆盖关系同时包含「哪些 Attempt 有记录」与「某次 Attempt 内是否每次调用都有记录」两层，任一层不完整都不得报告为完整。
 _Avoid_: Usage Complete、账单一致、Token 已知
 
 **Estimated Model Cost**:
