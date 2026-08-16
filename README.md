@@ -177,9 +177,10 @@ RUNNER=docker bash fixtures/off-by-one/run-replay.sh
 
 ## 文档
 
+- [产品愿景](docs/VISION.md)
 - [系统架构与设计决策](docs/architecture.md)
-- [ADR-003：Run 聚合指标与执行遥测](docs/adr/ADR-003-persisted-run-metrics-and-execution-telemetry.md)
 - [领域语言](docs/domain-language.md)
+- [架构决策记录（ADR）](docs/adr/README.md)
 - [Benchmark 方法与指标](benchmark-cases/README.md)
 - [spring-cloud-openfeign #1326 案例](benchmark-cases/spring-cloud-openfeign-1326.md)
 
