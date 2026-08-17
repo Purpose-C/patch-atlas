@@ -39,8 +39,8 @@ public record ClaimedRun(
         if (state == RunState.REPLAYING && candidate.isEmpty()) {
             throw new IllegalArgumentException("REPLAYING claim requires a candidate");
         }
-        if (state == RunState.GENERATING && candidate.isPresent()) {
-            throw new IllegalArgumentException("GENERATING claim must not carry a candidate");
+        if ((state == RunState.LOCATING || state == RunState.GENERATING) && candidate.isPresent()) {
+            throw new IllegalArgumentException(state + " claim must not carry a candidate");
         }
         RunLeaseRules.requireLeaseShape(state, lease);
     }

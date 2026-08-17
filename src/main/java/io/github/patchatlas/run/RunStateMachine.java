@@ -14,10 +14,15 @@ public final class RunStateMachine {
         Objects.requireNonNull(transition, "transition");
         return switch (transition) {
             case CLAIM -> from == RunState.QUEUED;
+            case COMMIT_CONTEXT -> from == RunState.LOCATING;
             case COMMIT_CANDIDATE -> from == RunState.GENERATING;
             case COMPLETE -> from == RunState.REPLAYING;
-            case FAIL -> from == RunState.GENERATING || from == RunState.REPLAYING;
-            case RECLAIM -> from == RunState.GENERATING || from == RunState.REPLAYING;
+            case FAIL -> from == RunState.LOCATING
+                    || from == RunState.GENERATING
+                    || from == RunState.REPLAYING;
+            case RECLAIM -> from == RunState.LOCATING
+                    || from == RunState.GENERATING
+                    || from == RunState.REPLAYING;
         };
     }
 
@@ -27,7 +32,8 @@ public final class RunStateMachine {
                     "illegal transition " + transition + " from " + from);
         }
         return switch (transition) {
-            case CLAIM -> RunState.GENERATING;
+            case CLAIM -> RunState.LOCATING;
+            case COMMIT_CONTEXT -> RunState.GENERATING;
             case COMMIT_CANDIDATE -> RunState.REPLAYING;
             case COMPLETE -> RunState.COMPLETED;
             case FAIL -> RunState.FAILED;

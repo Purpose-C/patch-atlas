@@ -26,7 +26,9 @@ class RunStateMachineTest {
 
     static Stream<Arguments> legalTransitions() {
         return Stream.of(
-                Arguments.of(RunState.QUEUED, RunTransition.CLAIM, RunState.GENERATING),
+                Arguments.of(RunState.QUEUED, RunTransition.CLAIM, RunState.LOCATING),
+                Arguments.of(RunState.LOCATING, RunTransition.COMMIT_CONTEXT, RunState.GENERATING),
+                Arguments.of(RunState.LOCATING, RunTransition.FAIL, RunState.FAILED),
                 Arguments.of(RunState.GENERATING, RunTransition.COMMIT_CANDIDATE, RunState.REPLAYING),
                 Arguments.of(RunState.GENERATING, RunTransition.FAIL, RunState.FAILED),
                 Arguments.of(RunState.REPLAYING, RunTransition.COMPLETE, RunState.COMPLETED),
@@ -44,17 +46,25 @@ class RunStateMachineTest {
         return Stream.of(
                 // 不能跳过阶段
                 Arguments.of(RunState.QUEUED, RunTransition.COMMIT_CANDIDATE),
+                Arguments.of(RunState.QUEUED, RunTransition.COMMIT_CONTEXT),
                 Arguments.of(RunState.QUEUED, RunTransition.COMPLETE),
                 Arguments.of(RunState.QUEUED, RunTransition.FAIL),
+                Arguments.of(RunState.LOCATING, RunTransition.CLAIM),
+                Arguments.of(RunState.LOCATING, RunTransition.COMMIT_CANDIDATE),
+                Arguments.of(RunState.LOCATING, RunTransition.COMPLETE),
+                Arguments.of(RunState.GENERATING, RunTransition.COMMIT_CONTEXT),
                 Arguments.of(RunState.GENERATING, RunTransition.COMPLETE),
                 Arguments.of(RunState.GENERATING, RunTransition.CLAIM),
                 Arguments.of(RunState.REPLAYING, RunTransition.CLAIM),
+                Arguments.of(RunState.REPLAYING, RunTransition.COMMIT_CONTEXT),
                 Arguments.of(RunState.REPLAYING, RunTransition.COMMIT_CANDIDATE),
                 // 终态不可迁移
                 Arguments.of(RunState.COMPLETED, RunTransition.CLAIM),
+                Arguments.of(RunState.COMPLETED, RunTransition.COMMIT_CONTEXT),
                 Arguments.of(RunState.COMPLETED, RunTransition.FAIL),
                 Arguments.of(RunState.COMPLETED, RunTransition.COMPLETE),
                 Arguments.of(RunState.FAILED, RunTransition.CLAIM),
+                Arguments.of(RunState.FAILED, RunTransition.COMMIT_CONTEXT),
                 Arguments.of(RunState.FAILED, RunTransition.COMMIT_CANDIDATE),
                 Arguments.of(RunState.FAILED, RunTransition.COMPLETE),
                 Arguments.of(RunState.FAILED, RunTransition.FAIL));
@@ -62,6 +72,8 @@ class RunStateMachineTest {
 
     @Test
     void reclaimDoesNotChangeState() {
+        assertThat(machine.apply(RunState.LOCATING, RunTransition.RECLAIM))
+                .isEqualTo(RunState.LOCATING);
         assertThat(machine.apply(RunState.GENERATING, RunTransition.RECLAIM))
                 .isEqualTo(RunState.GENERATING);
         assertThat(machine.apply(RunState.REPLAYING, RunTransition.RECLAIM))
@@ -95,5 +107,13 @@ class RunStateMachineTest {
         assertThat(RunState.GENERATING.canBeReclaimedWhenLeaseExpired()).isTrue();
         assertThat(RunState.REPLAYING.canBeReclaimedWhenLeaseExpired()).isTrue();
         assertThat(RunState.QUEUED.canBeReclaimedWhenLeaseExpired()).isFalse();
+    }
+
+    @Test
+    void locatingHoldsLeaseAndIsReclaimableButNotClaimableOrTerminal() {
+        assertThat(RunState.LOCATING.holdsLease()).isTrue();
+        assertThat(RunState.LOCATING.canBeReclaimedWhenLeaseExpired()).isTrue();
+        assertThat(RunState.LOCATING.isTerminal()).isFalse();
+        assertThat(RunState.LOCATING.canBeClaimed()).isFalse();
     }
 }

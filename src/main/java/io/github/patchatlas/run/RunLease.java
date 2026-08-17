@@ -3,7 +3,7 @@ package io.github.patchatlas.run;
 import java.time.Instant;
 import java.util.UUID;
 
-/** 运行态租约凭证（GENERATING / REPLAYING）。 */
+/** 运行态租约凭证（LOCATING / GENERATING / REPLAYING）。 */
 public record RunLease(UUID token, String owner, Instant expiresAt) {
 
     public static final int MAX_OWNER_CHARS = 128;

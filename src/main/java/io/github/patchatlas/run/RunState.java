@@ -5,6 +5,7 @@ package io.github.patchatlas.run;
  */
 public enum RunState {
     QUEUED,
+    LOCATING,
     GENERATING,
     REPLAYING,
     COMPLETED,
@@ -15,7 +16,7 @@ public enum RunState {
     }
 
     public boolean holdsLease() {
-        return this == GENERATING || this == REPLAYING;
+        return this == LOCATING || this == GENERATING || this == REPLAYING;
     }
 
     /** 首次领取：仅 QUEUED。 */
@@ -25,6 +26,6 @@ public enum RunState {
 
     /** 租约过期后可被其他 owner 接管（状态不倒退）。 */
     public boolean canBeReclaimedWhenLeaseExpired() {
-        return this == GENERATING || this == REPLAYING;
+        return this == LOCATING || this == GENERATING || this == REPLAYING;
     }
 }

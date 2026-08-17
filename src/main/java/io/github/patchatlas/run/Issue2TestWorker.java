@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Issue2Test phase dispatcher：GENERATING 与 REPLAYING 分别委托独立编排器。
+ * Issue2Test phase dispatcher：LOCATING / GENERATING / REPLAYING 分别委托独立编排器。
  */
 public final class Issue2TestWorker {
 
@@ -71,6 +71,9 @@ public final class Issue2TestWorker {
 
     private RunDetails process(ClaimedRun claimed, String owner) {
         ClaimedRun current = claimed;
+        if (current.state() == RunState.LOCATING) {
+            throw new UnsupportedOperationException("LOCATING is not wired");
+        }
         if (current.state() == RunState.GENERATING) {
             Optional<ClaimedRun> afterGenerate = generatePhase(current, owner);
             if (afterGenerate.isEmpty()) {
