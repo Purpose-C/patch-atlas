@@ -1,0 +1,56 @@
+{
+  "runId" : "a6d947aa-797e-4ed9-a973-dcda8bd941b1",
+  "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "list",
+    "detail" : "{\"path\": \".\", \"entries\": 9, \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 6, \"pattern\": \"uploadMedia\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 15, \"pattern\": \"okhttp3\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "read",
+    "detail" : "{\"path\": \"pom.xml\", \"bytes\": 5284, \"lines\": 139, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java\", \"bytes\": 5255, \"lines\": 119, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java\", \"bytes\": 5212, \"lines\": 156, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 6,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 1, \"accepted\": true}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "list path=. entries=9", "search hits=6 truncated=false", "search hits=15 truncated=false", "read path=pom.xml lines=139", "read path=src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java lines=119", "read path=src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java lines=156", "submit OK paths=1" ]
+}
