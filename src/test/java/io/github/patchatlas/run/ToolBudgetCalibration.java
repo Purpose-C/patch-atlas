@@ -40,6 +40,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.databind.JsonNode;
@@ -150,7 +151,7 @@ final class ToolBudgetCalibration {
                     report.stopReason = report.submits >= MAX_SUBMITS ? "submit cap 25" : "wall clock 2h";
                     break;
                 }
-                SessionRow row = runOne(store, workspaces, chatModel, item, repeat);
+                SessionRow row = runOne(store, workspaces, chatModel, model, item, repeat);
                 report.absorb(row);
                 writeReportFiles(output, report);
                 System.out.println("session case="
@@ -262,6 +263,32 @@ final class ToolBudgetCalibration {
         return lower.contains("parallel tool calls") || lower.contains("parallel tool_calls");
     }
 
+    static boolean isTransportSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            return false;
+        }
+        String blob = summary.toLowerCase(Locale.ROOT);
+        return blob.contains("429")
+                || blob.contains("503")
+                || blob.contains("http=000")
+                || blob.contains("ratelimit")
+                || blob.contains("internalserverexception")
+                || blob.contains("openaioexception")
+                || blob.contains("openairetryable")
+                || blob.contains("sockettimeout")
+                || blob.contains("connection reset")
+                || blob.contains("connection refused")
+                || blob.contains("timed out")
+                || blob.contains("unknownhost");
+    }
+
+    static OpenAiChatOptions locatingOptions(String modelName) {
+        return OpenAiChatOptions.builder()
+                .model(Objects.requireNonNull(modelName, "modelName"))
+                .parallelToolCalls(false)
+                .build();
+    }
+
     static boolean isTransportFailure(Throwable ex) {
         Throwable cursor = ex;
         while (cursor != null) {
@@ -349,6 +376,7 @@ final class ToolBudgetCalibration {
             PostgresRunStore store,
             CandidateWorkspaceFactory workspaces,
             ChatModel chatModel,
+            String modelName,
             PreparedCase prepared,
             int repeat)
             throws Exception {
@@ -364,7 +392,7 @@ final class ToolBudgetCalibration {
                 workspaces,
                 new BuggyRepositoryReader(),
                 new BuggyOnlyGeneratorContextBuilder(),
-                new RecordingLoop(chatModel, recorded));
+                new RecordingLoop(chatModel, modelName, recorded));
         String termination = "OTHER";
         boolean transport = false;
         boolean parallel = false;
@@ -386,6 +414,9 @@ final class ToolBudgetCalibration {
                     if (isParallelGuard(summary)) {
                         parallel = true;
                         termination = "PARALLEL";
+                    } else if (isTransportSummary(summary)) {
+                        transport = true;
+                        termination = "TRANSPORT";
                     }
                 }
             }
@@ -740,10 +771,12 @@ final class ToolBudgetCalibration {
 
     private static final class RecordingLoop implements LocatingCoordinator.TextToolsLoop {
         private final ChatModel chatModel;
+        private final String modelName;
         private final RecordingTools tools;
 
-        private RecordingLoop(ChatModel chatModel, RecordingTools tools) {
+        private RecordingLoop(ChatModel chatModel, String modelName, RecordingTools tools) {
             this.chatModel = chatModel;
+            this.modelName = modelName;
             this.tools = tools;
         }
 
@@ -760,7 +793,7 @@ final class ToolBudgetCalibration {
                     .defaultToolCallbacks(LocalizationToolCallingManager.locatingToolDefinitions().stream()
                             .map(RecordingLoop::stub)
                             .toArray(ToolCallback[]::new))
-                    .defaultOptions(OpenAiChatModelFactory.locatingChatOptions().mutate())
+                    .defaultOptions(locatingOptions(modelName).mutate())
                     .build()
                     .prompt()
                     .user(input.issueTitle() + "\n" + input.issueBody())

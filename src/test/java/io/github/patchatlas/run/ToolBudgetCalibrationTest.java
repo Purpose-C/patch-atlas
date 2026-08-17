@@ -167,6 +167,18 @@ class ToolBudgetCalibrationTest {
                 .isTrue();
         assertThat(ToolBudgetCalibration.isTransportFailure(new RuntimeException("Unauthorized 401")))
                 .isFalse();
+        assertThat(ToolBudgetCalibration.isTransportSummary(
+                        "workspace: InternalServerException: 503: No available channel"))
+                .isTrue();
+        assertThat(ToolBudgetCalibration.isTransportSummary("locating produced no readable context"))
+                .isFalse();
+    }
+
+    @Test
+    void locatingOptionsKeepModelNameAndDisableParallelCalls() {
+        var options = ToolBudgetCalibration.locatingOptions("agnes-2.5-flash");
+        assertThat(options.getModel()).isEqualTo("agnes-2.5-flash");
+        assertThat(options.getParallelToolCalls()).isFalse();
     }
 
     @Test
