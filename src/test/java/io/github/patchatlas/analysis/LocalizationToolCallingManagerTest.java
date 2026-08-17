@@ -123,6 +123,31 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void budgetWarningIsAppendedOnceWhenRemainingDropsBelowQuarter() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationBudget budget = new LocalizationBudget(8, Duration.ofMinutes(5), T0);
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                workspaceTools(), session, budget, Clock.fixed(T0, ZoneOffset.UTC));
+
+        ToolExecutionResult seventh = null;
+        for (int i = 1; i <= 7; i++) {
+            seventh = manager.executeToolCalls(prompt(), toolCall("c" + i, "search", "{\"pattern\":\"p" + i + "\"}"));
+        }
+        String body = lastToolResponse(seventh).getResponses().getFirst().responseData();
+        assertThat(body).contains("Budget nearly exhausted");
+        assertThat(body).contains("7 of 8");
+        assertThat(session.traces().stream().filter(step -> step.kind() == LocatingStepKind.BUDGET_WARNING))
+                .hasSize(1);
+
+        ToolExecutionResult later =
+                manager.executeToolCalls(prompt(), toolCall("c8", "search", "{\"pattern\":\"last\"}"));
+        String laterBody = lastToolResponse(later).getResponses().getFirst().responseData();
+        assertThat(laterBody).doesNotContain("Budget nearly exhausted");
+        assertThat(session.traces().stream().filter(step -> step.kind() == LocatingStepKind.BUDGET_WARNING))
+                .hasSize(1);
+    }
+
+    @Test
     void threeParallelCallsWriteThreeTracesAndConsumeThreeBudget() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationBudget budget = new LocalizationBudget(25, Duration.ofMinutes(5), T0);

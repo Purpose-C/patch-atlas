@@ -449,6 +449,29 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
+    void budgetWarningKindCanBePersistedAlongsideExistingRows() throws Exception {
+        UUID id = store.submit(live("budget-warning"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(locating));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(0, LocatingStepKind.SEARCH, ".", "search", "{}"));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(
+                        1,
+                        LocatingStepKind.BUDGET_WARNING,
+                        LocatingTraceOutcome.OK,
+                        ".",
+                        "CALLS",
+                        "{\"used\":7,\"maxCalls\":8}"));
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
+        assertThat(traces).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SEARCH, LocatingStepKind.BUDGET_WARNING);
+        assertThat(traces.getFirst().kind()).isEqualTo(LocatingStepKind.SEARCH);
+    }
+
+    @Test
     void clippedOversizeDetailSatisfiesTraceCheck() throws Exception {
         Path workspace = Files.createDirectories(temp.resolve("clip-ws"));
         Files.writeString(workspace.resolve("hit.txt"), "xxxxx");

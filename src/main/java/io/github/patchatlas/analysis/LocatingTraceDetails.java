@@ -44,6 +44,13 @@ final class LocatingTraceDetails {
         return clip(node);
     }
 
+    static String budgetWarning(int used, int maxCalls) {
+        ObjectNode node = JsonMapper.shared().createObjectNode();
+        node.put("used", used);
+        node.put("maxCalls", maxCalls);
+        return clip(node);
+    }
+
     static String budget(boolean callsExhausted, int used, int maxCalls) {
         ObjectNode node = JsonMapper.shared().createObjectNode();
         node.put("limit", callsExhausted ? "CALLS" : "CLOCK");

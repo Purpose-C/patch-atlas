@@ -52,6 +52,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     private List<SourceSnapshot> acceptedSubmit;
     private int submitFailures;
     private int seq;
+    private boolean budgetWarned;
 
     public LocalizationToolCallingManager() {
         this.tools = null;
@@ -158,6 +159,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                         name,
                         LocatingTraceDetails.repeatOf(prior)));
                 responses.add(responseOf(call.id(), name, repeatMessage(prior)));
+                appendBudgetWarning(responses);
                 continue;
             }
             int assigned = seq;
@@ -168,6 +170,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 if (submit.terminate()) {
                     terminate = true;
                 }
+                appendBudgetWarning(responses);
                 continue;
             }
             String body;
@@ -185,6 +188,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             session.appendTrace(LocatingTraceStep.of(
                     seq++, kindOf(name), outcome, subjectOf(name, args), name, detail));
             responses.add(responseOf(call.id(), name, body));
+            appendBudgetWarning(responses);
         }
         history.add(toolResponses(responses));
         return ToolExecutionResult.builder()
@@ -314,6 +318,33 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             values.add(path.asString());
         }
         return List.copyOf(values);
+    }
+
+    private void appendBudgetWarning(List<ToolResponseMessage.ToolResponse> responses) {
+        if (budgetWarned || responses.isEmpty() || !budget.remaining(clock.instant())) {
+            return;
+        }
+        if (budget.calls() * 4 <= budget.maxCalls() * 3) {
+            return;
+        }
+        budgetWarned = true;
+        session.appendTrace(LocatingTraceStep.of(
+                seq++,
+                LocatingStepKind.BUDGET_WARNING,
+                LocatingTraceOutcome.OK,
+                ".",
+                "CALLS",
+                LocatingTraceDetails.budgetWarning(budget.calls(), budget.maxCalls())));
+        ToolResponseMessage.ToolResponse last = responses.removeLast();
+        responses.add(responseOf(
+                last.id(),
+                last.name(),
+                last.responseData()
+                        + "\n\nBudget nearly exhausted: "
+                        + budget.calls()
+                        + " of "
+                        + budget.maxCalls()
+                        + " tool calls used.\nCall submit now with the most relevant files you have read."));
     }
 
     private static String repeatMessage(int priorSeq) {

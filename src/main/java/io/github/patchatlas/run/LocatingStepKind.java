@@ -8,5 +8,6 @@ public enum LocatingStepKind {
     LIST,
     READ,
     SUBMIT,
-    BUDGET_EXHAUSTED
+    BUDGET_EXHAUSTED,
+    BUDGET_WARNING
 }
