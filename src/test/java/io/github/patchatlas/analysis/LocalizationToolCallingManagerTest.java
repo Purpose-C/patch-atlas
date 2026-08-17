@@ -174,6 +174,147 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void directSubmitCommitsTextToolsWithoutExtraToolCalls() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult submit =
+                manager.executeToolCalls(prompt(), toolCall("c1", "submit", "{\"paths\":[\"src/Foo.java\"]}"));
+        LocatingCoordinator.Result result = manager.finish();
+
+        assertThat(submit.returnDirect()).isTrue();
+        assertThat(manager.executeCalls()).isEqualTo(1);
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+        assertThat(session.origin()).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(session.committedSnapshots())
+                .extracting(SourceSnapshot::relativePath)
+                .containsExactly("src/Foo.java");
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SUBMIT);
+    }
+
+    @Test
+    void missingSubmitPathReturnsErrorThenRetrySucceeds() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult first =
+                manager.executeToolCalls(prompt(), toolCall("c1", "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+        ToolResponseMessage error = (ToolResponseMessage) first.conversationHistory().getLast();
+        assertThat(first.returnDirect()).isFalse();
+        assertThat(error.getResponses().getFirst().responseData()).contains("does not exist");
+
+        ToolExecutionResult second =
+                manager.executeToolCalls(prompt(), toolCall("c2", "submit", "{\"paths\":[\"src/Foo.java\"]}"));
+        assertThat(second.returnDirect()).isTrue();
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SUBMIT, LocatingStepKind.SUBMIT);
+        assertThat(session.traces()).extracting(LocatingTraceStep::outcome)
+                .containsExactly(LocatingTraceOutcome.ERROR, LocatingTraceOutcome.OK);
+        assertThat(manager.finish()).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+    }
+
+    @Test
+    void threeFailedSubmitsTruncateToReadFiles() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        manager.executeToolCalls(prompt(), toolCall("c0", "read", "{\"path\":\"src/Foo.java\"}"));
+        ToolExecutionResult third = null;
+        for (int i = 1; i <= 3; i++) {
+            third = manager.executeToolCalls(
+                    prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+        }
+        LocatingCoordinator.Result result = manager.finish();
+
+        assertThat(third.returnDirect()).isTrue();
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+        assertThat(session.claim().state()).isEqualTo(RunState.GENERATING);
+        assertThat(session.committedSnapshots())
+                .extracting(SourceSnapshot::relativePath)
+                .containsExactly("src/Foo.java");
+        assertThat(session.traces().stream().filter(step -> step.kind() == LocatingStepKind.SUBMIT))
+                .hasSize(3)
+                .allMatch(step -> step.outcome() == LocatingTraceOutcome.ERROR);
+    }
+
+    @Test
+    void submitRejectsMoreThanTwelvePathsAndOversizedPayload() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+        StringBuilder tooMany = new StringBuilder("{\"paths\":[");
+        for (int i = 0; i < 13; i++) {
+            if (i > 0) {
+                tooMany.append(',');
+            }
+            tooMany.append("\"src/p").append(i).append(".java\"");
+        }
+        tooMany.append("]}");
+
+        ToolExecutionResult count =
+                manager.executeToolCalls(prompt(), toolCall("c1", "submit", tooMany.toString()));
+        assertThat(((ToolResponseMessage) count.conversationHistory().getLast())
+                        .getResponses()
+                        .getFirst()
+                        .responseData())
+                .contains("at most 12");
+
+        Path workspace = temp.resolve("ws");
+        StringBuilder paths = new StringBuilder("{\"paths\":[");
+        for (int i = 1; i <= 5; i++) {
+            Files.writeString(workspace.resolve("src/big" + i + ".txt"), "x".repeat(60_000));
+            if (i > 1) {
+                paths.append(',');
+            }
+            paths.append("\"src/big").append(i).append(".txt\"");
+        }
+        paths.append("]}");
+        ToolExecutionResult bytes = manager.executeToolCalls(prompt(), toolCall("c2", "submit", paths.toString()));
+        assertThat(((ToolResponseMessage) bytes.conversationHistory().getLast())
+                        .getResponses()
+                        .getFirst()
+                        .responseData())
+                .contains("256");
+        assertThat(count.returnDirect()).isFalse();
+        assertThat(bytes.returnDirect()).isFalse();
+    }
+
+    @Test
+    void threeFailedSubmitsWithZeroReadsFailsAsLocatingNoContext() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+        for (int i = 1; i <= 3; i++) {
+            manager.executeToolCalls(prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+        }
+        LocatingCoordinator.Result result = manager.finish();
+
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
+        assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(session.traces().stream().filter(step -> step.kind() == LocatingStepKind.SUBMIT))
+                .hasSize(3)
+                .allMatch(step -> step.outcome() == LocatingTraceOutcome.ERROR);
+        assertThat(session.traces()).noneMatch(step -> step.kind() == LocatingStepKind.BUDGET_EXHAUSTED);
+    }
+
+    @Test
+    void emptySubmitFailsAsLocatingNoContextWithOkOutcome() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult submit = manager.executeToolCalls(prompt(), toolCall("c1", "submit", "{\"paths\":[]}"));
+        LocatingCoordinator.Result result = manager.finish();
+
+        assertThat(submit.returnDirect()).isTrue();
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
+        assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind).containsExactly(LocatingStepKind.SUBMIT);
+        assertThat(session.traces()).extracting(LocatingTraceStep::outcome).containsExactly(LocatingTraceOutcome.OK);
+        assertThat(session.traces()).noneMatch(step -> step.kind() == LocatingStepKind.BUDGET_EXHAUSTED);
+    }
+
+    @Test
     void advisorLoopSearchReadSubmitHitsWireMockTwiceOrMore() throws Exception {
         wireMock.resetAll();
         wireMock.stubFor(post(urlPathMatching(COMPLETIONS))

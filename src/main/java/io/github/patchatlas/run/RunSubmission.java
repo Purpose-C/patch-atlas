@@ -15,7 +15,8 @@ import java.util.Objects;
  * 一次 Verification Run 的不可变提交输入。
  *
  * <p>{@code sourceSnapshots} 是预置上下文：非空则 {@code LOCATING} 按 PINNED 透传，
- * 空则由启发式现场产出。REST 入参不再携带该字段。
+ * 空则按 {@code contextOrigin} 走启发式或文本工具。REST 入参不携带该字段，也不携带
+ * {@code contextOrigin}，公开提交默认为 {@link ContextOrigin#HEURISTIC}。
  *
  * <p>Historical 可持有 Fixed Revision（供后续 Replay 投影）；生成路径必须经
  * {@link GenerationInputMapper} 剥离 Oracle。
@@ -33,7 +34,8 @@ public record RunSubmission(
         String modulePath,
         String javaVersion,
         MavenNetworkMode networkMode,
-        List<SourceSnapshot> sourceSnapshots) {
+        List<SourceSnapshot> sourceSnapshots,
+        ContextOrigin contextOrigin) {
 
     public static final int MAX_CASE_ID_CHARS = 128;
     public static final int MAX_REPOSITORY_URL_CHARS = 2048;
@@ -51,6 +53,7 @@ public record RunSubmission(
         Objects.requireNonNull(modulePath, "modulePath");
         networkMode = Objects.requireNonNull(networkMode, "networkMode");
         sourceSnapshots = List.copyOf(Objects.requireNonNull(sourceSnapshots, "sourceSnapshots"));
+        contextOrigin = Objects.requireNonNull(contextOrigin, "contextOrigin");
 
         if (repositoryUrl.length() > MAX_REPOSITORY_URL_CHARS) {
             throw new IllegalArgumentException("repositoryUrl exceeds limit");
@@ -138,7 +141,39 @@ public record RunSubmission(
                 modulePath,
                 javaVersion,
                 MavenNetworkMode.OFFLINE,
-                sourceSnapshots);
+                sourceSnapshots,
+                ContextOrigin.HEURISTIC);
+    }
+
+    public RunSubmission(
+            VerificationMode mode,
+            String caseId,
+            String repositoryUrl,
+            String license,
+            String issueUrl,
+            String issueTitle,
+            String issueBody,
+            String buggyRevision,
+            String fixedRevision,
+            String modulePath,
+            String javaVersion,
+            MavenNetworkMode networkMode,
+            List<SourceSnapshot> sourceSnapshots) {
+        this(
+                mode,
+                caseId,
+                repositoryUrl,
+                license,
+                issueUrl,
+                issueTitle,
+                issueBody,
+                buggyRevision,
+                fixedRevision,
+                modulePath,
+                javaVersion,
+                networkMode,
+                sourceSnapshots,
+                ContextOrigin.HEURISTIC);
     }
 
     public MavenExecutionPolicy executionPolicy() {

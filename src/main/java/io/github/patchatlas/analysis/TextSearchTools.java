@@ -1,5 +1,7 @@
 package io.github.patchatlas.analysis;
 
+import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.WorkspaceTrust;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -10,6 +12,7 @@ import java.nio.file.PathMatcher;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -131,6 +134,44 @@ public final class TextSearchTools implements LocalizationTools {
         }
         String relative = workspace.relativize(file).toString().replace('\\', '/');
         return new FileSlice(relative, start, slice, truncated);
+    }
+
+    @Override
+    public SubmitDecision validateSubmit(List<String> paths) {
+        Objects.requireNonNull(paths, "paths");
+        List<String> unique = List.copyOf(new LinkedHashSet<>(paths));
+        if (unique.size() > GenerationInput.MAX_SNAPSHOTS) {
+            return SubmitDecision.reject("at most 12 paths after deduplication");
+        }
+        List<SourceSnapshot> snapshots = new ArrayList<>();
+        int total = 0;
+        for (String path : unique) {
+            Path file;
+            try {
+                file = resolveInside(path);
+            } catch (RuntimeException ex) {
+                return SubmitDecision.reject("path rejected");
+            }
+            if (!Files.isRegularFile(file)) {
+                return SubmitDecision.reject("path does not exist: " + path);
+            }
+            byte[] bytes;
+            try {
+                bytes = Files.readAllBytes(file);
+            } catch (IOException ex) {
+                return SubmitDecision.reject("path does not exist: " + path);
+            }
+            if (bytes.length > SourceSnapshot.MAX_CONTENT_BYTES) {
+                return SubmitDecision.reject("file exceeds 64 KiB: " + path);
+            }
+            total += bytes.length;
+            if (total > GenerationInput.MAX_TOTAL_SOURCE_BYTES) {
+                return SubmitDecision.reject("source snapshots exceed 256 KiB total");
+            }
+            String relative = workspace.relativize(file).toString().replace('\\', '/');
+            snapshots.add(new SourceSnapshot(relative, new String(bytes, StandardCharsets.UTF_8)));
+        }
+        return SubmitDecision.accept(snapshots);
     }
 
     Path workspace() {

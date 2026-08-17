@@ -19,6 +19,29 @@ class SubmissionFingerprintTest {
     }
 
     @Test
+    void contextOriginIsPartOfFingerprint() {
+        RunSubmission heuristic = sample("title", "src/A.java", "class A {}");
+        RunSubmission tools = new RunSubmission(
+                VerificationMode.LIVE,
+                "c1",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "title",
+                "body",
+                "a".repeat(40),
+                null,
+                "",
+                "21",
+                MavenNetworkMode.OFFLINE,
+                List.of(new SourceSnapshot("src/A.java", "class A {}")),
+                ContextOrigin.TEXT_TOOLS);
+        assertThat(heuristic.contextOrigin()).isEqualTo(ContextOrigin.HEURISTIC);
+        assertThat(SubmissionFingerprint.sha256Hex(heuristic))
+                .isNotEqualTo(SubmissionFingerprint.sha256Hex(tools));
+    }
+
+    @Test
     void ambiguousDelimiterPayloadsDoNotCollide() {
         // 若用朴素拼接，path=a,content=b 与 path=a / content 含分隔符可碰撞
         RunSubmission left = sample(

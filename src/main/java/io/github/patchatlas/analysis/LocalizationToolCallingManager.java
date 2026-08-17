@@ -47,6 +47,8 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     private final LocalizationBudget budget;
     private final Clock clock;
     private final Map<String, String> readContents = new LinkedHashMap<>();
+    private List<SourceSnapshot> acceptedSubmit;
+    private int submitFailures;
     private int seq;
 
     public LocalizationToolCallingManager() {
@@ -132,20 +134,23 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         budget.consume();
         String name = firstToolName(assistant);
         String args = firstToolArguments(assistant);
+        if (SUBMIT.equals(name)) {
+            return executeSubmit(history, assistant, args);
+        }
         String body;
         LocatingTraceOutcome outcome = LocatingTraceOutcome.OK;
         try {
             body = dispatch(name, args);
         } catch (RuntimeException ex) {
             outcome = LocatingTraceOutcome.ERROR;
-            body = "{\"error\":\"tool rejected\"}";
+            body = errorJson("tool rejected");
         }
         session.appendTrace(LocatingTraceStep.of(
                 seq++, kindOf(name), outcome, subjectOf(name, args), name, "{}"));
         history.add(toolResponse(firstToolCallId(assistant), name, body));
         return ToolExecutionResult.builder()
                 .conversationHistory(history)
-                .returnDirect(SUBMIT.equals(name) && outcome == LocatingTraceOutcome.OK)
+                .returnDirect(false)
                 .build();
     }
 
@@ -169,14 +174,21 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         return List.copyOf(snapshots);
     }
 
+    public List<SourceSnapshot> contextSnapshots() {
+        if (acceptedSubmit != null) {
+            return List.copyOf(acceptedSubmit);
+        }
+        return readSnapshots();
+    }
+
     /**
-     * 循环结束后按已 read 文件提交上下文；零文件则判定位失败。
+     * 循环结束后按 submit 或已 read 文件提交上下文；零文件则判定位失败。
      */
     public LocatingCoordinator.Result finish() {
         if (session == null) {
             throw new IllegalStateException("spike manager has no session");
         }
-        List<SourceSnapshot> snapshots = readSnapshots();
+        List<SourceSnapshot> snapshots = contextSnapshots();
         if (snapshots.isEmpty()) {
             return new LocatingCoordinator.Result.RunFailed(session.fail(new RunFailure(
                     FailureStage.LOCATING,
@@ -210,9 +222,72 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 readContents.put(slice.path(), String.join("\n", slice.lines()));
                 yield JsonMapper.shared().writeValueAsString(slice);
             }
-            case SUBMIT -> "{\"ok\":true}";
             default -> throw new IllegalArgumentException("unknown tool");
         };
+    }
+
+    private ToolExecutionResult executeSubmit(
+            List<Message> history, AssistantMessage assistant, String args) {
+        LocalizationTools.SubmitDecision decision;
+        try {
+            decision = tools.validateSubmit(parsePaths(args));
+        } catch (RuntimeException ex) {
+            decision = LocalizationTools.SubmitDecision.reject("paths must be an array of strings");
+        }
+        if (!decision.accepted()) {
+            submitFailures++;
+            session.appendTrace(LocatingTraceStep.of(
+                    seq++,
+                    LocatingStepKind.SUBMIT,
+                    LocatingTraceOutcome.ERROR,
+                    subjectOf(SUBMIT, args),
+                    SUBMIT,
+                    "{}"));
+            history.add(toolResponse(firstToolCallId(assistant), SUBMIT, errorJson(decision.error())));
+            return ToolExecutionResult.builder()
+                    .conversationHistory(history)
+                    .returnDirect(submitFailures >= 3)
+                    .build();
+        }
+        acceptedSubmit = decision.snapshots();
+        session.appendTrace(LocatingTraceStep.of(
+                seq++,
+                LocatingStepKind.SUBMIT,
+                LocatingTraceOutcome.OK,
+                subjectOf(SUBMIT, args),
+                SUBMIT,
+                "{}"));
+        history.add(toolResponse(firstToolCallId(assistant), SUBMIT, "{\"ok\":true}"));
+        return ToolExecutionResult.builder()
+                .conversationHistory(history)
+                .returnDirect(true)
+                .build();
+    }
+
+    private static List<String> parsePaths(String args) {
+        JsonNode node = args == null || args.isBlank()
+                ? JsonMapper.shared().createObjectNode()
+                : JsonMapper.shared().readTree(args);
+        JsonNode paths = node.get("paths");
+        if (paths == null || paths.isNull()) {
+            return List.of();
+        }
+        if (!paths.isArray()) {
+            throw new IllegalArgumentException("paths must be an array");
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonNode path : paths) {
+            if (path == null || !path.isString()) {
+                throw new IllegalArgumentException("paths must be an array of strings");
+            }
+            values.add(path.asString());
+        }
+        return List.copyOf(values);
+    }
+
+    private static String errorJson(String reason) {
+        return JsonMapper.shared()
+                .writeValueAsString(JsonMapper.shared().createObjectNode().put("error", reason));
     }
 
     private static Integer intOrNull(JsonNode node, String field) {

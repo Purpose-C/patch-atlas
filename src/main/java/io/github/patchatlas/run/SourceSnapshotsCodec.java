@@ -17,11 +17,11 @@ import tools.jackson.databind.node.ObjectNode;
  */
 public final class SourceSnapshotsCodec {
 
-    /** 快照 JSON 形状版本；v1/v2 入参语义不同，叶子格式相同。 */
+    /** 快照 JSON 形状版本；v1/v2/v3 入参语义不同，叶子格式相同。 */
     public static final int SCHEMA_VERSION = 1;
 
     /** 新建 Run 写入的 input_schema_version。 */
-    public static final int CURRENT_INPUT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_INPUT_SCHEMA_VERSION = 3;
 
     private final JsonMapper mapper;
 
@@ -50,7 +50,7 @@ public final class SourceSnapshotsCodec {
 
     public List<SourceSnapshot> decode(String json, int schemaVersion) {
         Objects.requireNonNull(json, "json");
-        if (schemaVersion != SCHEMA_VERSION && schemaVersion != CURRENT_INPUT_SCHEMA_VERSION) {
+        if (schemaVersion < SCHEMA_VERSION || schemaVersion > CURRENT_INPUT_SCHEMA_VERSION) {
             throw new IllegalArgumentException(
                     "unsupported source_snapshots schema version: " + schemaVersion);
         }

@@ -243,4 +243,26 @@ class RunControllerTest {
         verify(store).submitIdempotent(any(IdempotencyKey.class), any(), submission.capture());
         assertThat(submission.getValue().sourceSnapshots()).isEmpty();
     }
+
+    @Test
+    void createRequestDoesNotDeclareContextOriginAndDefaultsToHeuristic() throws Exception {
+        assertThat(Arrays.stream(RunCreateRequest.class.getRecordComponents())
+                        .map(RecordComponent::getName))
+                .doesNotContain("contextOrigin");
+
+        UUID id = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        when(store.submitIdempotent(any(), any(), any()))
+                .thenReturn(new IdempotentSubmitResult.Accepted(id, RunState.QUEUED, true));
+
+        mockMvc.perform(post("/api/runs")
+                        .header("Idempotency-Key", "origin-ignore")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validBody()))
+                .andExpect(status().isAccepted());
+
+        ArgumentCaptor<RunSubmission> submission = ArgumentCaptor.forClass(RunSubmission.class);
+        verify(store).submitIdempotent(any(IdempotencyKey.class), any(), submission.capture());
+        assertThat(submission.getValue().contextOrigin())
+                .isEqualTo(io.github.patchatlas.run.ContextOrigin.HEURISTIC);
+    }
 }

@@ -1,5 +1,6 @@
 package io.github.patchatlas.analysis;
 
+import io.github.patchatlas.agent.SourceSnapshot;
 import java.util.List;
 
 /**
@@ -18,6 +19,26 @@ public interface LocalizationTools {
     DirectoryListing list(String path);
 
     FileSlice read(String path, Integer startLine, Integer span);
+
+    SubmitDecision validateSubmit(List<String> paths);
+
+    record SubmitDecision(List<SourceSnapshot> snapshots, String error) {
+        public SubmitDecision {
+            snapshots = List.copyOf(snapshots);
+        }
+
+        public boolean accepted() {
+            return error == null;
+        }
+
+        public static SubmitDecision accept(List<SourceSnapshot> snapshots) {
+            return new SubmitDecision(snapshots, null);
+        }
+
+        public static SubmitDecision reject(String error) {
+            return new SubmitDecision(List.of(), java.util.Objects.requireNonNull(error, "error"));
+        }
+    }
 
     record SearchHits(List<Hit> hits, boolean truncated) {
         public SearchHits {

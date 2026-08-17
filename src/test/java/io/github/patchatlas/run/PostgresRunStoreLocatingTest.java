@@ -27,7 +27,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * LOCATING 领取/接管与 input_schema_version 双版本共存（真实 PostgreSQL）。
+ * LOCATING 领取/接管与 input_schema_version 多版本共存（真实 PostgreSQL）。
  */
 @Tag("database")
 @Testcontainers(disabledWithoutDocker = false)
@@ -79,9 +79,9 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
-    void newSubmitWritesInputSchemaVersion2() throws Exception {
-        UUID id = store.submit(live("schema-v2"));
-        assertThat(readSchemaVersion(id)).isEqualTo(2);
+    void newSubmitWritesInputSchemaVersion3() throws Exception {
+        UUID id = store.submit(live("schema-v3"));
+        assertThat(readSchemaVersion(id)).isEqualTo(3);
         GenerationInput input = store.loadGenerationInput(id);
         assertThat(input.sourceSnapshots()).hasSize(1);
     }
@@ -225,6 +225,33 @@ class PostgresRunStoreLocatingTest {
                     new LeaseHeartbeatLocatingRunSession(beat),
                     store.findRunDetail(locating.runId()).orElseThrow().purpose());
         }
+    }
+
+    @Test
+    void differentContextOriginIsNotMergedIntoOneRun() {
+        RunSubmission heuristic = live("origin-h");
+        RunSubmission tools = new RunSubmission(
+                VerificationMode.LIVE,
+                "origin-t",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "t",
+                "b",
+                BUG,
+                null,
+                "",
+                null,
+                io.github.patchatlas.sandbox.MavenNetworkMode.OFFLINE,
+                List.of(new SourceSnapshot("src/A.java", "class A {}")),
+                ContextOrigin.TEXT_TOOLS);
+        assertThat(SubmissionFingerprint.sha256Hex(heuristic))
+                .isNotEqualTo(SubmissionFingerprint.sha256Hex(tools));
+        UUID first = store.submit(heuristic);
+        UUID second = store.submit(tools);
+        assertThat(first).isNotEqualTo(second);
+        assertThat(store.findRun(first)).isPresent();
+        assertThat(store.findRun(second)).isPresent();
     }
 
     @Test

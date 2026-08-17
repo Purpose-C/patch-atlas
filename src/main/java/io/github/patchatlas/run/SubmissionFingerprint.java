@@ -41,6 +41,7 @@ public final class SubmissionFingerprint {
         root.put("modulePath", s.modulePath());
         root.put("javaVersion", s.javaVersion());
         root.put("networkMode", s.networkMode().name());
+        root.put("contextOrigin", s.contextOrigin().name());
         ArrayNode snaps = root.putArray("sourceSnapshots");
         for (SourceSnapshot snap : s.sourceSnapshots()) {
             ObjectNode n = snaps.addObject();
