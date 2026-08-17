@@ -48,6 +48,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     private final LocalizationBudget budget;
     private final Clock clock;
     private final Map<String, String> readContents = new LinkedHashMap<>();
+    private final Map<String, Integer> seenCalls = new LinkedHashMap<>();
     private List<SourceSnapshot> acceptedSubmit;
     private int submitFailures;
     private int seq;
@@ -146,6 +147,21 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             budget.consume();
             String name = call.name();
             String args = call.arguments();
+            String key = LocatingCallKey.of(name, args);
+            Integer prior = seenCalls.get(key);
+            if (prior != null) {
+                session.appendTrace(LocatingTraceStep.of(
+                        seq++,
+                        kindOf(name),
+                        LocatingTraceOutcome.OK,
+                        subjectOf(name, args),
+                        name,
+                        LocatingTraceDetails.repeatOf(prior)));
+                responses.add(responseOf(call.id(), name, repeatMessage(prior)));
+                continue;
+            }
+            int assigned = seq;
+            seenCalls.put(key, assigned);
             if (SUBMIT.equals(name)) {
                 CallResult submit = executeSubmit(call, args);
                 responses.add(submit.response());
@@ -298,6 +314,12 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             values.add(path.asString());
         }
         return List.copyOf(values);
+    }
+
+    private static String repeatMessage(int priorSeq) {
+        return "This exact call was already made at step "
+                + priorSeq
+                + ". Its result has not changed.\nTry a different query, or call submit with what you have.";
     }
 
     private static String errorJson(String reason) {

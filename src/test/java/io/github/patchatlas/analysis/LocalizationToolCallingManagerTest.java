@@ -68,6 +68,61 @@ class LocalizationToolCallingManagerTest {
     Path temp;
 
     @Test
+    void repeatedExactCallIsNotReexecutedButStillConsumesBudget() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationBudget budget = new LocalizationBudget(25, Duration.ofMinutes(5), T0);
+        CountingTools tools = new CountingTools(workspaceTools());
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                tools, session, budget, Clock.fixed(T0, ZoneOffset.UTC));
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "search", "{\"pattern\":\"Foo\"}"));
+        ToolExecutionResult second =
+                manager.executeToolCalls(prompt(), toolCall("c2", "search", "{\"pattern\":\"Foo\"}"));
+
+        assertThat(tools.searches).isEqualTo(1);
+        assertThat(budget.calls()).isEqualTo(2);
+        String body = lastToolResponse(second).getResponses().getFirst().responseData();
+        assertThat(body).contains("already made at step 0");
+        assertThat(session.traces()).extracting(LocatingTraceStep::outcome)
+                .containsExactly(LocatingTraceOutcome.OK, LocatingTraceOutcome.OK);
+        assertThat(session.traces().get(1).detailJson()).contains("\"repeat_of\":0");
+    }
+
+    @Test
+    void argumentsDifferingOnlyByWhitespaceAreRepeats() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        CountingTools tools = new CountingTools(workspaceTools());
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                tools,
+                session,
+                new LocalizationBudget(25, Duration.ofMinutes(5), T0),
+                Clock.fixed(T0, ZoneOffset.UTC));
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "search", "{\"pattern\":\"Foo\"}"));
+        manager.executeToolCalls(prompt(), toolCall("c2", "search", "{\"pattern\":\" Foo \"}"));
+
+        assertThat(tools.searches).isEqualTo(1);
+        assertThat(session.traces().get(1).detailJson()).contains("repeat_of");
+    }
+
+    @Test
+    void differentStartLineIsNotARepeat() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        CountingTools tools = new CountingTools(workspaceTools());
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                tools,
+                session,
+                new LocalizationBudget(25, Duration.ofMinutes(5), T0),
+                Clock.fixed(T0, ZoneOffset.UTC));
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "read", "{\"path\":\"src/Foo.java\",\"startLine\":1}"));
+        manager.executeToolCalls(prompt(), toolCall("c2", "read", "{\"path\":\"src/Foo.java\",\"startLine\":2}"));
+
+        assertThat(tools.reads).isEqualTo(2);
+        assertThat(session.traces()).noneMatch(step -> step.detailJson().contains("repeat_of"));
+    }
+
+    @Test
     void threeParallelCallsWriteThreeTracesAndConsumeThreeBudget() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationBudget budget = new LocalizationBudget(25, Duration.ofMinutes(5), T0);
@@ -451,7 +506,7 @@ class LocalizationToolCallingManagerTest {
         ToolExecutionResult third = null;
         for (int i = 1; i <= 3; i++) {
             third = manager.executeToolCalls(
-                    prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+                    prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing" + i + ".java\"]}"));
         }
         LocatingCoordinator.Result result = manager.finish();
 
@@ -512,7 +567,8 @@ class LocalizationToolCallingManagerTest {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);
         for (int i = 1; i <= 3; i++) {
-            manager.executeToolCalls(prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+            manager.executeToolCalls(
+                    prompt(), toolCall("c" + i, "submit", "{\"paths\":[\"src/Missing" + i + ".java\"]}"));
         }
         LocatingCoordinator.Result result = manager.finish();
 
@@ -708,6 +764,38 @@ class LocalizationToolCallingManagerTest {
                 }
                 """
                 .formatted(callId, callId, name, escaped);
+    }
+
+    private static final class CountingTools implements LocalizationTools {
+        private final LocalizationTools inner;
+        private int searches;
+        private int reads;
+
+        private CountingTools(LocalizationTools inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public SearchHits search(String pattern, String pathGlob) {
+            searches++;
+            return inner.search(pattern, pathGlob);
+        }
+
+        @Override
+        public DirectoryListing list(String path) {
+            return inner.list(path);
+        }
+
+        @Override
+        public FileSlice read(String path, Integer startLine, Integer span) {
+            reads++;
+            return inner.read(path, startLine, span);
+        }
+
+        @Override
+        public SubmitDecision validateSubmit(List<String> paths) {
+            return inner.validateSubmit(paths);
+        }
     }
 
     private static final class MutableClock extends Clock {

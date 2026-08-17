@@ -31,6 +31,12 @@ final class LocatingTraceDetails {
         return clip(node);
     }
 
+    static String repeatOf(int seq) {
+        ObjectNode node = JsonMapper.shared().createObjectNode();
+        node.put("repeat_of", seq);
+        return clip(node);
+    }
+
     static String submitAccepted(int paths) {
         ObjectNode node = JsonMapper.shared().createObjectNode();
         node.put("accepted", true);
