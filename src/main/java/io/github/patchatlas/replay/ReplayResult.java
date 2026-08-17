@@ -80,6 +80,7 @@ public record ReplayResult(
                             "Historical verdict inconsistent with side evidence: expected " + expected);
                 }
             }
+            default -> throw new IllegalStateException("unhandled mode: " + mode);
         }
     }
 

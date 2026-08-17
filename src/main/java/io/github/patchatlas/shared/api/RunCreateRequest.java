@@ -17,5 +17,16 @@ public record RunCreateRequest(
         String networkMode,
         List<SourceSnapshotDto> sourceSnapshots) {
 
+    public RunCreateRequest {
+        if (sourceSnapshots != null) {
+            sourceSnapshots = List.copyOf(sourceSnapshots);
+        }
+    }
+
+    @Override
+    public List<SourceSnapshotDto> sourceSnapshots() {
+        return sourceSnapshots == null ? null : List.copyOf(sourceSnapshots);
+    }
+
     public record SourceSnapshotDto(String relativePath, String content) {}
 }

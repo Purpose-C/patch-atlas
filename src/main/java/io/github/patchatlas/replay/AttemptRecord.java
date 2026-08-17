@@ -142,6 +142,7 @@ public final class AttemptRecord {
                     throw new IllegalArgumentException("REPORT_FAILURE requires diagnostic");
                 }
             }
+            default -> throw new IllegalStateException("unhandled phase: " + phase);
         }
     }
 

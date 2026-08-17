@@ -33,7 +33,7 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
             RunEvents.runFailed(failed.runId(), failed.mode(), failed.failure().orElseThrow());
             return new ReserveResult.Exhausted(failed);
         } catch (StaleClaimException stale) {
-            return new ReserveResult.Stale(stale);
+            return new ReserveResult.Stale(stale.runId(), stale.getMessage());
         }
     }
 

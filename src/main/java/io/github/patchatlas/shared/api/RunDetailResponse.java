@@ -20,6 +20,15 @@ public record RunDetailResponse(
         Result result,
         List<Attempt> attempts) {
 
+    public RunDetailResponse {
+        attempts = attempts == null ? List.of() : List.copyOf(attempts);
+    }
+
+    @Override
+    public List<Attempt> attempts() {
+        return List.copyOf(attempts);
+    }
+
     public record Input(
             String repositoryUrl,
             String issueUrl,

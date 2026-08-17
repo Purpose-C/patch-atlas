@@ -98,7 +98,7 @@ public final class CandidateGenerationCoordinator {
                 return new Result.RunFailed(exhausted.failedRun());
             }
             if (reserveResult instanceof GenerationRunSession.ReserveResult.Stale stale) {
-                throw stale.cause();
+                throw stale.toException();
             }
             GenerationRunSession.ReserveResult.Reserved slot =
                     (GenerationRunSession.ReserveResult.Reserved) reserveResult;

@@ -19,6 +19,7 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw test
+      - run: ./mvnw spotbugs:check checkstyle:check
       - uses: actions/upload-artifact@v4
         with:
           name: jacoco-default

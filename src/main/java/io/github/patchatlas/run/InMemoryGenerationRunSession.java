@@ -43,7 +43,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
         Objects.requireNonNull(provider, "provider");
         Objects.requireNonNull(modelName, "modelName");
         if (terminal != null) {
-            return new ReserveResult.Stale(new StaleClaimException(claim.runId(), "already terminal"));
+            return new ReserveResult.Stale(claim.runId(), "already terminal");
         }
         if (generationAttemptCount >= GenerationRequest.MAX_ATTEMPTS) {
             RunDetails failed = failInternal(new RunFailure(

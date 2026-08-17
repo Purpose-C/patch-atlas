@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.ModelUsage;
+import java.util.UUID;
 
 /**
  * 编排器唯一持久化 seam：预占、usage、提交候选、失败。
@@ -16,7 +17,11 @@ public interface GenerationRunSession {
 
         record Exhausted(RunDetails failedRun) implements ReserveResult {}
 
-        record Stale(StaleClaimException cause) implements ReserveResult {}
+        record Stale(UUID runId, String reason) implements ReserveResult {
+            StaleClaimException toException() {
+                return new StaleClaimException(runId, reason);
+            }
+        }
     }
 
     ReserveResult reserveGenerationAttempt(String provider, String modelName);
