@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,14 +55,16 @@ public class RunWorkerConfiguration {
             SandboxRunner sandboxRunner,
             ObjectProvider<RepositoryWorkspaceFetcher> fetcher,
             ObjectProvider<SandboxExecutionObserver> observer,
-            ObjectProvider<RunReplayer> replayer) {
+            ObjectProvider<RunReplayer> replayer,
+            ObjectProvider<ChatModel> locatingModel) {
         return Issue2TestRuntime.create(
                 generator,
                 requireWorkspaceRoot(properties),
                 sandboxRunner,
                 fetcher.getIfAvailable(GitCloneWorkspaceFetcher::new),
                 observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP),
-                replayer.getIfAvailable());
+                replayer.getIfAvailable(),
+                locatingModel.getIfAvailable());
     }
 
     @Bean

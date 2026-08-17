@@ -81,6 +81,11 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         if (tools == null) {
             return List.of(pingDefinition());
         }
+        return locatingToolDefinitions();
+    }
+
+    /** 发给模型的定位工具 schema；ChatClient 回调必须用同一份，不能另写空 schema。 */
+    public static List<ToolDefinition> locatingToolDefinitions() {
         return List.of(
                 definition(
                         SEARCH,

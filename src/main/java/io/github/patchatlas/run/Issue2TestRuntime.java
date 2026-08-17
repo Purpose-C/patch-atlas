@@ -4,6 +4,7 @@ import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
+import io.github.patchatlas.analysis.ChatClientTextToolsLocator;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Objects;
+import org.springframework.ai.chat.model.ChatModel;
 
 /**
  * 一次装配生成与 Formal Replay。HTTP Worker 与 CLI Harness 共用此入口。
@@ -60,6 +62,17 @@ public final class Issue2TestRuntime {
             RepositoryWorkspaceFetcher fetcher,
             SandboxExecutionObserver observer,
             RunReplayer replayer) {
+        return create(generator, workspaceRoot, sandbox, fetcher, observer, replayer, null);
+    }
+
+    public static Issue2TestRuntime create(
+            TestGenerator generator,
+            Path workspaceRoot,
+            SandboxRunner sandbox,
+            RepositoryWorkspaceFetcher fetcher,
+            SandboxExecutionObserver observer,
+            RunReplayer replayer,
+            ChatModel locatingModel) {
         Objects.requireNonNull(generator, "generator");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(sandbox, "sandbox");
@@ -75,7 +88,7 @@ public final class Issue2TestRuntime {
         DependencyWarmupRunner warmup = new DependencyWarmupRunner(sandbox, root, observer);
         RunReplayer resolved =
                 replayer != null ? replayer : new EngineRunReplayer(sideReplay);
-        return of(generator, gate, workspaces, warmup, sideReplay, resolved);
+        return of(generator, gate, workspaces, warmup, sideReplay, resolved, locatingModel);
     }
 
     /** 测试与可覆盖装配：调用方已备好 Gate、workspace、预热、Side 与 Replayer。 */
@@ -92,11 +105,37 @@ public final class Issue2TestRuntime {
         Objects.requireNonNull(warmup, "warmup");
         Objects.requireNonNull(sideReplay, "sideReplay");
         Objects.requireNonNull(replayer, "replayer");
+        return of(generator, gate, workspaces, warmup, sideReplay, replayer, null);
+    }
+
+    public static Issue2TestRuntime of(
+            TestGenerator generator,
+            PatchGate gate,
+            CandidateWorkspaceFactory workspaces,
+            DependencyWarmupRunner warmup,
+            SideReplayRunner sideReplay,
+            RunReplayer replayer,
+            ChatModel locatingModel) {
+        Objects.requireNonNull(generator, "generator");
+        Objects.requireNonNull(gate, "gate");
+        Objects.requireNonNull(workspaces, "workspaces");
+        Objects.requireNonNull(warmup, "warmup");
+        Objects.requireNonNull(sideReplay, "sideReplay");
+        Objects.requireNonNull(replayer, "replayer");
+        LocatingCoordinator.TextToolsLoop textTools =
+                locatingModel == null ? null : new ChatClientTextToolsLocator(locatingModel);
         return new Issue2TestRuntime(
                 new LocatingCoordinator(
-                        workspaces, new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder()),
+                        workspaces,
+                        new BuggyRepositoryReader(),
+                        new BuggyOnlyGeneratorContextBuilder(),
+                        textTools),
                 new CandidateGenerationCoordinator(generator, gate, workspaces, warmup, sideReplay),
                 new FormalReplayCoordinator(gate, workspaces, warmup, replayer));
+    }
+
+    LocatingCoordinator locatingCoordinator() {
+        return locating;
     }
 
     public Issue2TestWorker worker(

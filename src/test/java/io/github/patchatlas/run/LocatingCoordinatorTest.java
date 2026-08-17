@@ -179,6 +179,23 @@ class LocatingCoordinatorTest {
     }
 
     @Test
+    void textToolsWithoutLocatorFailsAsLocatingNoContext() {
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                unusedWorkspaces(), new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder());
+
+        LocatingCoordinator.Result result = coordinator.run(
+                claimed, input(List.of()), session, RunPurpose.STANDARD, ContextOrigin.TEXT_TOOLS);
+
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
+        assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().summary())
+                .contains("not configured");
+    }
+
+    @Test
     void diagnosticPurposeEchoesWorkspaceErrorMessage() {
         ClaimedRun claimed = locatingClaim();
         InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);

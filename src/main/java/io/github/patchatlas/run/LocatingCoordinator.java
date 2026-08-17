@@ -54,6 +54,10 @@ public final class LocatingCoordinator {
         this.textTools = textTools;
     }
 
+    boolean hasTextTools() {
+        return textTools != null;
+    }
+
     public Result run(
             ClaimedRun claimed, GenerationInput input, LocatingRunSession session, RunPurpose purpose) {
         return run(claimed, input, session, purpose, ContextOrigin.HEURISTIC);

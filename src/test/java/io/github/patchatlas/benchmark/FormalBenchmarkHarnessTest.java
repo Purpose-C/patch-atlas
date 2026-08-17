@@ -4,7 +4,6 @@ import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.GeneratorConfiguration;
-import io.github.patchatlas.agent.GeneratorIdentity;
 import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.SpringAiTestGenerator;
 import io.github.patchatlas.agent.TestGenerator;
@@ -16,10 +15,12 @@ import io.github.patchatlas.run.Issue2TestWorker;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
+import io.github.patchatlas.sandbox.SandboxExecutionObserver;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.ai.chat.model.ChatModel;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -58,12 +59,27 @@ class FormalBenchmarkHarnessTest {
         PostgresRunStore runStore = new PostgresRunStore(dataSource);
         DockerSandboxRunner sandbox = new DockerSandboxRunner(DockerSandboxConfig.defaults(
                 workspaceRoot, workspaceRoot.resolve(".patch-atlas-cache/maven")));
-        TestGenerator generator = parsed.startsWith("agent-") || BenchmarkActions.DRY_RUN.equals(parsed)
-                ? openAiGenerator()
-                : FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
-                        CallFailureCategory.MODEL_CONFIGURATION_ERROR, "model not required"));
+        ChatModel locatingModel = null;
+        TestGenerator generator;
+        if (parsed.startsWith("agent-") || BenchmarkActions.DRY_RUN.equals(parsed)) {
+            locatingModel = openAiChatModel();
+            generator = new SpringAiTestGenerator(
+                    GeneratorConfiguration.identityForVendor(
+                            envOrDefault("PATCHATLAS_OPENAI_VENDOR", "openai"),
+                            envOrDefault("PATCHATLAS_OPENAI_MODEL", FROZEN_MODEL)),
+                    locatingModel);
+        } else {
+            generator = FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
+                    CallFailureCategory.MODEL_CONFIGURATION_ERROR, "model not required"));
+        }
         Issue2TestRuntime runtime = Issue2TestRuntime.create(
-                generator, workspaceRoot, sandbox, new GitCloneWorkspaceFetcher());
+                generator,
+                workspaceRoot,
+                sandbox,
+                new GitCloneWorkspaceFetcher(),
+                SandboxExecutionObserver.NOOP,
+                null,
+                locatingModel);
         Issue2TestWorker worker = runtime.worker(
                 runStore, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT);
         FormalBenchmarkRunner.Store store = new PostgresBenchmarkStore(runStore);
@@ -107,14 +123,11 @@ class FormalBenchmarkHarnessTest {
         }
     }
 
-    private static TestGenerator openAiGenerator() {
+    private static ChatModel openAiChatModel() {
         String key = requiredEnv("OPENAI_API_KEY");
         String model = envOrDefault("PATCHATLAS_OPENAI_MODEL", FROZEN_MODEL);
         String baseUrl = envOrDefault("PATCHATLAS_OPENAI_BASE_URL", OpenAiChatModelFactory.DEFAULT_BASE_URL);
-        String vendor = envOrDefault("PATCHATLAS_OPENAI_VENDOR", "openai");
-        return new SpringAiTestGenerator(
-                GeneratorConfiguration.identityForVendor(vendor, model),
-                OpenAiChatModelFactory.create(key, model, baseUrl));
+        return OpenAiChatModelFactory.create(key, model, baseUrl);
     }
 
     private static List<GitBugJavaMetadataReader.CaseMetadata> readGitBugMetadata() throws java.io.IOException {

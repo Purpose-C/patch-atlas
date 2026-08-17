@@ -41,6 +41,18 @@ class TextSearchToolsTest {
     }
 
     @Test
+    void rejectsAbsoluteBackslashNullAndTraversalIndependently() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("reject"));
+        Files.writeString(workspace.resolve("inside.txt"), "visible");
+        TextSearchTools tools = new TextSearchTools(workspace);
+
+        assertRejected(tools, "/abs.txt");
+        assertRejected(tools, "dir\\file.txt");
+        assertRejected(tools, "inside.txt\0hidden");
+        assertRejected(tools, "dir/../inside.txt");
+    }
+
+    @Test
     void publicTypesDoNotAcceptFixedRevisionOrOracle() {
         Set<String> offenders = new HashSet<>();
         for (Class<?> type : List.of(LocalizationTools.class, TextSearchTools.class)) {

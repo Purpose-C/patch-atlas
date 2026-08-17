@@ -46,9 +46,12 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 class LocalizationToolCallingManagerTest {
 
@@ -64,12 +67,56 @@ class LocalizationToolCallingManagerTest {
     Path temp;
 
     @Test
+    void executeWithoutToolCallsUsesSearchFallbackAndDoesNotReturnDirect() throws Exception {
+        LocalizationToolCallingManager manager = manager(newSession(), 25);
+        AssistantMessage empty = AssistantMessage.builder().content("").build();
+        ToolExecutionResult result =
+                manager.executeToolCalls(prompt(), new ChatResponse(List.of(new Generation(empty))));
+        assertThat(result.returnDirect()).isFalse();
+        assertThat(manager.hasReads()).isFalse();
+    }
+
+    @Test
+    void resolveToolDefinitionsDeclaresSearchListReadSubmitSchemas() throws Exception {
+        LocalizationToolCallingManager manager = manager(newSession(), 25);
+        ToolCallingChatOptions options = ToolCallingChatOptions.builder().build();
+        List<ToolDefinition> definitions = manager.resolveToolDefinitions(options);
+
+        assertThat(definitions).extracting(ToolDefinition::name).containsExactly("search", "list", "read", "submit");
+        assertThat(manager.resolveToolDefinitions(options))
+                .isEqualTo(LocalizationToolCallingManager.locatingToolDefinitions());
+
+        JsonNode search = schema(definitions, "search");
+        assertThat(required(search)).containsExactly("pattern");
+        assertThat(search.get("properties").get("pattern").get("type").asString()).isEqualTo("string");
+        assertThat(search.get("properties").get("pathGlob").get("type").asString()).isEqualTo("string");
+
+        JsonNode list = schema(definitions, "list");
+        assertThat(required(list)).containsExactly("path");
+        assertThat(list.get("properties").get("path").get("type").asString()).isEqualTo("string");
+
+        JsonNode read = schema(definitions, "read");
+        assertThat(required(read)).containsExactly("path");
+        assertThat(read.get("properties").get("path").get("type").asString()).isEqualTo("string");
+        assertThat(read.get("properties").get("startLine").get("type").asString()).isEqualTo("integer");
+        assertThat(read.get("properties").get("span").get("type").asString()).isEqualTo("integer");
+
+        JsonNode submit = schema(definitions, "submit");
+        assertThat(required(submit)).containsExactly("paths");
+        assertThat(submit.get("properties").get("paths").get("type").asString()).isEqualTo("array");
+        assertThat(submit.get("properties").get("paths").get("items").get("type").asString()).isEqualTo("string");
+    }
+
+    @Test
     void searchReadSubmitWritesThreeTraceRowsInOrder() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);
 
         manager.executeToolCalls(prompt(), toolCall("c1", "search", "{\"pattern\":\"Foo\"}"));
-        manager.executeToolCalls(prompt(), toolCall("c2", "read", "{\"path\":\"src/Foo.java\"}"));
+        manager.executeToolCalls(
+                prompt(), toolCall("c2", "read", "{\"path\":\"src/Foo.java\",\"startLine\":1,\"span\":10}"));
+        assertThat(manager.hasReads()).isTrue();
+        assertThat(manager.readPaths()).containsExactly("src/Foo.java");
         ToolExecutionResult submit =
                 manager.executeToolCalls(prompt(), toolCall("c3", "submit", "{\"paths\":[\"src/Foo.java\"]}"));
 
@@ -356,6 +403,23 @@ class LocalizationToolCallingManagerTest {
         assertThat(httpCalls).isEqualTo(3);
         assertThat(session.traces()).extracting(LocatingTraceStep::kind)
                 .containsExactly(LocatingStepKind.SEARCH, LocatingStepKind.READ, LocatingStepKind.SUBMIT);
+    }
+
+    private static JsonNode schema(List<ToolDefinition> definitions, String name) {
+        String raw = definitions.stream()
+                .filter(definition -> name.equals(definition.name()))
+                .findFirst()
+                .orElseThrow()
+                .inputSchema();
+        return JsonMapper.shared().readTree(raw);
+    }
+
+    private static List<String> required(JsonNode schema) {
+        List<String> names = new ArrayList<>();
+        for (JsonNode item : schema.get("required")) {
+            names.add(item.asString());
+        }
+        return names;
     }
 
     private LocalizationToolCallingManager manager(InMemoryLocatingRunSession session, int maxCalls)

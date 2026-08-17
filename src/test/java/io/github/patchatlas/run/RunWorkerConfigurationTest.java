@@ -37,6 +37,25 @@ class RunWorkerConfigurationTest {
                     assertThat(context).hasSingleBean(Issue2TestRuntime.class);
                     assertThat(context.getBean(SandboxRunner.class))
                             .isInstanceOf(DockerSandboxRunner.class);
+                    assertThat(context.getBean(Issue2TestRuntime.class).locatingCoordinator().hasTextTools())
+                            .isFalse();
+                });
+    }
+
+    @Test
+    void chatModelBeanWiresTextToolsIntoRuntime(@TempDir Path workspaceRoot) {
+        new ApplicationContextRunner()
+                .withUserConfiguration(
+                        RunWorkerConfiguration.class, ContextTestBeans.class, ChatModelTestBean.class)
+                .withPropertyValues(
+                        "patchatlas.worker.enabled=true",
+                        "patchatlas.worker.workspace-root=" + workspaceRoot,
+                        "patchatlas.worker.lease-duration=PT5M",
+                        "patchatlas.worker.heartbeat-interval=PT30S")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(Issue2TestRuntime.class).locatingCoordinator().hasTextTools())
+                            .isTrue();
                 });
     }
 
@@ -77,6 +96,15 @@ class RunWorkerConfigurationTest {
                     throw new SQLException("test context must not open a database connection");
                 }
             };
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class ChatModelTestBean {
+        @Bean
+        org.springframework.ai.chat.model.ChatModel chatModel() {
+            return io.github.patchatlas.agent.OpenAiChatModelFactory.create(
+                    "sk-test", "gpt-test", "http://127.0.0.1:9");
         }
     }
 }

@@ -35,11 +35,9 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
                 new TextSearchTools(workspace), session, new LocalizationBudget());
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultAdvisors(ToolCallAdvisor.builder().toolCallingManager(manager).build())
-                .defaultToolCallbacks(
-                        stub(LocalizationToolCallingManager.SEARCH),
-                        stub(LocalizationToolCallingManager.LIST),
-                        stub(LocalizationToolCallingManager.READ),
-                        stub(LocalizationToolCallingManager.SUBMIT))
+                .defaultToolCallbacks(LocalizationToolCallingManager.locatingToolDefinitions().stream()
+                        .map(ChatClientTextToolsLocator::stub)
+                        .toArray(ToolCallback[]::new))
                 .build();
         client.prompt()
                 .user(input.issueTitle() + "\n" + input.issueBody())
@@ -48,15 +46,11 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
         return manager.finish();
     }
 
-    private static ToolCallback stub(String name) {
+    private static ToolCallback stub(ToolDefinition definition) {
         return new ToolCallback() {
             @Override
             public ToolDefinition getToolDefinition() {
-                return ToolDefinition.builder()
-                        .name(name)
-                        .description(name)
-                        .inputSchema("{\"type\":\"object\"}")
-                        .build();
+                return definition;
             }
 
             @Override
