@@ -7,6 +7,7 @@ import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.analysis.LocalizationBudget;
 import io.github.patchatlas.analysis.LocalizationToolCallingManager;
 import io.github.patchatlas.analysis.LocalizationTools;
+import io.github.patchatlas.analysis.LocatingPrompt;
 import io.github.patchatlas.analysis.LocatingToolCallException;
 import io.github.patchatlas.analysis.TextSearchTools;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts;
@@ -141,9 +142,14 @@ final class ToolBudgetCalibration {
         report.skipped.addAll(skipped);
         writeReportFiles(output, report);
 
-        for (int repeat = 1; repeat <= REPEATS && report.stopReason == null; repeat++) {
+        boolean smoke = "1".equals(System.getenv("PATCHATLAS_CALIBRATE_SMOKE"));
+        int maxRepeats = smoke ? 1 : REPEATS;
+        for (int repeat = 1; repeat <= maxRepeats && report.stopReason == null; repeat++) {
             for (PreparedCase item : prepared) {
                 if (report.stopReason != null) {
+                    break;
+                }
+                if (smoke && report.submits >= 1) {
                     break;
                 }
                 if (report.submits >= MAX_SUBMITS
@@ -165,7 +171,7 @@ final class ToolBudgetCalibration {
                         + " elapsedMs="
                         + row.elapsedMs);
                 if (row.parallelGuard) {
-                    report.stopReason = "N>1 parallel tool-call guard";
+                    report.stopReason = "N>8 parallel tool-call guard";
                 } else if (row.hitRelaxedCap) {
                     report.stopReason = "session hit relaxed cap 60";
                 } else if (report.consecutiveStartFails >= 3) {
@@ -176,11 +182,15 @@ final class ToolBudgetCalibration {
             }
         }
         if (report.stopReason == null) {
-            int valid = report.validSessions();
-            if (valid < MIN_SESSIONS) {
-                report.stopReason = "valid sessions " + valid + " < " + MIN_SESSIONS;
+            if (smoke) {
+                report.stopReason = smokeVerdict(report);
             } else {
-                report.stopReason = "completed";
+                int valid = report.validSessions();
+                if (valid < MIN_SESSIONS) {
+                    report.stopReason = "valid sessions " + valid + " < " + MIN_SESSIONS;
+                } else {
+                    report.stopReason = "completed";
+                }
             }
         }
         writeReportFiles(output, report);
@@ -192,7 +202,7 @@ final class ToolBudgetCalibration {
                 + report.validSessions()
                 + " submitReached="
                 + report.submitReached());
-        if ("completed".equals(report.stopReason)) {
+        if ("completed".equals(report.stopReason) || "smoke passed".equals(report.stopReason)) {
             return 0;
         }
         return 2;
@@ -260,7 +270,8 @@ final class ToolBudgetCalibration {
             return false;
         }
         String lower = summary.toLowerCase(Locale.ROOT);
-        return lower.contains("parallel tool calls") || lower.contains("parallel tool_calls");
+        return lower.contains("exceed limit")
+                || lower.contains("max " + LocalizationToolCallingManager.MAX_PARALLEL_TOOL_CALLS);
     }
 
     static boolean isTransportSummary(String summary) {
@@ -330,6 +341,40 @@ final class ToolBudgetCalibration {
             }
         }
         return false;
+    }
+
+    static String smokeVerdict(Report report) {
+        if (report.sessions.isEmpty()) {
+            return "smoke failed: no session";
+        }
+        SessionRow row = report.sessions.getFirst();
+        if (row.parallelGuard) {
+            return "smoke failed: N>8 guard";
+        }
+        if (row.transportFailure || !row.startedLocating) {
+            return "smoke failed: session did not start locating";
+        }
+        if (row.toolCalls == 0) {
+            return "smoke failed: zero tool calls";
+        }
+        boolean searched = false;
+        boolean read = false;
+        boolean submitted = row.reachedSubmit;
+        for (LocatingTraceStep step : row.traces) {
+            if (step.kind() == LocatingStepKind.SEARCH || step.kind() == LocatingStepKind.LIST) {
+                searched = true;
+            }
+            if (step.kind() == LocatingStepKind.READ) {
+                read = true;
+            }
+        }
+        if (row.toolCalls == 1 && submitted) {
+            return "smoke failed: submitted in one round without exploring";
+        }
+        if (searched && read && submitted) {
+            return "smoke passed";
+        }
+        return "smoke failed: sequence incomplete";
     }
 
     static boolean reachedSubmit(List<LocatingTraceStep> traces) {
@@ -799,6 +844,7 @@ final class ToolBudgetCalibration {
                     .defaultOptions(locatingOptions(modelName).mutate())
                     .build()
                     .prompt()
+                    .system(LocatingPrompt.textTools())
                     .user(input.issueTitle() + "\n" + input.issueBody())
                     .call()
                     .chatResponse();

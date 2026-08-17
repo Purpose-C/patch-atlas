@@ -139,8 +139,11 @@ class ToolBudgetCalibrationTest {
     @Test
     void parallelGuardAndRelaxedCapAreDetectedFromTraces() {
         assertThat(ToolBudgetCalibration.isParallelGuard(
-                        "parallel tool calls are not supported: received 2 [search, read]"))
+                        "parallel tool calls exceed limit: received 9 (max 8) [search, search]"))
                 .isTrue();
+        assertThat(ToolBudgetCalibration.isParallelGuard(
+                        "parallel tool calls are not supported: received 2 [search, read]"))
+                .isFalse();
         assertThat(ToolBudgetCalibration.isParallelGuard("locating produced no readable context"))
                 .isFalse();
 
@@ -268,8 +271,60 @@ class ToolBudgetCalibrationTest {
         assertThat(requestBody).contains("\"name\":\"list\"");
         assertThat(requestBody).contains("\"name\":\"read\"");
         assertThat(requestBody).contains("\"name\":\"submit\"");
+        assertThat(requestBody).contains("\"role\":\"system\"");
         assertThat(requestBody).doesNotContain("patchText");
         assertThat(requestBody).doesNotContain("json_schema");
+        assertThat(requestBody).doesNotContain("fixedRevision");
+    }
+
+    @Test
+    void smokeVerdictRequiresExploreThenReadThenSubmit() {
+        ToolBudgetCalibration.Report empty =
+                ToolBudgetCalibration.Report.empty("agnes-2.5-flash", "https://example.invalid", Instant.now());
+        assertThat(ToolBudgetCalibration.smokeVerdict(empty)).contains("no session");
+
+        ToolBudgetCalibration.Report onlySubmit =
+                ToolBudgetCalibration.Report.empty("agnes-2.5-flash", "https://example.invalid", Instant.now());
+        onlySubmit.absorb(new ToolBudgetCalibration.SessionRow(
+                UUID.randomUUID().toString(),
+                "case",
+                1,
+                Instant.now().toString(),
+                10L,
+                1,
+                true,
+                "SUBMIT",
+                false,
+                false,
+                false,
+                true,
+                List.of(),
+                List.of(),
+                List.of(LocatingTraceStep.of(0, LocatingStepKind.SUBMIT, "src/A.java", "submit", "{}"))));
+        assertThat(ToolBudgetCalibration.smokeVerdict(onlySubmit)).contains("one round");
+
+        ToolBudgetCalibration.Report explored =
+                ToolBudgetCalibration.Report.empty("agnes-2.5-flash", "https://example.invalid", Instant.now());
+        explored.absorb(new ToolBudgetCalibration.SessionRow(
+                UUID.randomUUID().toString(),
+                "case",
+                1,
+                Instant.now().toString(),
+                10L,
+                3,
+                true,
+                "SUBMIT",
+                false,
+                false,
+                false,
+                true,
+                List.of(),
+                List.of(),
+                List.of(
+                        LocatingTraceStep.of(0, LocatingStepKind.SEARCH, ".", "search", "{}"),
+                        LocatingTraceStep.of(1, LocatingStepKind.READ, "src/A.java", "read", "{}"),
+                        LocatingTraceStep.of(2, LocatingStepKind.SUBMIT, "src/A.java", "submit", "{}"))));
+        assertThat(ToolBudgetCalibration.smokeVerdict(explored)).isEqualTo("smoke passed");
     }
 
     @Test
