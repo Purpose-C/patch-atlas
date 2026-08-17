@@ -58,7 +58,7 @@ jobs:
         with:
           name: jacoco-database
           path: target
-      - run: ./mvnw -DskipTests jacoco:merge jacoco:report
+      - run: ./mvnw -DskipTests compile jacoco:merge jacoco:report
       - uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
