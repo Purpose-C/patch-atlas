@@ -3,11 +3,12 @@ package io.github.patchatlas.run;
 import java.util.Objects;
 import java.util.UUID;
 
-/** 一次定位步骤：选择或排除某个仓库相对路径。 */
+/** 一次定位步骤：选择、排除或一次工具调用。 */
 public record LocatingTraceStep(
         UUID id,
         int seq,
         LocatingStepKind kind,
+        LocatingTraceOutcome outcome,
         String subject,
         String reason,
         String detailJson) {
@@ -15,6 +16,7 @@ public record LocatingTraceStep(
     public LocatingTraceStep {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(reason, "reason");
         Objects.requireNonNull(detailJson, "detailJson");
@@ -31,6 +33,17 @@ public record LocatingTraceStep(
 
     public static LocatingTraceStep of(
             int seq, LocatingStepKind kind, String subject, String reason, String detailJson) {
-        return new LocatingTraceStep(UUID.randomUUID(), seq, kind, subject, reason, detailJson);
+        return of(seq, kind, LocatingTraceOutcome.OK, subject, reason, detailJson);
+    }
+
+    public static LocatingTraceStep of(
+            int seq,
+            LocatingStepKind kind,
+            LocatingTraceOutcome outcome,
+            String subject,
+            String reason,
+            String detailJson) {
+        return new LocatingTraceStep(
+                UUID.randomUUID(), seq, kind, outcome, subject, reason, detailJson);
     }
 }

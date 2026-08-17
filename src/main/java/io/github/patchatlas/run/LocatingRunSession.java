@@ -10,6 +10,10 @@ public interface LocatingRunSession {
 
     void replaceTrace(List<LocatingTraceStep> steps);
 
+    void beginTrace();
+
+    void appendTrace(LocatingTraceStep step);
+
     ClaimedRun commitContext(ContextOrigin origin, List<SourceSnapshot> snapshots);
 
     RunDetails fail(RunFailure failure);

@@ -19,6 +19,16 @@ public final class LeaseHeartbeatLocatingRunSession implements LocatingRunSessio
     }
 
     @Override
+    public void beginTrace() {
+        heartbeat.beginLocatingTrace();
+    }
+
+    @Override
+    public void appendTrace(LocatingTraceStep step) {
+        heartbeat.appendLocatingTrace(step);
+    }
+
+    @Override
     public ClaimedRun commitContext(ContextOrigin origin, List<SourceSnapshot> snapshots) {
         return heartbeat.commitContext(origin, snapshots);
     }

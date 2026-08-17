@@ -89,6 +89,20 @@ public final class LeaseHeartbeat implements AutoCloseable {
         });
     }
 
+    public void beginLocatingTrace() {
+        runLocked(h -> {
+            store.beginLocatingTrace(h);
+            return null;
+        });
+    }
+
+    public void appendLocatingTrace(LocatingTraceStep step) {
+        runLocked(h -> {
+            store.appendLocatingTrace(h, step);
+            return null;
+        });
+    }
+
     public PostgresRunStore.ReservedGenerationAttempt reserveGenerationAttempt(
             String provider, String modelName) {
         lock.lock();

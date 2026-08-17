@@ -807,6 +807,9 @@ public final class PostgresRunStore {
         if (handle.state() != RunState.LOCATING) {
             throw new IllegalArgumentException("commitContext requires LOCATING");
         }
+        if (snapshots.isEmpty()) {
+            throw new IllegalArgumentException("COMMIT_CONTEXT requires a non-empty context");
+        }
         if (!stateMachine.canApply(handle.state(), RunTransition.COMMIT_CONTEXT)) {
             throw new IllegalArgumentException("illegal commitContext transition");
         }
@@ -852,54 +855,88 @@ public final class PostgresRunStore {
         }
         List<LocatingTraceStep> copy = List.copyOf(steps);
         tx.executeWithoutResult(status -> {
-            Integer claimed = jdbc.sql(
-                            """
-                            SELECT 1
-                              FROM verification_run
-                             WHERE id = :id
-                               AND state = 'LOCATING'
-                               AND lease_token = :token
-                               AND version = :expectedVersion
-                            """)
-                    .param("id", handle.runId())
-                    .param("token", handle.leaseToken())
-                    .param("expectedVersion", handle.version())
-                    .query(Integer.class)
-                    .optional()
-                    .orElse(null);
-            if (claimed == null) {
-                throw new StaleClaimException(
-                        handle.runId(), "stale replaceLocatingTrace on run " + handle.runId());
-            }
+            lockLocatingRow(handle);
             jdbc.sql("DELETE FROM locating_trace WHERE run_id = :runId")
                     .param("runId", handle.runId())
                     .update();
             for (LocatingTraceStep step : copy) {
-                jdbc.sql(
-                                """
-                                INSERT INTO locating_trace (
-                                  id, run_id, seq, step_kind, subject, reason, detail
-                                ) VALUES (
-                                  :id, :runId, :seq, :kind, :subject, :reason, CAST(:detail AS jsonb)
-                                )
-                                """)
-                        .param("id", step.id())
-                        .param("runId", handle.runId())
-                        .param("seq", step.seq())
-                        .param("kind", step.kind().name())
-                        .param("subject", step.subject())
-                        .param("reason", step.reason())
-                        .param("detail", step.detailJson())
-                        .update();
+                insertLocatingTrace(handle.runId(), step);
             }
         });
+    }
+
+    public void beginLocatingTrace(ClaimHandle handle) {
+        Objects.requireNonNull(handle, "handle");
+        if (handle.state() != RunState.LOCATING) {
+            throw new IllegalArgumentException("beginLocatingTrace requires LOCATING");
+        }
+        tx.executeWithoutResult(status -> {
+            lockLocatingRow(handle);
+            jdbc.sql("DELETE FROM locating_trace WHERE run_id = :runId")
+                    .param("runId", handle.runId())
+                    .update();
+        });
+    }
+
+    public void appendLocatingTrace(ClaimHandle handle, LocatingTraceStep step) {
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(step, "step");
+        if (handle.state() != RunState.LOCATING) {
+            throw new IllegalArgumentException("appendLocatingTrace requires LOCATING");
+        }
+        tx.executeWithoutResult(status -> {
+            lockLocatingRow(handle);
+            insertLocatingTrace(handle.runId(), step);
+        });
+    }
+
+    private void lockLocatingRow(ClaimHandle handle) {
+        Integer claimed = jdbc.sql(
+                        """
+                        SELECT 1
+                          FROM verification_run
+                         WHERE id = :id
+                           AND state = 'LOCATING'
+                           AND lease_token = :token
+                           AND version = :expectedVersion
+                         FOR UPDATE
+                        """)
+                .param("id", handle.runId())
+                .param("token", handle.leaseToken())
+                .param("expectedVersion", handle.version())
+                .query(Integer.class)
+                .optional()
+                .orElse(null);
+        if (claimed == null) {
+            throw new StaleClaimException(handle.runId(), "stale locating trace write on " + handle.runId());
+        }
+    }
+
+    private void insertLocatingTrace(UUID runId, LocatingTraceStep step) {
+        jdbc.sql(
+                        """
+                        INSERT INTO locating_trace (
+                          id, run_id, seq, step_kind, outcome, subject, reason, detail
+                        ) VALUES (
+                          :id, :runId, :seq, :kind, :outcome, :subject, :reason, CAST(:detail AS jsonb)
+                        )
+                        """)
+                .param("id", step.id())
+                .param("runId", runId)
+                .param("seq", step.seq())
+                .param("kind", step.kind().name())
+                .param("outcome", step.outcome().name())
+                .param("subject", step.subject())
+                .param("reason", step.reason())
+                .param("detail", step.detailJson())
+                .update();
     }
 
     public List<LocatingTraceStep> loadLocatingTrace(UUID runId) {
         Objects.requireNonNull(runId, "runId");
         return List.copyOf(jdbc.sql(
                         """
-                        SELECT id, seq, step_kind, subject, reason, detail::text AS detail
+                        SELECT id, seq, step_kind, outcome, subject, reason, detail::text AS detail
                           FROM locating_trace
                          WHERE run_id = :runId
                          ORDER BY seq ASC
@@ -909,6 +946,7 @@ public final class PostgresRunStore {
                         rs.getObject("id", UUID.class),
                         rs.getInt("seq"),
                         LocatingStepKind.valueOf(rs.getString("step_kind")),
+                        LocatingTraceOutcome.valueOf(rs.getString("outcome")),
                         rs.getString("subject"),
                         rs.getString("reason"),
                         rs.getString("detail")))

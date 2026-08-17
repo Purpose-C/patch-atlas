@@ -3,6 +3,7 @@ package io.github.patchatlas.run;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.VerificationMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,7 +12,7 @@ import java.util.Optional;
 public final class InMemoryLocatingRunSession implements LocatingRunSession {
 
     private ClaimedRun claim;
-    private List<LocatingTraceStep> traces = List.of();
+    private final List<LocatingTraceStep> traces = new ArrayList<>();
     private ContextOrigin origin;
     private List<SourceSnapshot> committedSnapshots = List.of();
     private RunDetails terminal;
@@ -25,13 +26,29 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
 
     @Override
     public void replaceTrace(List<LocatingTraceStep> steps) {
-        this.traces = List.copyOf(Objects.requireNonNull(steps, "steps"));
+        beginTrace();
+        for (LocatingTraceStep step : Objects.requireNonNull(steps, "steps")) {
+            appendTrace(step);
+        }
+    }
+
+    @Override
+    public void beginTrace() {
+        traces.clear();
+    }
+
+    @Override
+    public void appendTrace(LocatingTraceStep step) {
+        traces.add(Objects.requireNonNull(step, "step"));
     }
 
     @Override
     public ClaimedRun commitContext(ContextOrigin origin, List<SourceSnapshot> snapshots) {
         Objects.requireNonNull(origin, "origin");
         Objects.requireNonNull(snapshots, "snapshots");
+        if (snapshots.isEmpty()) {
+            throw new IllegalArgumentException("COMMIT_CONTEXT requires a non-empty context");
+        }
         this.origin = origin;
         this.committedSnapshots = List.copyOf(snapshots);
         this.claim = new ClaimedRun(
@@ -70,7 +87,7 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
     }
 
     public List<LocatingTraceStep> traces() {
-        return traces;
+        return List.copyOf(traces);
     }
 
     public ContextOrigin origin() {

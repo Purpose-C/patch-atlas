@@ -228,6 +228,68 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
+    void appendedTraceSurvivesCrashAndRerunRewritesFromZero() throws Exception {
+        UUID id = store.submit(live("append-crash"));
+        ClaimedRun first = store.claimNext("owner-a", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(first));
+        store.appendLocatingTrace(
+                ClaimHandle.from(first),
+                LocatingTraceStep.of(0, LocatingStepKind.SEARCH, "src/A.java", "search", "{}"));
+        assertThat(store.loadLocatingTrace(id)).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SEARCH);
+
+        expireLease(id);
+        ClaimedRun recovered = store.claimNext("owner-b", Duration.ofMinutes(5)).orElseThrow();
+        assertThat(store.loadLocatingTrace(id)).extracting(LocatingTraceStep::seq).containsExactly(0);
+
+        store.beginLocatingTrace(ClaimHandle.from(recovered));
+        store.appendLocatingTrace(
+                ClaimHandle.from(recovered),
+                LocatingTraceStep.of(0, LocatingStepKind.LIST, ".", "list", "{}"));
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
+        assertThat(traces).extracting(LocatingTraceStep::seq).containsExactly(0);
+        assertThat(traces).extracting(LocatingTraceStep::kind).containsExactly(LocatingStepKind.LIST);
+        assertThat(generationAttemptCount(id)).isZero();
+    }
+
+    @Test
+    void staleOwnerAppendAfterTakeoverIsRejectedAndDoesNotPolluteNewTrace() throws Exception {
+        UUID id = store.submit(live("append-fence"));
+        ClaimedRun ownerA = store.claimNext("owner-a", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(ownerA));
+        store.appendLocatingTrace(
+                ClaimHandle.from(ownerA),
+                LocatingTraceStep.of(0, LocatingStepKind.SEARCH, "src/A.java", "search", "{}"));
+
+        expireLease(id);
+        ClaimedRun ownerB = store.claimNext("owner-b", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(ownerB));
+        store.appendLocatingTrace(
+                ClaimHandle.from(ownerB),
+                LocatingTraceStep.of(0, LocatingStepKind.READ, "src/B.java", "read", "{}"));
+
+        assertThatThrownBy(() -> store.appendLocatingTrace(
+                        ClaimHandle.from(ownerA),
+                        LocatingTraceStep.of(1, LocatingStepKind.LIST, ".", "list", "{}")))
+                .isInstanceOf(StaleClaimException.class);
+
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
+        assertThat(traces).extracting(LocatingTraceStep::kind).containsExactly(LocatingStepKind.READ);
+        assertThat(traces).extracting(LocatingTraceStep::seq).containsExactly(0);
+        assertThat(traces).noneMatch(step -> step.kind() == LocatingStepKind.LIST);
+    }
+
+    @Test
+    void commitContextRejectsEmptySnapshots() {
+        store.submit(live("empty-commit"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        assertThatThrownBy(() -> store.commitContext(ClaimHandle.from(locating), ContextOrigin.TEXT_TOOLS, List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("non-empty");
+        assertThat(store.findRun(locating.runId()).orElseThrow().state()).isEqualTo(RunState.LOCATING);
+    }
+
+    @Test
     void replaceLocatingTraceRejectsStaleHandle() {
         store.submit(live("trace-fence"));
         ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();

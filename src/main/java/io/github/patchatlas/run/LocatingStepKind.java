@@ -1,7 +1,12 @@
 package io.github.patchatlas.run;
 
-/** locating_trace 本批次会写入的步骤类型。 */
+/** locating_trace 允许写入的步骤类型。 */
 public enum LocatingStepKind {
     SELECTION,
-    EXCLUSION
+    EXCLUSION,
+    SEARCH,
+    LIST,
+    READ,
+    SUBMIT,
+    BUDGET_EXHAUSTED
 }
