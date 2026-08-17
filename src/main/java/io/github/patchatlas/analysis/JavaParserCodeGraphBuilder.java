@@ -14,13 +14,19 @@ import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.MemberValuePair;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.SuperExpr;
 import com.github.javaparser.ast.expr.ThisExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import io.github.patchatlas.analysis.CodeGraph.Edge;
@@ -45,6 +51,19 @@ import java.util.stream.Stream;
 public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
 
     public static final String PARSER_VERSION = "javaparser-3.26.4";
+
+    private static final String AUTOWIRED =
+            "org.springframework.beans.factory.annotation.Autowired";
+    private static final String EVENT_LISTENER =
+            "org.springframework.context.event.EventListener";
+    private static final String APPLICATION_EVENT_PUBLISHER =
+            "org.springframework.context.ApplicationEventPublisher";
+    private static final String ASPECT = "org.aspectj.lang.annotation.Aspect";
+    private static final String AROUND = "org.aspectj.lang.annotation.Around";
+    private static final String BEFORE = "org.aspectj.lang.annotation.Before";
+    private static final String AFTER = "org.aspectj.lang.annotation.After";
+    private static final String CONDITIONAL_ON_PROPERTY =
+            "org.springframework.boot.autoconfigure.condition.ConditionalOnProperty";
 
     private final JavaParser parser = new JavaParser(
             new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
@@ -80,6 +99,7 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
         }
         for (TypeSymbol type : types.values()) {
             collectCalls(type, types, edges);
+            collectSemanticEdges(type, types, edges);
         }
         return new CodeGraph(revision, nodes, edges);
     }
@@ -214,6 +234,7 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
                 nodes.add(fieldNode);
                 edges.add(declares(symbol.node, fieldNode, file.relative, line));
                 symbol.fieldTypes.put(variable.getNameAsString(), variable.getType());
+                symbol.fieldNodes.put(variable.getNameAsString(), fieldNode);
             }
         }
         if (declaration instanceof ClassOrInterfaceDeclaration type) {
@@ -454,6 +475,261 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
         return method == null ? null : method.node;
     }
 
+    private void collectSemanticEdges(
+            TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
+        collectInjects(type, types, edges);
+        collectListens(type, types, edges);
+        collectPublishes(type, types, edges);
+        collectAdvises(type, types, edges);
+        collectConditional(type, edges);
+    }
+
+    private void collectInjects(TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
+        if (!(type.declaration instanceof ClassOrInterfaceDeclaration declaration)) {
+            return;
+        }
+        for (FieldDeclaration field : declaration.getFields()) {
+            if (!hasNamedAnnotation(field, AUTOWIRED, type.file)) {
+                continue;
+            }
+            for (VariableDeclarator variable : field.getVariables()) {
+                Node source = type.fieldNodes.get(variable.getNameAsString());
+                if (source != null) {
+                    emitInject(source, type.fields.get(variable.getNameAsString()), types, edges,
+                            new SourceLocation(type.file.relative, line(variable)));
+                }
+            }
+        }
+        for (ConstructorDeclaration constructor : declaration.getConstructors()) {
+            if (!hasNamedAnnotation(constructor, AUTOWIRED, type.file)
+                    && declaration.getConstructors().size() != 1) {
+                continue;
+            }
+            if (constructor.getParameters().isEmpty()) {
+                continue;
+            }
+            MethodSymbol ctor = type.constructors.stream()
+                    .filter(symbol -> symbol.declaration == constructor)
+                    .findFirst()
+                    .orElse(null);
+            if (ctor == null) {
+                continue;
+            }
+            for (Parameter parameter : constructor.getParameters()) {
+                type.file.resolveTypeName(parameter.getType(), types)
+                        .ifPresent(fqcn -> emitInject(
+                                ctor.node,
+                                fqcn,
+                                types,
+                                edges,
+                                new SourceLocation(type.file.relative, line(parameter))));
+            }
+        }
+    }
+
+    private void emitInject(
+            Node source,
+            String typeFqcn,
+            Map<String, TypeSymbol> types,
+            List<Edge> edges,
+            SourceLocation location) {
+        if (typeFqcn == null) {
+            edges.add(new Edge(
+                    EdgeKind.INJECTS, ImpactConfidence.POSSIBLE, source, null, location, null, List.of()));
+            return;
+        }
+        TypeSymbol injected = types.get(typeFqcn);
+        if (injected == null) {
+            edges.add(new Edge(
+                    EdgeKind.INJECTS, ImpactConfidence.POSSIBLE, source, null, location, null, List.of()));
+            return;
+        }
+        List<TypeSymbol> implementors = injected.isInterface
+                ? implementorsOf(injected, types)
+                : List.of();
+        if (injected.isInterface && implementors.size() > 1) {
+            edges.add(new Edge(
+                    EdgeKind.INJECTS,
+                    ImpactConfidence.POSSIBLE,
+                    source,
+                    injected.node,
+                    location,
+                    null,
+                    implementors.stream().map(symbol -> symbol.node).toList()));
+            return;
+        }
+        Node target = injected.isInterface && implementors.size() == 1
+                ? implementors.getFirst().node
+                : injected.node;
+        edges.add(new Edge(
+                EdgeKind.INJECTS, ImpactConfidence.CONFIRMED, source, target, location, null, List.of()));
+    }
+
+    private void collectListens(TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
+        for (MethodSymbol method : type.methods.values()) {
+            if (!(method.declaration instanceof MethodDeclaration declaration)) {
+                continue;
+            }
+            if (!hasNamedAnnotation(declaration, EVENT_LISTENER, type.file)) {
+                continue;
+            }
+            if (declaration.getParameters().isEmpty()) {
+                continue;
+            }
+            type.file.resolveTypeName(declaration.getParameter(0).getType(), types)
+                    .filter(types::containsKey)
+                    .ifPresent(fqcn -> edges.add(new Edge(
+                            EdgeKind.LISTENS,
+                            ImpactConfidence.INFERRED,
+                            method.node,
+                            types.get(fqcn).node,
+                            new SourceLocation(type.file.relative, line(declaration)),
+                            null,
+                            List.of())));
+        }
+    }
+
+    private void collectPublishes(TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
+        for (MethodSymbol method : type.methods.values()) {
+            if (!(method.declaration instanceof MethodDeclaration declaration)) {
+                continue;
+            }
+            declaration.getBody().ifPresent(body -> body.walk(MethodCallExpr.class, call -> {
+                if (!"publishEvent".equals(call.getNameAsString()) || call.getArguments().isEmpty()) {
+                    return;
+                }
+                if (call.getScope().isEmpty()) {
+                    return;
+                }
+                Map<String, String> locals = new LinkedHashMap<>(type.fields);
+                Optional<String> receiver = resolveExpressionType(
+                        call.getScope().orElseThrow(), type, locals, types);
+                if (receiver.isEmpty()
+                        || !APPLICATION_EVENT_PUBLISHER.equals(receiver.orElseThrow())) {
+                    return;
+                }
+                eventTypeFrom(call.getArgument(0), type, locals, types).ifPresent(event -> edges.add(
+                        new Edge(
+                                EdgeKind.PUBLISHES,
+                                ImpactConfidence.INFERRED,
+                                method.node,
+                                event.node,
+                                new SourceLocation(type.file.relative, line(call)),
+                                null,
+                                List.of())));
+            }));
+        }
+    }
+
+    private Optional<TypeSymbol> eventTypeFrom(
+            Expression argument,
+            TypeSymbol current,
+            Map<String, String> locals,
+            Map<String, TypeSymbol> types) {
+        if (argument instanceof ObjectCreationExpr created) {
+            return current.file.resolveTypeName(created.getType(), types).map(types::get);
+        }
+        return resolveExpressionType(argument, current, locals, types).map(types::get);
+    }
+
+    private void collectAdvises(TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
+        if (!hasNamedAnnotation(type.declaration, ASPECT, type.file)) {
+            return;
+        }
+        for (MethodSymbol method : type.methods.values()) {
+            if (!(method.declaration instanceof MethodDeclaration declaration)) {
+                continue;
+            }
+            Optional<String> pointcut = List.of(AROUND, BEFORE, AFTER).stream()
+                    .filter(name -> hasNamedAnnotation(declaration, name, type.file))
+                    .map(name -> annotationStringValue(declaration, name, type.file))
+                    .flatMap(Optional::stream)
+                    .findFirst();
+            if (pointcut.isEmpty()) {
+                continue;
+            }
+            for (TypeSymbol candidate : types.values()) {
+                if (pointcut.orElseThrow().contains(candidate.fqcn)) {
+                    edges.add(new Edge(
+                            EdgeKind.ADVISES,
+                            ImpactConfidence.INFERRED,
+                            method.node,
+                            candidate.node,
+                            new SourceLocation(type.file.relative, line(declaration)),
+                            null,
+                            List.of()));
+                }
+            }
+        }
+    }
+
+    private void collectConditional(TypeSymbol type, List<Edge> edges) {
+        if (!hasNamedAnnotation(type.declaration, CONDITIONAL_ON_PROPERTY, type.file)) {
+            return;
+        }
+        edges.add(new Edge(
+                EdgeKind.CONDITIONAL_ON,
+                ImpactConfidence.INFERRED,
+                type.node,
+                null,
+                new SourceLocation(type.file.relative, line(type.declaration)),
+                null,
+                List.of()));
+    }
+
+    private static boolean hasNamedAnnotation(
+            NodeWithAnnotations<?> node, String fqcn, FileContext file) {
+        String simple = simpleNameOf(fqcn);
+        String pkg = fqcn.substring(0, fqcn.length() - simple.length() - 1);
+        for (AnnotationExpr annotation : node.getAnnotations()) {
+            String written = annotation.getNameAsString();
+            if (written.equals(fqcn)) {
+                return true;
+            }
+            if (written.equals(simple)
+                    && (fqcn.equals(file.imports.get(simple)) || file.asterisks.contains(pkg))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Optional<String> annotationStringValue(
+            NodeWithAnnotations<?> node, String fqcn, FileContext file) {
+        for (AnnotationExpr annotation : node.getAnnotations()) {
+            if (!matchesName(annotation, fqcn, file)) {
+                continue;
+            }
+            if (annotation instanceof SingleMemberAnnotationExpr single
+                    && single.getMemberValue() instanceof StringLiteralExpr literal) {
+                return Optional.of(literal.getValue());
+            }
+            if (annotation instanceof NormalAnnotationExpr normal) {
+                for (MemberValuePair pair : normal.getPairs()) {
+                    if ("value".equals(pair.getNameAsString())
+                            && pair.getValue() instanceof StringLiteralExpr literal) {
+                        return Optional.of(literal.getValue());
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean matchesName(AnnotationExpr annotation, String fqcn, FileContext file) {
+        String simple = simpleNameOf(fqcn);
+        String written = annotation.getNameAsString();
+        if (written.equals(fqcn)) {
+            return true;
+        }
+        return written.equals(simple) && fqcn.equals(file.imports.get(simple));
+    }
+
+    private static String simpleNameOf(String fqcn) {
+        int dot = fqcn.lastIndexOf('.');
+        return dot < 0 ? fqcn : fqcn.substring(dot + 1);
+    }
+
     private Node findMethod(TypeSymbol type, String name, Map<String, TypeSymbol> types) {
         TypeSymbol cursor = type;
         while (cursor != null) {
@@ -606,6 +882,7 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
         private final List<String> interfaces = new ArrayList<>();
         private final Map<String, String> fields = new LinkedHashMap<>();
         private final Map<String, Type> fieldTypes = new LinkedHashMap<>();
+        private final Map<String, Node> fieldNodes = new LinkedHashMap<>();
         private final Map<String, MethodSymbol> methods = new LinkedHashMap<>();
         private final List<MethodSymbol> constructors = new ArrayList<>();
 
