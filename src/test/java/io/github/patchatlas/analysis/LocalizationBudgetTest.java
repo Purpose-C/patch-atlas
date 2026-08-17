@@ -27,12 +27,12 @@ class LocalizationBudgetTest {
     }
 
     @Test
-    void defaultsRemainTwentyFiveCallsAndFiveMinutes() {
-        assertThat(LocalizationBudget.MAX_TOOL_CALLS).isEqualTo(25);
-        assertThat(LocalizationBudget.WALL_CLOCK).isEqualTo(Duration.ofMinutes(5));
+    void defaultsMatchCalibratedThirtyFiveCallsAndNineMinutes() {
+        assertThat(LocalizationBudget.MAX_TOOL_CALLS).isEqualTo(35);
+        assertThat(LocalizationBudget.WALL_CLOCK).isEqualTo(Duration.ofMinutes(9));
         LocalizationBudget budget = new LocalizationBudget();
-        assertThat(budget.maxCalls()).isEqualTo(25);
-        assertThat(budget.wallClock()).isEqualTo(Duration.ofMinutes(5));
+        assertThat(budget.maxCalls()).isEqualTo(35);
+        assertThat(budget.wallClock()).isEqualTo(Duration.ofMinutes(9));
     }
 
     @Test

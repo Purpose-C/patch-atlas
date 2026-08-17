@@ -339,8 +339,8 @@ class ToolBudgetCalibrationTest {
     void measureBudgetStaysAtRelaxedLimitsAndDoesNotChangeDefaults() {
         assertThat(ToolBudgetCalibration.MEASURE_MAX_CALLS).isEqualTo(60);
         assertThat(ToolBudgetCalibration.MEASURE_WALL_CLOCK).isEqualTo(Duration.ofMinutes(15));
-        assertThat(io.github.patchatlas.analysis.LocalizationBudget.MAX_TOOL_CALLS).isEqualTo(25);
-        assertThat(io.github.patchatlas.analysis.LocalizationBudget.WALL_CLOCK).isEqualTo(Duration.ofMinutes(5));
+        assertThat(io.github.patchatlas.analysis.LocalizationBudget.MAX_TOOL_CALLS).isEqualTo(35);
+        assertThat(io.github.patchatlas.analysis.LocalizationBudget.WALL_CLOCK).isEqualTo(Duration.ofMinutes(9));
     }
 
     @Test

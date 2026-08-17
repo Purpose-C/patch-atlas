@@ -60,8 +60,8 @@ spring:
 #   PATCHATLAS_OPENAI_BASE_URL（可选；仍强制原生 JSON Schema）
 patchatlas:
   locating:
-    max-tool-calls: 25
-    wall-clock: 5m
+    max-tool-calls: 35
+    wall-clock: 9m
   worker:
     enabled: false
     # poll-interval: 2s   # 常驻消费空队列间隔（仅 worker.enabled=true）

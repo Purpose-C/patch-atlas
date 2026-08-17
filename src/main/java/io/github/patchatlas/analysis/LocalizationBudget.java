@@ -7,8 +7,8 @@ import java.util.Objects;
 /** 一次定位会话的工具预算：调用次数 + 墙钟。 */
 public final class LocalizationBudget {
 
-    public static final int MAX_TOOL_CALLS = 25;
-    public static final Duration WALL_CLOCK = Duration.ofMinutes(5);
+    public static final int MAX_TOOL_CALLS = 35;
+    public static final Duration WALL_CLOCK = Duration.ofMinutes(9);
 
     private final int maxCalls;
     private final Duration wallClock;

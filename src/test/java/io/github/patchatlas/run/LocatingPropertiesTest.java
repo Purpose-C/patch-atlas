@@ -16,8 +16,8 @@ class LocatingPropertiesTest {
         assertThat(properties.getMaxToolCalls()).isEqualTo(LocalizationBudget.MAX_TOOL_CALLS);
         assertThat(properties.getWallClock()).isEqualTo(LocalizationBudget.WALL_CLOCK);
         LocalizationBudget budget = properties.budget();
-        assertThat(budget.maxCalls()).isEqualTo(25);
-        assertThat(budget.wallClock()).isEqualTo(Duration.ofMinutes(5));
+        assertThat(budget.maxCalls()).isEqualTo(35);
+        assertThat(budget.wallClock()).isEqualTo(Duration.ofMinutes(9));
     }
 
     @Test
