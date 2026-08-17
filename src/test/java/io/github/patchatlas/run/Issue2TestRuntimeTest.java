@@ -13,6 +13,8 @@ import io.github.patchatlas.agent.CallFailureCategory;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.analysis.ChatClientTextToolsLocator;
+import io.github.patchatlas.analysis.LocalizationBudget;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
@@ -95,6 +97,29 @@ class Issue2TestRuntimeTest {
                 null,
                 chatModel);
         assertThat(withModel.locatingCoordinator().hasTextTools()).isTrue();
+    }
+
+    @Test
+    void createPassesConfiguredLocatingBudgetToTextTools() throws Exception {
+        Path root = Files.createDirectories(temp.resolve("ws-budget"));
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GenerationCallFailure(
+                CallFailureCategory.MODEL_UNAVAILABLE, "unused"));
+        org.springframework.ai.chat.model.ChatModel chatModel =
+                OpenAiChatModelFactory.create("sk-test", "gpt-test", "http://127.0.0.1:9");
+        LocalizationBudget budget = new LocalizationBudget(60, Duration.ofMinutes(15), Instant.now());
+        Issue2TestRuntime runtime = Issue2TestRuntime.create(
+                generator,
+                root,
+                ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(0)),
+                LocalGitFixture.fetcher(root),
+                SandboxExecutionObserver.NOOP,
+                null,
+                chatModel,
+                budget);
+        ChatClientTextToolsLocator locator =
+                (ChatClientTextToolsLocator) runtime.locatingCoordinator().textToolsLoop();
+        assertThat(locator.budget().maxCalls()).isEqualTo(60);
+        assertThat(locator.budget().wallClock()).isEqualTo(Duration.ofMinutes(15));
     }
 
     @Test

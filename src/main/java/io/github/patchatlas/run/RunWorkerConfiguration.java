@@ -33,7 +33,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  * </pre>
  */
 @Configuration
-@EnableConfigurationProperties(RunWorkerProperties.class)
+@EnableConfigurationProperties({RunWorkerProperties.class, LocatingProperties.class})
 @EnableScheduling
 @ConditionalOnProperty(prefix = "patchatlas.worker", name = "enabled", havingValue = "true")
 public class RunWorkerConfiguration {
@@ -56,7 +56,8 @@ public class RunWorkerConfiguration {
             ObjectProvider<RepositoryWorkspaceFetcher> fetcher,
             ObjectProvider<SandboxExecutionObserver> observer,
             ObjectProvider<RunReplayer> replayer,
-            ObjectProvider<ChatModel> locatingModel) {
+            ObjectProvider<ChatModel> locatingModel,
+            LocatingProperties locatingProperties) {
         return Issue2TestRuntime.create(
                 generator,
                 requireWorkspaceRoot(properties),
@@ -64,7 +65,8 @@ public class RunWorkerConfiguration {
                 fetcher.getIfAvailable(GitCloneWorkspaceFetcher::new),
                 observer.getIfAvailable(() -> SandboxExecutionObserver.NOOP),
                 replayer.getIfAvailable(),
-                locatingModel.getIfAvailable());
+                locatingModel.getIfAvailable(),
+                locatingProperties.budget());
     }
 
     @Bean

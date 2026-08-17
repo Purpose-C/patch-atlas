@@ -18,14 +18,25 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
 
     private final ChatModel chatModel;
     private final ChatOptions options;
+    private final LocalizationBudget budget;
 
     public ChatClientTextToolsLocator(ChatModel chatModel) {
         this(chatModel, null);
     }
 
     public ChatClientTextToolsLocator(ChatModel chatModel, ChatOptions options) {
+        this(chatModel, options, new LocalizationBudget());
+    }
+
+    public ChatClientTextToolsLocator(
+            ChatModel chatModel, ChatOptions options, LocalizationBudget budget) {
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
         this.options = options;
+        this.budget = Objects.requireNonNull(budget, "budget");
+    }
+
+    public LocalizationBudget budget() {
+        return budget;
     }
 
     @Override
@@ -39,7 +50,7 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(workspace, "workspace");
         LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
-                new TextSearchTools(workspace), session, new LocalizationBudget());
+                new TextSearchTools(workspace), session, budget);
         ChatClient.Builder clientBuilder = ChatClient.builder(chatModel)
                 .defaultAdvisors(ToolCallAdvisor.builder().toolCallingManager(manager).build())
                 .defaultToolCallbacks(LocalizationToolCallingManager.locatingToolDefinitions().stream()

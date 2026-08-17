@@ -11,6 +11,7 @@ public final class LocalizationBudget {
     public static final Duration WALL_CLOCK = Duration.ofMinutes(5);
 
     private final int maxCalls;
+    private final Duration wallClock;
     private final Instant deadline;
     private int calls;
 
@@ -24,8 +25,20 @@ public final class LocalizationBudget {
         }
         Objects.requireNonNull(wallClock, "wallClock");
         Objects.requireNonNull(startedAt, "startedAt");
+        if (wallClock.isZero() || wallClock.isNegative()) {
+            throw new IllegalArgumentException("wallClock must be positive");
+        }
         this.maxCalls = maxCalls;
+        this.wallClock = wallClock;
         this.deadline = startedAt.plus(wallClock);
+    }
+
+    public int maxCalls() {
+        return maxCalls;
+    }
+
+    public Duration wallClock() {
+        return wallClock;
     }
 
     public boolean remaining(Instant now) {

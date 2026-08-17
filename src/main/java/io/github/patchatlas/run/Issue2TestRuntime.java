@@ -6,6 +6,7 @@ import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.analysis.ChatClientTextToolsLocator;
+import io.github.patchatlas.analysis.LocalizationBudget;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
@@ -74,11 +75,32 @@ public final class Issue2TestRuntime {
             SandboxExecutionObserver observer,
             RunReplayer replayer,
             ChatModel locatingModel) {
+        return create(
+                generator,
+                workspaceRoot,
+                sandbox,
+                fetcher,
+                observer,
+                replayer,
+                locatingModel,
+                new LocalizationBudget());
+    }
+
+    public static Issue2TestRuntime create(
+            TestGenerator generator,
+            Path workspaceRoot,
+            SandboxRunner sandbox,
+            RepositoryWorkspaceFetcher fetcher,
+            SandboxExecutionObserver observer,
+            RunReplayer replayer,
+            ChatModel locatingModel,
+            LocalizationBudget locatingBudget) {
         Objects.requireNonNull(generator, "generator");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(sandbox, "sandbox");
         Objects.requireNonNull(fetcher, "fetcher");
         Objects.requireNonNull(observer, "observer");
+        Objects.requireNonNull(locatingBudget, "locatingBudget");
         Path root = workspaceRoot.toAbsolutePath().normalize();
         if (!Files.isDirectory(root)) {
             throw new IllegalStateException("workspace root must be an existing directory: " + root);
@@ -89,7 +111,7 @@ public final class Issue2TestRuntime {
         DependencyWarmupRunner warmup = new DependencyWarmupRunner(sandbox, root, observer);
         RunReplayer resolved =
                 replayer != null ? replayer : new EngineRunReplayer(sideReplay);
-        return of(generator, gate, workspaces, warmup, sideReplay, resolved, locatingModel);
+        return of(generator, gate, workspaces, warmup, sideReplay, resolved, locatingModel, locatingBudget);
     }
 
     /** 测试与可覆盖装配：调用方已备好 Gate、workspace、预热、Side 与 Replayer。 */
@@ -106,7 +128,7 @@ public final class Issue2TestRuntime {
         Objects.requireNonNull(warmup, "warmup");
         Objects.requireNonNull(sideReplay, "sideReplay");
         Objects.requireNonNull(replayer, "replayer");
-        return of(generator, gate, workspaces, warmup, sideReplay, replayer, null);
+        return of(generator, gate, workspaces, warmup, sideReplay, replayer, null, new LocalizationBudget());
     }
 
     public static Issue2TestRuntime of(
@@ -117,15 +139,37 @@ public final class Issue2TestRuntime {
             SideReplayRunner sideReplay,
             RunReplayer replayer,
             ChatModel locatingModel) {
+        return of(
+                generator,
+                gate,
+                workspaces,
+                warmup,
+                sideReplay,
+                replayer,
+                locatingModel,
+                new LocalizationBudget());
+    }
+
+    public static Issue2TestRuntime of(
+            TestGenerator generator,
+            PatchGate gate,
+            CandidateWorkspaceFactory workspaces,
+            DependencyWarmupRunner warmup,
+            SideReplayRunner sideReplay,
+            RunReplayer replayer,
+            ChatModel locatingModel,
+            LocalizationBudget locatingBudget) {
         Objects.requireNonNull(generator, "generator");
         Objects.requireNonNull(gate, "gate");
         Objects.requireNonNull(workspaces, "workspaces");
         Objects.requireNonNull(warmup, "warmup");
         Objects.requireNonNull(sideReplay, "sideReplay");
         Objects.requireNonNull(replayer, "replayer");
+        Objects.requireNonNull(locatingBudget, "locatingBudget");
         LocatingCoordinator.TextToolsLoop textTools = locatingModel == null
                 ? null
-                : new ChatClientTextToolsLocator(locatingModel, OpenAiChatModelFactory.locatingChatOptions());
+                : new ChatClientTextToolsLocator(
+                        locatingModel, OpenAiChatModelFactory.locatingChatOptions(), locatingBudget);
         return new Issue2TestRuntime(
                 new LocatingCoordinator(
                         workspaces,
