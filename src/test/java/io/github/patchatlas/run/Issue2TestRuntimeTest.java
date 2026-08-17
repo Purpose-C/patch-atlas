@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -168,6 +169,10 @@ class Issue2TestRuntimeTest {
         assertThat(session.committedSnapshots())
                 .extracting(SourceSnapshot::relativePath)
                 .containsExactly("src/test/java/fixtures/OldTest.java");
+        String requestBody = wireMock.findAll(postRequestedFor(urlPathMatching(".*/chat/completions")))
+                .getFirst()
+                .getBodyAsString();
+        assertThat(requestBody).contains("\"parallel_tool_calls\":false");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
@@ -122,8 +123,9 @@ public final class Issue2TestRuntime {
         Objects.requireNonNull(warmup, "warmup");
         Objects.requireNonNull(sideReplay, "sideReplay");
         Objects.requireNonNull(replayer, "replayer");
-        LocatingCoordinator.TextToolsLoop textTools =
-                locatingModel == null ? null : new ChatClientTextToolsLocator(locatingModel);
+        LocatingCoordinator.TextToolsLoop textTools = locatingModel == null
+                ? null
+                : new ChatClientTextToolsLocator(locatingModel, OpenAiChatModelFactory.locatingChatOptions());
         return new Issue2TestRuntime(
                 new LocatingCoordinator(
                         workspaces,

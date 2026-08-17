@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.github.patchatlas.agent.GenerationFeedback;
@@ -67,12 +68,37 @@ class LocalizationToolCallingManagerTest {
     Path temp;
 
     @Test
-    void executeWithoutToolCallsUsesSearchFallbackAndDoesNotReturnDirect() throws Exception {
-        LocalizationToolCallingManager manager = manager(newSession(), 25);
+    void parallelToolCallsAreRejectedAndNotRecordedOnTrace() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+        AssistantMessage assistant = AssistantMessage.builder()
+                .content("")
+                .toolCalls(List.of(
+                        new AssistantMessage.ToolCall(
+                                "c1", "function", "submit", "{\"paths\":[\"src/Foo.java\"]}"),
+                        new AssistantMessage.ToolCall("c2", "function", "list", "{\"path\":\".\"}")))
+                .build();
+
+        assertThatThrownBy(() -> manager.executeToolCalls(prompt(), new ChatResponse(List.of(new Generation(assistant)))))
+                .isInstanceOf(LocatingToolCallException.class)
+                .hasMessageContaining("2")
+                .hasMessageContaining("submit")
+                .hasMessageContaining("list");
+        assertThat(session.traces()).isEmpty();
+        assertThat(manager.hasReads()).isFalse();
+    }
+
+    @Test
+    void emptyToolCallsAreRejectedAndDoNotFabricateSearch() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
         AssistantMessage empty = AssistantMessage.builder().content("").build();
-        ToolExecutionResult result =
-                manager.executeToolCalls(prompt(), new ChatResponse(List.of(new Generation(empty))));
-        assertThat(result.returnDirect()).isFalse();
+
+        assertThatThrownBy(() -> manager.executeToolCalls(prompt(), new ChatResponse(List.of(new Generation(empty)))))
+                .isInstanceOf(LocatingToolCallException.class)
+                .hasMessageContaining("without tool calls");
+        assertThat(session.traces()).isEmpty();
+        assertThat(session.traces()).noneMatch(step -> step.kind() == LocatingStepKind.SEARCH);
         assertThat(manager.hasReads()).isFalse();
     }
 

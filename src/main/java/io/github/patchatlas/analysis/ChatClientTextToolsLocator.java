@@ -9,6 +9,7 @@ import java.util.Objects;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
@@ -16,9 +17,15 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 public final class ChatClientTextToolsLocator implements LocatingCoordinator.TextToolsLoop {
 
     private final ChatModel chatModel;
+    private final ChatOptions options;
 
     public ChatClientTextToolsLocator(ChatModel chatModel) {
+        this(chatModel, null);
+    }
+
+    public ChatClientTextToolsLocator(ChatModel chatModel, ChatOptions options) {
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
+        this.options = options;
     }
 
     @Override
@@ -33,13 +40,17 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
         Objects.requireNonNull(workspace, "workspace");
         LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
                 new TextSearchTools(workspace), session, new LocalizationBudget());
-        ChatClient client = ChatClient.builder(chatModel)
+        ChatClient.Builder clientBuilder = ChatClient.builder(chatModel)
                 .defaultAdvisors(ToolCallAdvisor.builder().toolCallingManager(manager).build())
                 .defaultToolCallbacks(LocalizationToolCallingManager.locatingToolDefinitions().stream()
                         .map(ChatClientTextToolsLocator::stub)
-                        .toArray(ToolCallback[]::new))
-                .build();
-        client.prompt()
+                        .toArray(ToolCallback[]::new));
+        if (options != null) {
+            clientBuilder.defaultOptions(options.mutate());
+        }
+        clientBuilder
+                .build()
+                .prompt()
                 .user(input.issueTitle() + "\n" + input.issueBody())
                 .call()
                 .chatResponse();

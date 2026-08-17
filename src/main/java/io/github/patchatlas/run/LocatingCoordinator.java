@@ -8,6 +8,7 @@ import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.ExclusionR
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.SelectedSource;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.Selection;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
+import io.github.patchatlas.analysis.LocatingToolCallException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,6 +85,9 @@ public final class LocatingCoordinator {
             return heuristic(claimed, input, session);
         } catch (StaleClaimException stale) {
             throw stale;
+        } catch (LocatingToolCallException ex) {
+            return new Result.RunFailed(session.fail(new RunFailure(
+                    FailureStage.LOCATING, FailureCategory.LOCATING_NO_CONTEXT, ex.getMessage())));
         } catch (Exception ex) {
             return new Result.RunFailed(session.fail(WorkspaceFailureSummarizer.failure(ex, purpose)));
         }

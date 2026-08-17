@@ -113,8 +113,9 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         List<Message> history = new ArrayList<>(prompt.getInstructions());
         AssistantMessage assistant = response.getResult().getOutput();
         history.add(assistant);
+        AssistantMessage.ToolCall call = requireSingleToolCall(assistant);
         if (tools == null) {
-            history.add(toolResponse(firstToolCallId(assistant), SPIKE_TOOL, "{\"ok\":true}"));
+            history.add(toolResponse(call.id(), SPIKE_TOOL, "{\"ok\":true}"));
             return ToolExecutionResult.builder()
                     .conversationHistory(history)
                     .returnDirect(n >= 2)
@@ -129,18 +130,17 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     ".",
                     budget.callsExhausted() ? "CALLS" : "CLOCK",
                     "{}"));
-            history.add(toolResponse(
-                    firstToolCallId(assistant), firstToolName(assistant), "{\"error\":\"budget exhausted\"}"));
+            history.add(toolResponse(call.id(), call.name(), "{\"error\":\"budget exhausted\"}"));
             return ToolExecutionResult.builder()
                     .conversationHistory(history)
                     .returnDirect(true)
                     .build();
         }
         budget.consume();
-        String name = firstToolName(assistant);
-        String args = firstToolArguments(assistant);
+        String name = call.name();
+        String args = call.arguments();
         if (SUBMIT.equals(name)) {
-            return executeSubmit(history, assistant, args);
+            return executeSubmit(history, call, args);
         }
         String body;
         LocatingTraceOutcome outcome = LocatingTraceOutcome.OK;
@@ -152,7 +152,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         }
         session.appendTrace(LocatingTraceStep.of(
                 seq++, kindOf(name), outcome, subjectOf(name, args), name, "{}"));
-        history.add(toolResponse(firstToolCallId(assistant), name, body));
+        history.add(toolResponse(call.id(), name, body));
         return ToolExecutionResult.builder()
                 .conversationHistory(history)
                 .returnDirect(false)
@@ -232,7 +232,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     }
 
     private ToolExecutionResult executeSubmit(
-            List<Message> history, AssistantMessage assistant, String args) {
+            List<Message> history, AssistantMessage.ToolCall call, String args) {
         LocalizationTools.SubmitDecision decision;
         try {
             decision = tools.validateSubmit(parsePaths(args));
@@ -248,7 +248,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     subjectOf(SUBMIT, args),
                     SUBMIT,
                     "{}"));
-            history.add(toolResponse(firstToolCallId(assistant), SUBMIT, errorJson(decision.error())));
+            history.add(toolResponse(call.id(), SUBMIT, errorJson(decision.error())));
             return ToolExecutionResult.builder()
                     .conversationHistory(history)
                     .returnDirect(submitFailures >= 3)
@@ -262,7 +262,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 subjectOf(SUBMIT, args),
                 SUBMIT,
                 "{}"));
-        history.add(toolResponse(firstToolCallId(assistant), SUBMIT, "{\"ok\":true}"));
+        history.add(toolResponse(call.id(), SUBMIT, "{\"ok\":true}"));
         return ToolExecutionResult.builder()
                 .conversationHistory(history)
                 .returnDirect(true)
@@ -349,24 +349,19 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 .build();
     }
 
-    private static String firstToolCallId(AssistantMessage assistant) {
-        if (assistant.getToolCalls() == null || assistant.getToolCalls().isEmpty()) {
-            return "call_1";
+    private static AssistantMessage.ToolCall requireSingleToolCall(AssistantMessage assistant) {
+        List<AssistantMessage.ToolCall> calls = assistant.getToolCalls();
+        if (calls == null || calls.isEmpty()) {
+            throw new LocatingToolCallException("tool execution requested without tool calls");
         }
-        return assistant.getToolCalls().getFirst().id();
-    }
-
-    private static String firstToolName(AssistantMessage assistant) {
-        if (assistant.getToolCalls() == null || assistant.getToolCalls().isEmpty()) {
-            return SEARCH;
+        if (calls.size() > 1) {
+            List<String> names = new ArrayList<>();
+            for (AssistantMessage.ToolCall call : calls) {
+                names.add(call.name());
+            }
+            throw new LocatingToolCallException(
+                    "parallel tool calls are not supported: received " + calls.size() + " " + names);
         }
-        return assistant.getToolCalls().getFirst().name();
-    }
-
-    private static String firstToolArguments(AssistantMessage assistant) {
-        if (assistant.getToolCalls() == null || assistant.getToolCalls().isEmpty()) {
-            return "{}";
-        }
-        return assistant.getToolCalls().getFirst().arguments();
+        return calls.getFirst();
     }
 }
