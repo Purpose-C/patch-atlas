@@ -25,7 +25,8 @@ public record RunDetailView(
         Optional<CandidateView> candidate,
         Optional<ReplayVerdict> verdict,
         Optional<RunFailure> failure,
-        List<RunAttemptView> attempts) {
+        List<RunAttemptView> attempts,
+        LocatingUsage locatingUsage) {
 
     public RunDetailView {
         Objects.requireNonNull(runId, "runId");
@@ -41,6 +42,42 @@ public record RunDetailView(
         Objects.requireNonNull(verdict, "verdict");
         Objects.requireNonNull(failure, "failure");
         attempts = List.copyOf(Objects.requireNonNull(attempts, "attempts"));
+        locatingUsage = locatingUsage == null ? LocatingUsage.none() : locatingUsage;
+    }
+
+    public RunDetailView(
+            UUID runId,
+            VerificationMode mode,
+            RunPurpose purpose,
+            RunState state,
+            String caseId,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant completedAt,
+            InputSummary input,
+            MavenExecutionPolicy executionPolicy,
+            GenerationMeta generation,
+            Optional<CandidateView> candidate,
+            Optional<ReplayVerdict> verdict,
+            Optional<RunFailure> failure,
+            List<RunAttemptView> attempts) {
+        this(
+                runId,
+                mode,
+                purpose,
+                state,
+                caseId,
+                createdAt,
+                updatedAt,
+                completedAt,
+                input,
+                executionPolicy,
+                generation,
+                candidate,
+                verdict,
+                failure,
+                attempts,
+                LocatingUsage.none());
     }
 
     public record InputSummary(

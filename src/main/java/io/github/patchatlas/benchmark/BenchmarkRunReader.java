@@ -110,6 +110,7 @@ public final class BenchmarkRunReader {
                 detail.candidate().map(c -> c.targetTest().className()),
                 detail.candidate().map(c -> c.targetTest().methodName()),
                 detail.createdAt(),
-                detail.completedAt());
+                detail.completedAt(),
+                detail.locatingUsage());
     }
 }

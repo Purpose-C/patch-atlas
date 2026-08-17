@@ -1,10 +1,12 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.ReplayResult;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -99,6 +101,13 @@ public final class LeaseHeartbeat implements AutoCloseable {
     public void appendLocatingTrace(LocatingTraceStep step) {
         runLocked(h -> {
             store.appendLocatingTrace(h, step);
+            return null;
+        });
+    }
+
+    public void recordLocatingUsage(Optional<ModelUsage> usage) {
+        runLocked(h -> {
+            store.recordLocatingUsage(h, usage);
             return null;
         });
     }

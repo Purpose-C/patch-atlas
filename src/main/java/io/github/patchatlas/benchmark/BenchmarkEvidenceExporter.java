@@ -3,6 +3,7 @@ package io.github.patchatlas.benchmark;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.replay.ReplayVerdict;
+import io.github.patchatlas.run.LocatingUsage;
 import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.TestPatchProvenance;
@@ -48,7 +49,8 @@ public final class BenchmarkEvidenceExporter {
             Optional<String> targetTestClass,
             Optional<String> targetTestMethod,
             Instant createdAt,
-            Instant completedAt) {
+            Instant completedAt,
+            LocatingUsage locatingUsage) {
 
         public CaseResult {
             if (cohortPosition < 1 || cohortPosition > 6) {
@@ -68,6 +70,56 @@ public final class BenchmarkEvidenceExporter {
             candidatePatchSha256 = Objects.requireNonNull(candidatePatchSha256, "candidatePatchSha256");
             targetTestClass = Objects.requireNonNull(targetTestClass, "targetTestClass");
             targetTestMethod = Objects.requireNonNull(targetTestMethod, "targetTestMethod");
+            locatingUsage = locatingUsage == null ? LocatingUsage.none() : locatingUsage;
+        }
+
+        public CaseResult(
+                int cohortPosition,
+                String caseId,
+                RunPurpose purpose,
+                UUID runId,
+                RunState state,
+                TestPatchProvenance provenance,
+                Optional<ReplayVerdict> verdict,
+                Optional<String> failureStage,
+                Optional<String> failureCategory,
+                Optional<String> failureSummary,
+                int generationAttemptCount,
+                String modelProvider,
+                String modelName,
+                long inputTokens,
+                long outputTokens,
+                long totalTokens,
+                Integer usageRecordCount,
+                Optional<String> candidatePatchSha256,
+                Optional<String> targetTestClass,
+                Optional<String> targetTestMethod,
+                Instant createdAt,
+                Instant completedAt) {
+            this(
+                    cohortPosition,
+                    caseId,
+                    purpose,
+                    runId,
+                    state,
+                    provenance,
+                    verdict,
+                    failureStage,
+                    failureCategory,
+                    failureSummary,
+                    generationAttemptCount,
+                    modelProvider,
+                    modelName,
+                    inputTokens,
+                    outputTokens,
+                    totalTokens,
+                    usageRecordCount,
+                    candidatePatchSha256,
+                    targetTestClass,
+                    targetTestMethod,
+                    createdAt,
+                    completedAt,
+                    LocatingUsage.none());
         }
     }
 
@@ -360,8 +412,8 @@ public final class BenchmarkEvidenceExporter {
         md.append("| Agent non-reproduction / failure | ").append(export.agentFailures()).append(" / 3 |\n\n");
 
         md.append("## Per-Case Results\n\n");
-        md.append("| # | Role | Case | State | Verdict | Failure | Attempts | Model | Tokens (in/out/total) |\n");
-        md.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n");
+        md.append("| # | Role | Case | State | Verdict | Failure | Attempts | Model | Tokens (in/out/total) | Locating |\n");
+        md.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n");
         for (int i = 0; i < 6; i++) {
             CohortCase cc = cohort.cases().get(i);
             CaseResult cr = results.get(i);
@@ -378,7 +430,8 @@ public final class BenchmarkEvidenceExporter {
                     : "—";
             md.append(" | ").append(modelId);
             md.append(" | ").append(cr.inputTokens()).append('/').append(cr.outputTokens())
-                    .append('/').append(cr.totalTokens()).append(" |\n");
+                    .append('/').append(cr.totalTokens());
+            md.append(" | ").append(cr.locatingUsage().reportLabel()).append(" |\n");
         }
         md.append('\n');
 

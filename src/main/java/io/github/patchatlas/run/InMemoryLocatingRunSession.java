@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.VerificationMode;
 import java.time.Instant;
@@ -16,6 +17,7 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
     private ContextOrigin origin;
     private List<SourceSnapshot> committedSnapshots = List.of();
     private RunDetails terminal;
+    private LocatingUsage locatingUsage = LocatingUsage.none();
 
     public InMemoryLocatingRunSession(ClaimedRun initial) {
         this.claim = Objects.requireNonNull(initial, "initial");
@@ -35,11 +37,29 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
     @Override
     public void beginTrace() {
         traces.clear();
+        locatingUsage = LocatingUsage.none();
     }
 
     @Override
     public void appendTrace(LocatingTraceStep step) {
         traces.add(Objects.requireNonNull(step, "step"));
+    }
+
+    @Override
+    public void recordUsage(Optional<ModelUsage> usage) {
+        Objects.requireNonNull(usage, "usage");
+        int calls = locatingUsage.callCount() + 1;
+        int recorded = locatingUsage.usageRecordCount() == null ? 0 : locatingUsage.usageRecordCount();
+        long in = locatingUsage.inputTokens();
+        long out = locatingUsage.outputTokens();
+        long total = locatingUsage.totalTokens();
+        if (usage.isPresent()) {
+            recorded++;
+            in += usage.orElseThrow().inputTokens();
+            out += usage.orElseThrow().outputTokens();
+            total += usage.orElseThrow().totalTokens();
+        }
+        locatingUsage = new LocatingUsage(calls, recorded, in, out, total);
     }
 
     @Override
@@ -100,5 +120,9 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
 
     public ClaimedRun claim() {
         return claim;
+    }
+
+    public LocatingUsage locatingUsage() {
+        return locatingUsage;
     }
 }

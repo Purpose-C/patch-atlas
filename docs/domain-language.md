@@ -69,8 +69,8 @@ Issue 定位选出的代码位置对人类修复位置的覆盖比例。它以�
 _Avoid_: 复现率、模型置信度、影响置信度分级
 
 **Generation Attempt**:
-一次 Verification Run 中已计入全局上限的逻辑模型生成机会；正常完成时，模型基于同一份不可变 Generator Context 产出 Candidate Draft，并接受仅来自 Buggy Revision 的确定性校验。一次 Run 最多有三次，调用期间中断也不返还该机会。它是逻辑机会而非物理调用：一次 Attempt 内部可以包含多次模型调用与工具执行，这些调用共享该次 Attempt 的工具预算，并把 token 累加到同一次 Attempt 名下。
-_Avoid_: API 重试、模型单次调用、Replay Attempt、Candidate Test Patch
+一次 Verification Run 中已计入全局上限的逻辑模型生成机会；正常完成时，模型基于同一份不可变 Generator Context 产出 Candidate Draft，并接受仅来自 Buggy Revision 的确定性校验。一次 Run 最多有三次，调用期间中断也不返还该机会。它是逻辑机会而非物理调用，但**工具调用不发生在它内部**：Issue 定位在进入生成之前的独立阶段完成，一次 Run 只定位一次，定位的调用次数预算与 token 都属于那一次定位会话，**不计入任何 Generation Attempt**。三次 Attempt 共享同一份定位产出的 Generator Context。
+_Avoid_: API 重试、模型单次调用、Replay Attempt、Candidate Test Patch、Issue 定位的工具调用
 
 **Generation Feedback**:
 由候选草稿在 Buggy Revision 上的结构化校验事实形成、供下一次 Generation Attempt 修正使用的有界信息；它不得包含 Oracle Data、完整日志或主机环境信息。
@@ -149,8 +149,12 @@ _Avoid_: Run Aggregate Metrics、Replay Verdict、持久化账本
 _Avoid_: 模型账单、Generation Attempt、推算 Token
 
 **Recorded Usage Status**:
-描述 Verification Run 已记录 usage 与 Generation Attempt 的覆盖关系；它只能说明系统记录了多少次供应商 usage，不能证明供应商没有额外计费。由于一次 Generation Attempt 可含多次模型调用，覆盖关系同时包含「哪些 Attempt 有记录」与「某次 Attempt 内是否每次调用都有记录」两层，任一层不完整都不得报告为完整。
-_Avoid_: Usage Complete、账单一致、Token 已知
+描述 Verification Run 已记录 usage 与 Generation Attempt 的覆盖关系；它只能说明系统记录了多少次供应商 usage，不能证明供应商没有额外计费。**它只统计生成阶段**：Issue 定位阶段的模型用量单独成账，不进入本状态的判定，也不得与之合并展示。定位用量缺失时同样报告为未知，不得记为零。
+_Avoid_: Usage Complete、账单一致、Token 已知、把定位成本算进生成覆盖度
+
+**定位阶段模型用量**:
+一次 Issue 定位会话内全部模型调用的 token 账本。它与 Generation Attempt 的 Recorded Model Usage 分开累计、分开展示；任一次定位调用缺失 usage 时整段定位用量报告为未知，不得记为零，也不得把已记录部分当作完整总量。
+_Avoid_: Recorded Usage Status、Generation Attempt 的 token、把缺失写成 0
 
 **Estimated Model Cost**:
 使用明确版本的价格依据对 Recorded Model Usage 计算出的费用估算；它不是供应商账单，价格或 usage 不完整时必须保持不可用或明确标注下界。

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.VerificationMode;
 import java.nio.file.Files;
@@ -14,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
@@ -225,6 +227,58 @@ class PostgresRunStoreLocatingTest {
                     new LeaseHeartbeatLocatingRunSession(beat),
                     store.findRunDetail(locating.runId()).orElseThrow().purpose());
         }
+    }
+
+    @Test
+    void locatingUsageDoesNotEnterGenerationRecordedUsageStatus() throws Exception {
+        UUID id = store.submit(live("locating-usage"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        ClaimHandle handle = ClaimHandle.from(locating);
+        store.beginLocatingTrace(handle);
+        store.recordLocatingUsage(handle, Optional.of(new ModelUsage(5, 7, 12)));
+        store.recordLocatingUsage(handle, Optional.of(new ModelUsage(1, 2, 3)));
+        store.recordLocatingUsage(handle, Optional.of(new ModelUsage(4, 1, 5)));
+
+        ClaimedRun generating = LocatingTestSupport.commitPinned(store, locating);
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store,
+                ClaimHandle.from(generating),
+                generating.lease().owner(),
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(30))) {
+            var reserved = beat.reserveGenerationAttempt("fake", "fixture-v1");
+            beat.recordModelUsage(new ModelUsage(11, 22, 33));
+            assertThat(reserved.ordinal()).isEqualTo(1);
+        }
+
+        RunDetailView detail = store.findRunDetail(id).orElseThrow();
+        assertThat(detail.generation().usageRecordCount()).isEqualTo(1);
+        assertThat(detail.generation().usageStatus())
+                .isEqualTo(RecordedUsageStatus.RECORDED_FOR_ALL_ATTEMPTS);
+        assertThat(detail.generation().inputTokens()).isEqualTo(11);
+        assertThat(detail.locatingUsage().callCount()).isEqualTo(3);
+        assertThat(detail.locatingUsage().unknown()).isFalse();
+        assertThat(detail.locatingUsage().reportedTokens()).contains(new ModelUsage(10, 10, 20));
+        assertThat(generationAttemptCount(id)).isEqualTo(1);
+    }
+
+    @Test
+    void locatingUsageMissingAnyCallIsUnknownNotZero() {
+        UUID id = store.submit(live("locating-usage-unknown"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        ClaimHandle handle = ClaimHandle.from(locating);
+        store.beginLocatingTrace(handle);
+        store.recordLocatingUsage(handle, Optional.of(new ModelUsage(5, 5, 10)));
+        store.recordLocatingUsage(handle, Optional.empty());
+        store.recordLocatingUsage(handle, Optional.of(new ModelUsage(1, 1, 2)));
+
+        LocatingUsage usage = store.loadLocatingUsage(id);
+        assertThat(usage.callCount()).isEqualTo(3);
+        assertThat(usage.unknown()).isTrue();
+        assertThat(usage.reportedTokens()).isEmpty();
+        assertThat(usage.reportLabel()).isEqualTo("unknown");
+        assertThat(usage.reportLabel()).isNotEqualTo("0");
+        assertThat(store.findRunDetail(id).orElseThrow().generation().usageRecordCount()).isZero();
     }
 
     @Test

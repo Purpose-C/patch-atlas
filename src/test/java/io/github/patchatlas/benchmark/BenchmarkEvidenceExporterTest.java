@@ -93,6 +93,8 @@ class BenchmarkEvidenceExporterTest {
         assertThat(md).contains("训练数据构成");
         assertThat(md).contains("Failure Handling");
         assertThat(md).contains("Patch Gate 的策略性拒绝可修正");
+        assertThat(md).contains("Locating");
+        assertThat(md).contains("| none |");
     }
 
     @Test

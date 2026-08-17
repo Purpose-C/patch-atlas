@@ -2,6 +2,7 @@ package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationRequest;
+import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.AttemptPhase;
 import io.github.patchatlas.replay.AttemptRecord;
@@ -343,6 +344,8 @@ public final class PostgresRunStore {
                                r.generation_attempt_count, r.model_provider, r.model_name,
                                r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
                                r.model_usage_record_count,
+                               r.locating_model_calls, r.locating_usage_record_count,
+                               r.locating_input_tokens, r.locating_output_tokens, r.locating_total_tokens,
                                r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
                                r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
                                c.patch_text, c.patch_sha256, c.target_class, c.target_method,
@@ -378,6 +381,8 @@ public final class PostgresRunStore {
                                r.generation_attempt_count, r.model_provider, r.model_name,
                                r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
                                r.model_usage_record_count,
+                               r.locating_model_calls, r.locating_usage_record_count,
+                               r.locating_input_tokens, r.locating_output_tokens, r.locating_total_tokens,
                                r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
                                r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
                                c.patch_text, c.patch_sha256, c.target_class, c.target_method,
@@ -417,7 +422,8 @@ public final class PostgresRunStore {
                 base.candidate(),
                 base.verdict(),
                 base.failure(),
-                attempts));
+                attempts,
+                base.locatingUsage()));
     }
 
     public Optional<RunDetails> findRun(UUID runId) {
@@ -875,6 +881,18 @@ public final class PostgresRunStore {
             jdbc.sql("DELETE FROM locating_trace WHERE run_id = :runId")
                     .param("runId", handle.runId())
                     .update();
+            jdbc.sql(
+                            """
+                            UPDATE verification_run
+                               SET locating_model_calls = 0,
+                                   locating_usage_record_count = 0,
+                                   locating_input_tokens = 0,
+                                   locating_output_tokens = 0,
+                                   locating_total_tokens = 0
+                             WHERE id = :id
+                            """)
+                    .param("id", handle.runId())
+                    .update();
         });
     }
 
@@ -888,6 +906,64 @@ public final class PostgresRunStore {
             lockLocatingRow(handle);
             insertLocatingTrace(handle.runId(), step);
         });
+    }
+
+    public void recordLocatingUsage(ClaimHandle handle, Optional<ModelUsage> usage) {
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(usage, "usage");
+        if (handle.state() != RunState.LOCATING) {
+            throw new IllegalArgumentException("recordLocatingUsage requires LOCATING");
+        }
+        tx.executeWithoutResult(status -> {
+            lockLocatingRow(handle);
+            if (usage.isPresent()) {
+                ModelUsage recorded = usage.orElseThrow();
+                jdbc.sql(
+                                """
+                                UPDATE verification_run
+                                   SET locating_model_calls = locating_model_calls + 1,
+                                       locating_usage_record_count = locating_usage_record_count + 1,
+                                       locating_input_tokens = locating_input_tokens + :inTok,
+                                       locating_output_tokens = locating_output_tokens + :outTok,
+                                       locating_total_tokens = locating_total_tokens + :totTok
+                                 WHERE id = :id
+                                """)
+                        .param("inTok", recorded.inputTokens())
+                        .param("outTok", recorded.outputTokens())
+                        .param("totTok", recorded.totalTokens())
+                        .param("id", handle.runId())
+                        .update();
+            } else {
+                jdbc.sql(
+                                """
+                                UPDATE verification_run
+                                   SET locating_model_calls = locating_model_calls + 1
+                                 WHERE id = :id
+                                """)
+                        .param("id", handle.runId())
+                        .update();
+            }
+        });
+    }
+
+    public LocatingUsage loadLocatingUsage(UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        return jdbc.sql(
+                        """
+                        SELECT locating_model_calls, locating_usage_record_count,
+                               locating_input_tokens, locating_output_tokens, locating_total_tokens
+                          FROM verification_run
+                         WHERE id = :id
+                        """)
+                .param("id", runId)
+                .query((rs, rowNum) -> new LocatingUsage(
+                        rs.getInt("locating_model_calls"),
+                        nullableInteger(rs, "locating_usage_record_count"),
+                        rs.getLong("locating_input_tokens"),
+                        rs.getLong("locating_output_tokens"),
+                        rs.getLong("locating_total_tokens")))
+                .optional()
+                .orElseThrow(() -> new IllegalArgumentException("unknown run " + runId));
     }
 
     private void lockLocatingRow(ClaimHandle handle) {
@@ -1701,7 +1777,13 @@ public final class PostgresRunStore {
                 candidate,
                 verdict,
                 failure,
-                List.of());
+                List.of(),
+                new LocatingUsage(
+                        rs.getInt("locating_model_calls"),
+                        nullableInteger(rs, "locating_usage_record_count"),
+                        rs.getLong("locating_input_tokens"),
+                        rs.getLong("locating_output_tokens"),
+                        rs.getLong("locating_total_tokens")));
     }
 
     private List<RunAttemptView> loadAttemptViews(UUID runId, Optional<TargetTest> target) {
