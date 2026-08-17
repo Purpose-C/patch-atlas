@@ -58,7 +58,13 @@ public interface LocalizationTools {
         }
     }
 
-    record FileSlice(String path, int startLine, List<String> lines, boolean truncated) {
+    record FileSlice(
+            String path,
+            int startLine,
+            List<String> lines,
+            boolean truncated,
+            int totalLines,
+            Integer nextStartLine) {
         public FileSlice {
             lines = List.copyOf(lines);
         }

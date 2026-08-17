@@ -162,7 +162,8 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 detail = LocatingTraceDetails.fromToolResult(name, args, body);
             } catch (RuntimeException ex) {
                 outcome = LocatingTraceOutcome.ERROR;
-                body = errorJson("tool rejected");
+                String message = ex.getMessage();
+                body = errorJson(message == null || message.isBlank() ? "tool rejected" : message);
                 detail = LocatingTraceDetails.error(ex);
             }
             session.appendTrace(LocatingTraceStep.of(

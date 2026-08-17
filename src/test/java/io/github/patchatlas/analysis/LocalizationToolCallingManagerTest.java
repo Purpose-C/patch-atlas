@@ -209,6 +209,22 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void readPastEndOfFileIsErrorNotEmptySlice() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult result =
+                manager.executeToolCalls(prompt(), toolCall("c1", "read", "{\"path\":\"src/Foo.java\",\"startLine\":99}"));
+
+        String body = lastToolResponse(result).getResponses().getFirst().responseData();
+        assertThat(body).contains("error");
+        assertThat(body).contains("startLine");
+        assertThat(body).doesNotContain("\"lines\":[]");
+        assertThat(session.traces().getFirst().outcome()).isEqualTo(LocatingTraceOutcome.ERROR);
+        assertThat(manager.hasReads()).isFalse();
+    }
+
+    @Test
     void toolErrorDetailHasTypeAndMessageWithoutOutsidePath() throws Exception {
         Path secret = temp.resolve("secret.txt");
         Files.writeString(secret, "TOP-SECRET");

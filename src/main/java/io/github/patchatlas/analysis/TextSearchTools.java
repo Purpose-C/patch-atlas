@@ -108,32 +108,36 @@ public final class TextSearchTools implements LocalizationTools {
         if (start < 1) {
             throw new IllegalArgumentException("startLine must be at least 1");
         }
-        int maxLines = span == null ? MAX_READ_LINES : Math.min(span, MAX_READ_LINES);
-        if (maxLines < 1) {
+        if (span != null && span <= 0) {
             throw new IllegalArgumentException("span must be at least 1");
         }
+        int maxLines = span == null ? MAX_READ_LINES : Math.min(span, MAX_READ_LINES);
         List<String> all;
         try {
             all = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new IllegalArgumentException("read failed");
         }
-        int from = Math.min(start - 1, all.size());
+        int totalLines = all.size();
+        if (start > totalLines) {
+            throw new IllegalArgumentException("startLine exceeds file length");
+        }
+        int from = start - 1;
         List<String> slice = new ArrayList<>();
         int bytes = 0;
-        boolean truncated = from + maxLines < all.size();
         for (int i = from; i < all.size() && slice.size() < maxLines; i++) {
             String line = all.get(i);
             int next = bytes + line.getBytes(StandardCharsets.UTF_8).length + 1;
             if (next > MAX_READ_BYTES) {
-                truncated = true;
                 break;
             }
             slice.add(line);
             bytes = next;
         }
+        boolean reachedEnd = from + slice.size() >= totalLines;
+        Integer nextStartLine = reachedEnd ? null : start + slice.size();
         String relative = workspace.relativize(file).toString().replace('\\', '/');
-        return new FileSlice(relative, start, slice, truncated);
+        return new FileSlice(relative, start, slice, !reachedEnd, totalLines, nextStartLine);
     }
 
     @Override

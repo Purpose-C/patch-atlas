@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -95,6 +96,70 @@ class TextSearchToolsTest {
         LocalizationTools.FileSlice slice = tools.read("big.txt", 1, 1000);
         assertThat(slice.lines()).hasSize(LocalizationTools.MAX_READ_LINES);
         assertThat(slice.truncated()).isTrue();
+    }
+
+    @Test
+    void readReturnsTotalLinesAndNextStartLineSoPagesCoverTheFile() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("pages"));
+        List<String> original = new ArrayList<>();
+        StringBuilder body = new StringBuilder();
+        for (int i = 1; i <= 450; i++) {
+            String line = "line-" + i;
+            original.add(line);
+            body.append(line).append('\n');
+        }
+        Files.writeString(workspace.resolve("paged.txt"), body);
+        TextSearchTools tools = new TextSearchTools(workspace);
+
+        LocalizationTools.FileSlice first = tools.read("paged.txt", 1, 400);
+        assertThat(first.totalLines()).isEqualTo(450);
+        assertThat(first.truncated()).isTrue();
+        assertThat(first.nextStartLine()).isEqualTo(401);
+        assertThat(first.lines()).hasSize(400);
+        assertThat(first.lines().getFirst()).isEqualTo("line-1");
+        assertThat(first.lines().getLast()).isEqualTo("line-400");
+
+        LocalizationTools.FileSlice second = tools.read("paged.txt", first.nextStartLine(), 400);
+        assertThat(second.totalLines()).isEqualTo(450);
+        assertThat(second.nextStartLine()).isNull();
+        assertThat(second.truncated()).isFalse();
+        assertThat(second.lines()).containsExactlyElementsOf(original.subList(400, 450));
+
+        List<String> rebuilt = new ArrayList<>(first.lines());
+        rebuilt.addAll(second.lines());
+        assertThat(rebuilt).containsExactlyElementsOf(original);
+    }
+
+    @Test
+    void readToEndClearsNextStartLineAndIsNotTruncated() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("tail"));
+        Files.writeString(workspace.resolve("short.txt"), "a\nb\nc\n");
+        TextSearchTools tools = new TextSearchTools(workspace);
+
+        LocalizationTools.FileSlice slice = tools.read("short.txt", 1, 400);
+        assertThat(slice.totalLines()).isEqualTo(3);
+        assertThat(slice.nextStartLine()).isNull();
+        assertThat(slice.truncated()).isFalse();
+        assertThat(slice.lines()).containsExactly("a", "b", "c");
+    }
+
+    @Test
+    void readRejectsNonPositiveSpanAndStartLinePastEnd() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("bad"));
+        Files.writeString(workspace.resolve("file.txt"), "only\n");
+        TextSearchTools tools = new TextSearchTools(workspace);
+
+        assertThatThrownBy(() -> tools.read("file.txt", 1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("span");
+        assertThatThrownBy(() -> tools.read("file.txt", 1, -3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("span");
+        assertThatThrownBy(() -> tools.read("file.txt", 2, 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("startLine");
+        assertThatThrownBy(() -> tools.read("file.txt", 2, 10))
+                .hasMessageNotContaining("only");
     }
 
     private static void assertRejected(TextSearchTools tools, String path) {
