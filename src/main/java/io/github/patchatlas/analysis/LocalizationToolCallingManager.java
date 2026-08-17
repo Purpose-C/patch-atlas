@@ -40,6 +40,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     public static final String LIST = "list";
     public static final String READ = "read";
     public static final String SUBMIT = "submit";
+    public static final int MAX_PARALLEL_TOOL_CALLS = 8;
 
     private final AtomicInteger executeCalls = new AtomicInteger();
     private final LocalizationTools tools;
@@ -113,49 +114,61 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         List<Message> history = new ArrayList<>(prompt.getInstructions());
         AssistantMessage assistant = response.getResult().getOutput();
         history.add(assistant);
-        AssistantMessage.ToolCall call = requireSingleToolCall(assistant);
+        List<AssistantMessage.ToolCall> calls = requireBoundedToolCalls(assistant);
         if (tools == null) {
-            history.add(toolResponse(call.id(), SPIKE_TOOL, "{\"ok\":true}"));
+            List<ToolResponseMessage.ToolResponse> spike = new ArrayList<>();
+            for (AssistantMessage.ToolCall call : calls) {
+                spike.add(responseOf(call.id(), SPIKE_TOOL, "{\"ok\":true}"));
+            }
+            history.add(toolResponses(spike));
             return ToolExecutionResult.builder()
                     .conversationHistory(history)
                     .returnDirect(n >= 2)
                     .build();
         }
-        Instant now = clock.instant();
-        if (!budget.remaining(now)) {
+        List<ToolResponseMessage.ToolResponse> responses = new ArrayList<>();
+        boolean terminate = false;
+        for (AssistantMessage.ToolCall call : calls) {
+            Instant now = clock.instant();
+            if (!budget.remaining(now)) {
+                session.appendTrace(LocatingTraceStep.of(
+                        seq++,
+                        LocatingStepKind.BUDGET_EXHAUSTED,
+                        LocatingTraceOutcome.OK,
+                        ".",
+                        budget.callsExhausted() ? "CALLS" : "CLOCK",
+                        "{}"));
+                responses.add(responseOf(call.id(), call.name(), errorJson("budget exhausted")));
+                terminate = true;
+                continue;
+            }
+            budget.consume();
+            String name = call.name();
+            String args = call.arguments();
+            if (SUBMIT.equals(name)) {
+                CallResult submit = executeSubmit(call, args);
+                responses.add(submit.response());
+                if (submit.terminate()) {
+                    terminate = true;
+                }
+                continue;
+            }
+            String body;
+            LocatingTraceOutcome outcome = LocatingTraceOutcome.OK;
+            try {
+                body = dispatch(name, args);
+            } catch (RuntimeException ex) {
+                outcome = LocatingTraceOutcome.ERROR;
+                body = errorJson("tool rejected");
+            }
             session.appendTrace(LocatingTraceStep.of(
-                    seq++,
-                    LocatingStepKind.BUDGET_EXHAUSTED,
-                    LocatingTraceOutcome.OK,
-                    ".",
-                    budget.callsExhausted() ? "CALLS" : "CLOCK",
-                    "{}"));
-            history.add(toolResponse(call.id(), call.name(), "{\"error\":\"budget exhausted\"}"));
-            return ToolExecutionResult.builder()
-                    .conversationHistory(history)
-                    .returnDirect(true)
-                    .build();
+                    seq++, kindOf(name), outcome, subjectOf(name, args), name, "{}"));
+            responses.add(responseOf(call.id(), name, body));
         }
-        budget.consume();
-        String name = call.name();
-        String args = call.arguments();
-        if (SUBMIT.equals(name)) {
-            return executeSubmit(history, call, args);
-        }
-        String body;
-        LocatingTraceOutcome outcome = LocatingTraceOutcome.OK;
-        try {
-            body = dispatch(name, args);
-        } catch (RuntimeException ex) {
-            outcome = LocatingTraceOutcome.ERROR;
-            body = errorJson("tool rejected");
-        }
-        session.appendTrace(LocatingTraceStep.of(
-                seq++, kindOf(name), outcome, subjectOf(name, args), name, "{}"));
-        history.add(toolResponse(call.id(), name, body));
+        history.add(toolResponses(responses));
         return ToolExecutionResult.builder()
                 .conversationHistory(history)
-                .returnDirect(false)
+                .returnDirect(terminate)
                 .build();
     }
 
@@ -231,8 +244,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         };
     }
 
-    private ToolExecutionResult executeSubmit(
-            List<Message> history, AssistantMessage.ToolCall call, String args) {
+    private CallResult executeSubmit(AssistantMessage.ToolCall call, String args) {
         LocalizationTools.SubmitDecision decision;
         try {
             decision = tools.validateSubmit(parsePaths(args));
@@ -248,11 +260,8 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     subjectOf(SUBMIT, args),
                     SUBMIT,
                     "{}"));
-            history.add(toolResponse(call.id(), SUBMIT, errorJson(decision.error())));
-            return ToolExecutionResult.builder()
-                    .conversationHistory(history)
-                    .returnDirect(submitFailures >= 3)
-                    .build();
+            return new CallResult(
+                    responseOf(call.id(), SUBMIT, errorJson(decision.error())), submitFailures >= 3);
         }
         acceptedSubmit = decision.snapshots();
         session.appendTrace(LocatingTraceStep.of(
@@ -262,11 +271,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 subjectOf(SUBMIT, args),
                 SUBMIT,
                 "{}"));
-        history.add(toolResponse(call.id(), SUBMIT, "{\"ok\":true}"));
-        return ToolExecutionResult.builder()
-                .conversationHistory(history)
-                .returnDirect(true)
-                .build();
+        return new CallResult(responseOf(call.id(), SUBMIT, "{\"ok\":true}"), true);
     }
 
     private static List<String> parsePaths(String args) {
@@ -343,25 +348,34 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         return ToolDefinition.builder().name(name).description(description).inputSchema(schema).build();
     }
 
-    private static ToolResponseMessage toolResponse(String id, String name, String body) {
-        return ToolResponseMessage.builder()
-                .responses(List.of(new ToolResponseMessage.ToolResponse(id, name, body)))
-                .build();
+    private static ToolResponseMessage.ToolResponse responseOf(String id, String name, String body) {
+        return new ToolResponseMessage.ToolResponse(id, name, body);
     }
 
-    private static AssistantMessage.ToolCall requireSingleToolCall(AssistantMessage assistant) {
+    private static ToolResponseMessage toolResponses(List<ToolResponseMessage.ToolResponse> responses) {
+        return ToolResponseMessage.builder().responses(List.copyOf(responses)).build();
+    }
+
+    private static List<AssistantMessage.ToolCall> requireBoundedToolCalls(AssistantMessage assistant) {
         List<AssistantMessage.ToolCall> calls = assistant.getToolCalls();
         if (calls == null || calls.isEmpty()) {
             throw new LocatingToolCallException("tool execution requested without tool calls");
         }
-        if (calls.size() > 1) {
+        if (calls.size() > MAX_PARALLEL_TOOL_CALLS) {
             List<String> names = new ArrayList<>();
             for (AssistantMessage.ToolCall call : calls) {
                 names.add(call.name());
             }
             throw new LocatingToolCallException(
-                    "parallel tool calls are not supported: received " + calls.size() + " " + names);
+                    "parallel tool calls exceed limit: received "
+                            + calls.size()
+                            + " (max "
+                            + MAX_PARALLEL_TOOL_CALLS
+                            + ") "
+                            + names);
         }
-        return calls.getFirst();
+        return List.copyOf(calls);
     }
+
+    private record CallResult(ToolResponseMessage.ToolResponse response, boolean terminate) {}
 }

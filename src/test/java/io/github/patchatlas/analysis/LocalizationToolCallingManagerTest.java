@@ -68,22 +68,97 @@ class LocalizationToolCallingManagerTest {
     Path temp;
 
     @Test
-    void parallelToolCallsAreRejectedAndNotRecordedOnTrace() throws Exception {
+    void threeParallelCallsWriteThreeTracesAndConsumeThreeBudget() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationBudget budget = new LocalizationBudget(25, Duration.ofMinutes(5), T0);
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                workspaceTools(), session, budget, Clock.fixed(T0, ZoneOffset.UTC));
+
+        ToolExecutionResult result = manager.executeToolCalls(
+                prompt(),
+                toolCalls(
+                        tc("c1", "search", "{\"pattern\":\"Foo\"}"),
+                        tc("c2", "list", "{\"path\":\".\"}"),
+                        tc("c3", "read", "{\"path\":\"src/Foo.java\"}")));
+
+        assertThat(result.returnDirect()).isFalse();
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SEARCH, LocatingStepKind.LIST, LocatingStepKind.READ);
+        assertThat(session.traces()).extracting(LocatingTraceStep::seq).containsExactly(0, 1, 2);
+        assertThat(budget.calls()).isEqualTo(3);
+        assertThat(toolResponseIds(result)).containsExactly("c1", "c2", "c3");
+    }
+
+    @Test
+    void successfulSubmitInBatchStillFinishesRemainingCallsThenTerminates() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);
-        AssistantMessage assistant = AssistantMessage.builder()
-                .content("")
-                .toolCalls(List.of(
-                        new AssistantMessage.ToolCall(
-                                "c1", "function", "submit", "{\"paths\":[\"src/Foo.java\"]}"),
-                        new AssistantMessage.ToolCall("c2", "function", "list", "{\"path\":\".\"}")))
-                .build();
+
+        ToolExecutionResult result = manager.executeToolCalls(
+                prompt(),
+                toolCalls(
+                        tc("c1", "list", "{\"path\":\".\"}"),
+                        tc("c2", "submit", "{\"paths\":[\"src/Foo.java\"]}"),
+                        tc("c3", "search", "{\"pattern\":\"Foo\"}")));
+
+        assertThat(result.returnDirect()).isTrue();
+        assertThat(toolResponseIds(result)).containsExactly("c1", "c2", "c3");
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.LIST, LocatingStepKind.SUBMIT, LocatingStepKind.SEARCH);
+        assertThat(session.traces()).extracting(LocatingTraceStep::seq).containsExactly(0, 1, 2);
+        assertThat(manager.finish()).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+        assertThat(session.origin()).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(session.committedSnapshots())
+                .extracting(SourceSnapshot::relativePath)
+                .containsExactly("src/Foo.java");
+    }
+
+    @Test
+    void midBatchBudgetExhaustionRespondsToRemainingIdsWithoutExecutingThem() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationBudget budget = new LocalizationBudget(1, Duration.ofMinutes(5), T0);
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                workspaceTools(), session, budget, Clock.fixed(T0, ZoneOffset.UTC));
+
+        ToolExecutionResult result = manager.executeToolCalls(
+                prompt(),
+                toolCalls(
+                        tc("c1", "search", "{\"pattern\":\"Foo\"}"),
+                        tc("c2", "list", "{\"path\":\".\"}"),
+                        tc("c3", "read", "{\"path\":\"src/Foo.java\"}")));
+
+        assertThat(result.returnDirect()).isTrue();
+        assertThat(budget.calls()).isEqualTo(1);
+        assertThat(toolResponseIds(result)).containsExactly("c1", "c2", "c3");
+        assertThat(session.traces()).extracting(LocatingTraceStep::kind)
+                .containsExactly(
+                        LocatingStepKind.SEARCH,
+                        LocatingStepKind.BUDGET_EXHAUSTED,
+                        LocatingStepKind.BUDGET_EXHAUSTED);
+        assertThat(session.traces()).extracting(LocatingTraceStep::seq).containsExactly(0, 1, 2);
+        List<String> bodies = lastToolResponse(result).getResponses().stream()
+                .map(ToolResponseMessage.ToolResponse::responseData)
+                .toList();
+        assertThat(bodies.get(0)).doesNotContain("budget exhausted");
+        assertThat(bodies.get(1)).contains("budget exhausted");
+        assertThat(bodies.get(2)).contains("budget exhausted");
+        assertThat(manager.hasReads()).isFalse();
+    }
+
+    @Test
+    void nineParallelToolCallsAreRejectedAndNotRecordedOnTrace() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+        List<AssistantMessage.ToolCall> calls = new ArrayList<>();
+        for (int i = 1; i <= 9; i++) {
+            calls.add(tc("c" + i, "search", "{\"pattern\":\"p" + i + "\"}"));
+        }
+        AssistantMessage assistant = AssistantMessage.builder().content("").toolCalls(calls).build();
 
         assertThatThrownBy(() -> manager.executeToolCalls(prompt(), new ChatResponse(List.of(new Generation(assistant)))))
                 .isInstanceOf(LocatingToolCallException.class)
-                .hasMessageContaining("2")
-                .hasMessageContaining("submit")
-                .hasMessageContaining("list");
+                .hasMessageContaining("9")
+                .hasMessageContaining("8");
         assertThat(session.traces()).isEmpty();
         assertThat(manager.hasReads()).isFalse();
     }
@@ -481,11 +556,29 @@ class LocalizationToolCallingManagerTest {
     }
 
     private static ChatResponse toolCall(String id, String name, String args) {
+        return toolCalls(tc(id, name, args));
+    }
+
+    private static ChatResponse toolCalls(AssistantMessage.ToolCall... calls) {
         AssistantMessage message = AssistantMessage.builder()
                 .content("")
-                .toolCalls(List.of(new AssistantMessage.ToolCall(id, "function", name, args)))
+                .toolCalls(List.of(calls))
                 .build();
         return new ChatResponse(List.of(new Generation(message)));
+    }
+
+    private static AssistantMessage.ToolCall tc(String id, String name, String args) {
+        return new AssistantMessage.ToolCall(id, "function", name, args);
+    }
+
+    private static ToolResponseMessage lastToolResponse(ToolExecutionResult result) {
+        return (ToolResponseMessage) result.conversationHistory().getLast();
+    }
+
+    private static List<String> toolResponseIds(ToolExecutionResult result) {
+        return lastToolResponse(result).getResponses().stream()
+                .map(ToolResponseMessage.ToolResponse::id)
+                .toList();
     }
 
     private static ToolCallback stub(String name) {
