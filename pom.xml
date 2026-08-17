@@ -28,6 +28,7 @@
         <java.version>21</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <test.excluded-groups>network,docker,benchmark,database,model</test.excluded-groups>
+        <jacoco.destFile>${project.build.directory}/jacoco-default.exec</jacoco.destFile>
     </properties>
 
     <dependencyManagement>
@@ -124,8 +125,40 @@
                 <configuration>
                     <excludedGroups>${test.excluded-groups}</excludedGroups>
                     <!-- 显式挂载 Mockito agent，避免 JVM 禁止自附加时 @MockitoBean 失败 -->
-                    <argLine>-javaagent:${org.mockito:mockito-core:jar} -XX:+EnableDynamicAgentLoading</argLine>
+                    <argLine>@{jacocoArgLine} -javaagent:${org.mockito:mockito-core:jar} -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.13</version>
+                <configuration>
+                    <destFile>${project.build.directory}/jacoco.exec</destFile>
+                    <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                    <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
+                    <fileSets>
+                        <fileSet>
+                            <directory>${project.build.directory}</directory>
+                            <includes>
+                                <include>jacoco-default.exec</include>
+                                <include>jacoco-database.exec</include>
+                            </includes>
+                        </fileSet>
+                    </fileSets>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${jacoco.destFile}</destFile>
+                            <propertyName>jacocoArgLine</propertyName>
+                            <append>false</append>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -188,6 +221,7 @@
             </activation>
             <properties>
                 <test.excluded-groups>network,docker,benchmark,model</test.excluded-groups>
+                <jacoco.destFile>${project.build.directory}/jacoco-database.exec</jacoco.destFile>
             </properties>
         </profile>
 
