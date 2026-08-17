@@ -2,6 +2,7 @@ package io.github.patchatlas.benchmark;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +49,7 @@ class BenchmarkOracleBoundaryTest {
     @Test
     void agentPathClassesDoNotImportCalibrationOracleReader() throws Exception {
         String builderSource = Files.readString(
-                Path.of("src/main/java/io/github/patchatlas/benchmark/BuggyOnlyGeneratorContextBuilder.java"));
+                Path.of("src/main/java/io/github/patchatlas/analysis/BuggyOnlyGeneratorContextBuilder.java"));
         String materializerSource = Files.readString(
                 Path.of("src/main/java/io/github/patchatlas/benchmark/GeneratorContextMaterializer.java"));
 

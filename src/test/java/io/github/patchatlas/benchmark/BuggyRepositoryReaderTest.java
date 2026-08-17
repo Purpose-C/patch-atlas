@@ -3,6 +3,8 @@ package io.github.patchatlas.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

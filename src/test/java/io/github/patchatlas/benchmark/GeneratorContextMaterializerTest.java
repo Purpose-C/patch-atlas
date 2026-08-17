@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadata;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.SourceReference;
 import io.github.patchatlas.repository.CaseManifest;

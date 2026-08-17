@@ -1,4 +1,4 @@
-package io.github.patchatlas.benchmark;
+package io.github.patchatlas.analysis;
 
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.GenerationInput;
@@ -10,7 +10,10 @@ import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.TargetTest;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -215,7 +218,7 @@ public final class BuggyOnlyGeneratorContextBuilder {
             return;
         }
         selected.add(new SelectedSource(
-                snapshot, file.blobId(), BenchmarkArtifacts.sha256(file.content()), selectionReason));
+                snapshot, file.blobId(), sha256(file.content()), selectionReason));
         selectedBytes[0] += contentBytes;
     }
 
@@ -264,6 +267,24 @@ public final class BuggyOnlyGeneratorContextBuilder {
     }
 
     private static int compareByCodePoint(String left, String right) {
-        return FrozenCohortSelector.compareCaseIds(left, right);
+        int[] leftPoints = left.codePoints().toArray();
+        int[] rightPoints = right.codePoints().toArray();
+        int shared = Math.min(leftPoints.length, rightPoints.length);
+        for (int i = 0; i < shared; i++) {
+            int compared = Integer.compare(leftPoints[i], rightPoints[i]);
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        return Integer.compare(leftPoints.length, rightPoints.length);
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
     }
 }

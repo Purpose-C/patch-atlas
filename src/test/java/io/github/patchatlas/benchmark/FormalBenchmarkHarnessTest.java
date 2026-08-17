@@ -8,6 +8,7 @@ import io.github.patchatlas.agent.GeneratorIdentity;
 import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.SpringAiTestGenerator;
 import io.github.patchatlas.agent.TestGenerator;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.run.GitCloneWorkspaceFetcher;
 import io.github.patchatlas.run.Issue2TestRuntime;

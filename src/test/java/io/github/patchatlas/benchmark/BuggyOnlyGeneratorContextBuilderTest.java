@@ -4,9 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.SourceSnapshot;
-import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.BuggyFile;
-import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.ExclusionReason;
-import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.SelectionReason;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.BuggyFile;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.ExclusionReason;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.SelectionReason;
 import io.github.patchatlas.repository.CaseManifest;
 import java.util.ArrayList;
 import java.util.Collections;

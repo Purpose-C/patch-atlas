@@ -3,6 +3,8 @@ package io.github.patchatlas.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.PatchGate;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;

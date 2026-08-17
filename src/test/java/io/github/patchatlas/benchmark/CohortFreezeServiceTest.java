@@ -3,7 +3,7 @@ package io.github.patchatlas.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.patchatlas.benchmark.BuggyOnlyGeneratorContextBuilder.Selection;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder.Selection;
 import io.github.patchatlas.benchmark.DynamicCaseQualifier.Result;
 import io.github.patchatlas.benchmark.FrozenCohortSelector.CandidateFacts;
 import io.github.patchatlas.benchmark.GitBugJavaMetadataReader.CaseMetadata;

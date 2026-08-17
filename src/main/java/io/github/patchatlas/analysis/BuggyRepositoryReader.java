@@ -1,4 +1,4 @@
-package io.github.patchatlas.benchmark;
+package io.github.patchatlas.analysis;
 
 import io.github.patchatlas.agent.SourceSnapshot;
 import java.io.IOException;
