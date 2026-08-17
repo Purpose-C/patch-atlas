@@ -34,6 +34,7 @@ import io.github.patchatlas.analysis.CodeGraph.EdgeKind;
 import io.github.patchatlas.analysis.CodeGraph.Node;
 import io.github.patchatlas.analysis.CodeGraph.NodeKind;
 import io.github.patchatlas.analysis.CodeGraph.SourceLocation;
+import io.github.patchatlas.analysis.CodeGraph.UnresolvedKind;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,6 +65,17 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
     private static final String AFTER = "org.aspectj.lang.annotation.After";
     private static final String CONDITIONAL_ON_PROPERTY =
             "org.springframework.boot.autoconfigure.condition.ConditionalOnProperty";
+    private static final String VALUE_ANNOTATION =
+            "org.springframework.beans.factory.annotation.Value";
+    private static final String TRANSACTIONAL =
+            "org.springframework.transaction.annotation.Transactional";
+    private static final String JAVA_LANG_CLASS = "java.lang.Class";
+    private static final String REFLECT_METHOD = "java.lang.reflect.Method";
+    private static final String REFLECT_CONSTRUCTOR = "java.lang.reflect.Constructor";
+    private static final String REFLECT_PROXY = "java.lang.reflect.Proxy";
+    private static final String EXPRESSION_PARSER =
+            "org.springframework.expression.ExpressionParser";
+    private static final String SPEL_EXPRESSION = "org.springframework.expression.Expression";
 
     private final JavaParser parser = new JavaParser(
             new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
@@ -337,6 +349,18 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
             List<Edge> edges) {
         SourceLocation location = new SourceLocation(current.file.relative, line(call));
         Optional<String> receiver = resolveReceiver(call, current, locals, types);
+        Optional<UnresolvedKind> unresolved = classifyDynamicCall(call, receiver);
+        if (unresolved.isPresent()) {
+            edges.add(new Edge(
+                    EdgeKind.CALLS,
+                    ImpactConfidence.POSSIBLE,
+                    caller,
+                    null,
+                    location,
+                    unresolved.orElseThrow(),
+                    List.of()));
+            return;
+        }
         if (receiver.isEmpty() || !types.containsKey(receiver.orElseThrow())) {
             edges.add(new Edge(
                     EdgeKind.CALLS,
@@ -420,7 +444,84 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
             }
             return Optional.empty();
         }
+        if (expression instanceof MethodCallExpr call) {
+            return inferredReturnType(call.getNameAsString(), resolveReceiver(call, current, locals, types));
+        }
         return Optional.empty();
+    }
+
+    private Optional<String> inferredReturnType(String methodName, Optional<String> receiver) {
+        String recv = receiver.orElse("");
+        if ("forName".equals(methodName) && isNamedType(recv, JAVA_LANG_CLASS)) {
+            return Optional.of(JAVA_LANG_CLASS);
+        }
+        if ("getClass".equals(methodName)) {
+            return Optional.of(JAVA_LANG_CLASS);
+        }
+        if (("getMethod".equals(methodName) || "getDeclaredMethod".equals(methodName))
+                && isNamedType(recv, JAVA_LANG_CLASS)) {
+            return Optional.of(REFLECT_METHOD);
+        }
+        if (("getConstructor".equals(methodName) || "getDeclaredConstructor".equals(methodName))
+                && isNamedType(recv, JAVA_LANG_CLASS)) {
+            return Optional.of(REFLECT_CONSTRUCTOR);
+        }
+        if ("parseExpression".equals(methodName) && isNamedType(recv, EXPRESSION_PARSER)) {
+            return Optional.of(SPEL_EXPRESSION);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<UnresolvedKind> classifyDynamicCall(
+            MethodCallExpr call, Optional<String> receiver) {
+        String name = call.getNameAsString();
+        String recv = receiver.orElse("");
+        if (isReflectionCall(name, recv)) {
+            return Optional.of(UnresolvedKind.REFLECTION);
+        }
+        if (isSpelCall(name, recv)) {
+            return Optional.of(UnresolvedKind.SPEL);
+        }
+        if (isProxyCall(name, recv)) {
+            return Optional.of(UnresolvedKind.PROXY);
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isReflectionCall(String name, String receiver) {
+        if ("forName".equals(name) && isNamedType(receiver, JAVA_LANG_CLASS)) {
+            return true;
+        }
+        if (("getMethod".equals(name)
+                        || "getDeclaredMethod".equals(name)
+                        || "getField".equals(name)
+                        || "getDeclaredField".equals(name)
+                        || "getConstructor".equals(name)
+                        || "getDeclaredConstructor".equals(name))
+                && isNamedType(receiver, JAVA_LANG_CLASS)) {
+            return true;
+        }
+        if ("invoke".equals(name) && isNamedType(receiver, REFLECT_METHOD)) {
+            return true;
+        }
+        return "newInstance".equals(name)
+                && (isNamedType(receiver, JAVA_LANG_CLASS)
+                        || isNamedType(receiver, REFLECT_CONSTRUCTOR));
+    }
+
+    private static boolean isSpelCall(String name, String receiver) {
+        if ("parseExpression".equals(name) && isNamedType(receiver, EXPRESSION_PARSER)) {
+            return true;
+        }
+        return "getValue".equals(name) && isNamedType(receiver, SPEL_EXPRESSION);
+    }
+
+    private static boolean isProxyCall(String name, String receiver) {
+        return "newProxyInstance".equals(name) && isNamedType(receiver, REFLECT_PROXY);
+    }
+
+    private static boolean isNamedType(String actual, String fqcn) {
+        return fqcn.equals(actual) || actual.endsWith("." + simpleNameOf(fqcn));
     }
 
     private Optional<TypeSymbol> findOwnerOf(
@@ -482,6 +583,8 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
         collectPublishes(type, types, edges);
         collectAdvises(type, types, edges);
         collectConditional(type, edges);
+        collectSpelValues(type, edges);
+        collectTransactionalProxies(type, edges);
     }
 
     private void collectInjects(TypeSymbol type, Map<String, TypeSymbol> types, List<Edge> edges) {
@@ -675,6 +778,57 @@ public final class JavaParserCodeGraphBuilder implements CodeGraphBuilder {
                 new SourceLocation(type.file.relative, line(type.declaration)),
                 null,
                 List.of()));
+    }
+
+    private void collectSpelValues(TypeSymbol type, List<Edge> edges) {
+        if (!(type.declaration instanceof ClassOrInterfaceDeclaration declaration)) {
+            return;
+        }
+        for (FieldDeclaration field : declaration.getFields()) {
+            if (!hasNamedAnnotation(field, VALUE_ANNOTATION, type.file)) {
+                continue;
+            }
+            Optional<String> value = annotationStringValue(field, VALUE_ANNOTATION, type.file);
+            if (value.isEmpty() || !value.orElseThrow().contains("#{")) {
+                continue;
+            }
+            for (VariableDeclarator variable : field.getVariables()) {
+                Node source = type.fieldNodes.get(variable.getNameAsString());
+                if (source == null) {
+                    continue;
+                }
+                edges.add(unresolvedEdge(
+                        source,
+                        new SourceLocation(type.file.relative, line(variable)),
+                        UnresolvedKind.SPEL));
+            }
+        }
+    }
+
+    private void collectTransactionalProxies(TypeSymbol type, List<Edge> edges) {
+        if (hasNamedAnnotation(type.declaration, TRANSACTIONAL, type.file)) {
+            edges.add(unresolvedEdge(
+                    type.node,
+                    new SourceLocation(type.file.relative, line(type.declaration)),
+                    UnresolvedKind.PROXY));
+        }
+        for (MethodSymbol method : type.methods.values()) {
+            if (!(method.declaration instanceof MethodDeclaration declaration)) {
+                continue;
+            }
+            if (!hasNamedAnnotation(declaration, TRANSACTIONAL, type.file)) {
+                continue;
+            }
+            edges.add(unresolvedEdge(
+                    method.node,
+                    new SourceLocation(type.file.relative, line(declaration)),
+                    UnresolvedKind.PROXY));
+        }
+    }
+
+    private static Edge unresolvedEdge(Node source, SourceLocation location, UnresolvedKind kind) {
+        return new Edge(
+                EdgeKind.CALLS, ImpactConfidence.POSSIBLE, source, null, location, kind, List.of());
     }
 
     private static boolean hasNamedAnnotation(
