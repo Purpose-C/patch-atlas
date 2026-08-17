@@ -5,6 +5,8 @@ import io.github.patchatlas.run.ClaimedRun;
 import io.github.patchatlas.run.LocatingCoordinator;
 import io.github.patchatlas.run.LocatingRunSession;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
@@ -18,7 +20,8 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
 
     private final ChatModel chatModel;
     private final ChatOptions options;
-    private final LocalizationBudget budget;
+    private final int maxToolCalls;
+    private final Duration wallClock;
 
     public ChatClientTextToolsLocator(ChatModel chatModel) {
         this(chatModel, null);
@@ -32,11 +35,14 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
             ChatModel chatModel, ChatOptions options, LocalizationBudget budget) {
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
         this.options = options;
-        this.budget = Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(budget, "budget");
+        this.maxToolCalls = budget.maxCalls();
+        this.wallClock = budget.wallClock();
     }
 
+    /** 配置上限的只读视图；每次调用都是新实例，不含已消耗量。 */
     public LocalizationBudget budget() {
-        return budget;
+        return new LocalizationBudget(maxToolCalls, wallClock, Instant.now());
     }
 
     @Override
@@ -49,8 +55,9 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(workspace, "workspace");
+        LocalizationBudget sessionBudget = new LocalizationBudget(maxToolCalls, wallClock, Instant.now());
         LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
-                new TextSearchTools(workspace), session, budget);
+                new TextSearchTools(workspace), session, sessionBudget);
         ChatClient.Builder clientBuilder = ChatClient.builder(chatModel)
                 .defaultAdvisors(ToolCallAdvisor.builder().toolCallingManager(manager).build())
                 .defaultToolCallbacks(LocalizationToolCallingManager.locatingToolDefinitions().stream()
