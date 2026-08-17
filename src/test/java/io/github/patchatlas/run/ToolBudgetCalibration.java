@@ -543,6 +543,7 @@ final class ToolBudgetCalibration {
             item.put("outcome", step.outcome().name());
             item.put("subject", step.subject());
             item.put("reason", step.reason());
+            item.put("detail", step.detailJson());
             steps.add(item);
         }
         Map<String, Object> body = new LinkedHashMap<>();
