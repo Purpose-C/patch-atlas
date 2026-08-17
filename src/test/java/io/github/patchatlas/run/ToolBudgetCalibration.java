@@ -283,10 +283,8 @@ final class ToolBudgetCalibration {
     }
 
     static OpenAiChatOptions locatingOptions(String modelName) {
-        return OpenAiChatOptions.builder()
-                .model(Objects.requireNonNull(modelName, "modelName"))
-                .parallelToolCalls(false)
-                .build();
+        return OpenAiChatModelFactory.locatingChatOptions(
+                Objects.requireNonNull(modelName, "modelName"));
     }
 
     static boolean isTransportFailure(Throwable ex) {
@@ -392,7 +390,7 @@ final class ToolBudgetCalibration {
                 workspaces,
                 new BuggyRepositoryReader(),
                 new BuggyOnlyGeneratorContextBuilder(),
-                new RecordingLoop(chatModel, modelName, recorded));
+                recordingLoop(chatModel, modelName, recorded));
         String termination = "OTHER";
         boolean transport = false;
         boolean parallel = false;
@@ -767,6 +765,11 @@ final class ToolBudgetCalibration {
             }
             return decision;
         }
+    }
+
+    static LocatingCoordinator.TextToolsLoop recordingLoop(
+            ChatModel chatModel, String modelName, RecordingTools tools) {
+        return new RecordingLoop(chatModel, modelName, tools);
     }
 
     private static final class RecordingLoop implements LocatingCoordinator.TextToolsLoop {

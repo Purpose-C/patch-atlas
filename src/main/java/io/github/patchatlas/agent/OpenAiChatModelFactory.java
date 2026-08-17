@@ -126,9 +126,22 @@ public final class OpenAiChatModelFactory {
                 .build();
     }
 
-    /** 定位循环专用：关闭并行工具调用。不含 Candidate Draft 的 JSON Schema。 */
+    /** 定位循环专用：关闭并行、强制 TEXT，避免合并进 Candidate Draft 的 JSON Schema。 */
     public static OpenAiChatOptions locatingChatOptions() {
-        return OpenAiChatOptions.builder().parallelToolCalls(false).build();
+        return locatingChatOptions(null);
+    }
+
+    public static OpenAiChatOptions locatingChatOptions(String modelName) {
+        OpenAiChatModel.ResponseFormat text = OpenAiChatModel.ResponseFormat.builder()
+                .type(OpenAiChatModel.ResponseFormat.Type.TEXT)
+                .build();
+        OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder()
+                .parallelToolCalls(false)
+                .responseFormat(text);
+        if (modelName != null && !modelName.isBlank()) {
+            builder.model(modelName);
+        }
+        return builder.build();
     }
 
     static OpenAiChatOptions chatOptions(String modelName) {

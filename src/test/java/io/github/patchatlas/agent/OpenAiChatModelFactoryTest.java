@@ -33,6 +33,16 @@ class OpenAiChatModelFactoryTest {
     }
 
     @Test
+    void locatingOptionsForceTextAndKeepModel() {
+        var options = OpenAiChatModelFactory.locatingChatOptions("agnes-2.5-flash");
+        assertThat(options.getModel()).isEqualTo("agnes-2.5-flash");
+        assertThat(options.getParallelToolCalls()).isFalse();
+        assertThat(options.getResponseFormat()).isNotNull();
+        assertThat(options.getResponseFormat().getType())
+                .isEqualTo(OpenAiChatModel.ResponseFormat.Type.TEXT);
+    }
+
+    @Test
     void benchmarkOptionsFreezeTemperatureAndCompletionLimit() {
         var options = OpenAiChatModelFactory.chatOptions("gpt-4.1-mini-2025-04-14");
 

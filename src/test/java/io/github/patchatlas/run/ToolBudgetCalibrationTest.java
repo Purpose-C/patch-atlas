@@ -1,9 +1,21 @@
 package io.github.patchatlas.run;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.OpenAiChatModelFactory;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts;
+import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.VerificationMode;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -13,8 +25,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 
 class ToolBudgetCalibrationTest {
+
+    @RegisterExtension
+    static final WireMockExtension wireMock = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort())
+            .build();
+
+    @TempDir
+    Path temp;
 
     @Test
     void loadQueueReadsFrozenCohortWithoutOracleFiles() throws Exception {
@@ -179,6 +201,75 @@ class ToolBudgetCalibrationTest {
         var options = ToolBudgetCalibration.locatingOptions("agnes-2.5-flash");
         assertThat(options.getModel()).isEqualTo("agnes-2.5-flash");
         assertThat(options.getParallelToolCalls()).isFalse();
+        assertThat(options.getResponseFormat().getType())
+                .isEqualTo(org.springframework.ai.openai.OpenAiChatModel.ResponseFormat.Type.TEXT);
+    }
+
+    @Test
+    void locatingRequestSendsToolsAndNamedModelWithoutDraftSchema() throws Exception {
+        wireMock.stubFor(post(urlPathMatching(".*/chat/completions"))
+                .willReturn(okJson(
+                        """
+                        {
+                          "id": "chatcmpl-1",
+                          "object": "chat.completion",
+                          "created": 1,
+                          "model": "agnes-2.5-flash",
+                          "choices": [{
+                            "index": 0,
+                            "message": { "role": "assistant", "content": "done" },
+                            "finish_reason": "stop"
+                          }],
+                          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                        }
+                        """)));
+        Path workspace = Files.createDirectories(temp.resolve("req-shape"));
+        Files.writeString(workspace.resolve("README.md"), "hello");
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("req-git"));
+        Path root = Files.createDirectories(temp.resolve("req-root"));
+        ToolBudgetCalibration.RecordingTools tools = new ToolBudgetCalibration.RecordingTools();
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder(),
+                ToolBudgetCalibration.recordingLoop(
+                        OpenAiChatModelFactory.create("sk-test", "agnes-2.5-flash", wireMock.baseUrl()),
+                        "agnes-2.5-flash",
+                        tools));
+        ClaimedRun claimed = new ClaimedRun(
+                UUID.randomUUID(),
+                VerificationMode.LIVE,
+                RunState.LOCATING,
+                1L,
+                new RunLease(UUID.randomUUID(), "owner", Instant.now().plusSeconds(60)),
+                0,
+                0,
+                Optional.empty());
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        GenerationInput input = new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        fixture.buggySha(),
+                        "",
+                        "21"),
+                "title",
+                "body",
+                List.of());
+        coordinator.run(claimed, input, session, RunPurpose.DIAGNOSTIC, ContextOrigin.TEXT_TOOLS);
+        String requestBody = wireMock.findAll(postRequestedFor(urlPathMatching(".*/chat/completions")))
+                .getFirst()
+                .getBodyAsString();
+        assertThat(requestBody).contains("\"model\":\"agnes-2.5-flash\"");
+        assertThat(requestBody).contains("\"parallel_tool_calls\":false");
+        assertThat(requestBody).contains("\"name\":\"search\"");
+        assertThat(requestBody).contains("\"name\":\"list\"");
+        assertThat(requestBody).contains("\"name\":\"read\"");
+        assertThat(requestBody).contains("\"name\":\"submit\"");
+        assertThat(requestBody).doesNotContain("patchText");
+        assertThat(requestBody).doesNotContain("json_schema");
     }
 
     @Test

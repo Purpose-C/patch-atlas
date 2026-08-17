@@ -169,7 +169,10 @@ public final class Issue2TestRuntime {
         LocatingCoordinator.TextToolsLoop textTools = locatingModel == null
                 ? null
                 : new ChatClientTextToolsLocator(
-                        locatingModel, OpenAiChatModelFactory.locatingChatOptions(), locatingBudget);
+                        locatingModel,
+                        OpenAiChatModelFactory.locatingChatOptions(
+                                locatingModel.getDefaultOptions().getModel()),
+                        locatingBudget);
         return new Issue2TestRuntime(
                 new LocatingCoordinator(
                         workspaces,

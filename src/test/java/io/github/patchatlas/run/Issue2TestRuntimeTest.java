@@ -198,6 +198,9 @@ class Issue2TestRuntimeTest {
                 .getFirst()
                 .getBodyAsString();
         assertThat(requestBody).contains("\"parallel_tool_calls\":false");
+        assertThat(requestBody).contains("\"name\":\"search\"");
+        assertThat(requestBody).doesNotContain("patchText");
+        assertThat(requestBody).doesNotContain("\"type\":\"json_schema\"");
     }
 
     @Test
