@@ -43,27 +43,6 @@ class GeneratorContextMaterializerTest {
     }
 
     @Test
-    void selectFromIssueUsesBuggyOnlyBuilderOnIssueMentions() throws Exception {
-        Fixture fixture = writeRepo(tempDir.resolve("issue-ctx"), CONTENT);
-        GeneratorContextMaterializer materializer = materializer(fixture.workspace());
-        var generatorContext = new CaseManifest.GeneratorContext(
-                "case-1",
-                REPOSITORY_URL,
-                "MIT",
-                "https://github.com/ex/repo/issues/1",
-                fixture.revision(),
-                "",
-                "17");
-
-        List<SourceSnapshot> snapshots = materializer.selectFromIssue(
-                generatorContext, "Foo fails", "See src/main/java/Foo.java");
-
-        assertThat(snapshots).extracting(SourceSnapshot::relativePath)
-                .containsExactly("src/main/java/Foo.java");
-        assertThat(snapshots.getFirst().content()).isEqualTo(CONTENT);
-    }
-
-    @Test
     void materializeRejectsSingleByteContentTamper() throws Exception {
         Fixture fixture = writeRepo(tempDir.resolve("tampered"), TAMPERED);
         GeneratorContextMaterializer materializer = materializer(fixture.workspace());

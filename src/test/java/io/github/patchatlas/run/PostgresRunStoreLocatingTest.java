@@ -282,6 +282,86 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
+    void takeoverDoesNotLetStaleOwnerOverwriteCommittedTrace() throws Exception {
+        UUID id = store.submit(live("scene-15"));
+        ClaimedRun ownerA = store.claimNext("owner-a", Duration.ofMinutes(5)).orElseThrow();
+        store.replaceLocatingTrace(
+                ClaimHandle.from(ownerA),
+                List.of(LocatingTraceStep.of(0, LocatingStepKind.SELECTION, "src/A.java", "PINNED", "{}")));
+
+        expireLease(id);
+        ClaimedRun ownerB = store.claimNext("owner-b", Duration.ofMinutes(5)).orElseThrow();
+        locate(ownerB);
+
+        assertThatThrownBy(() -> store.replaceLocatingTrace(
+                        ClaimHandle.from(ownerA),
+                        List.of(LocatingTraceStep.of(0, LocatingStepKind.SELECTION, "src/Evil.java", "PINNED", "{}"))))
+                .isInstanceOf(StaleClaimException.class);
+
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
+        assertThat(traces).extracting(LocatingTraceStep::subject).containsExactly("src/A.java");
+        assertThat(store.loadGenerationInput(id).sourceSnapshots())
+                .extracting(SourceSnapshot::relativePath)
+                .containsExactly("src/A.java");
+        assertThat(readOrigin(id)).isEqualTo("PINNED");
+    }
+
+    @Test
+    void launchDiagnosticTextToolsRunsToolLoop() throws Exception {
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("diag-git"));
+        RunSubmission diagnostic = new RunSubmission(
+                VerificationMode.LIVE,
+                "diag-text",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "NPE in fixtures/OldTest.java",
+                "class OldTest fails",
+                fixture.buggySha(),
+                null,
+                "",
+                "21",
+                io.github.patchatlas.sandbox.MavenNetworkMode.OFFLINE,
+                List.of(),
+                ContextOrigin.TEXT_TOOLS);
+        UUID id = store.submitDiagnostic(diagnostic);
+        assertThat(store.loadContextOrigin(id)).contains(ContextOrigin.TEXT_TOOLS);
+
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        Path root = Files.createDirectories(temp.resolve("ws-diag"));
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new io.github.patchatlas.analysis.BuggyRepositoryReader(),
+                new io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder(),
+                (claimed, input, session, workspace) -> {
+                    session.replaceTrace(List.of(LocatingTraceStep.of(
+                            0, LocatingStepKind.SUBMIT, "src/test/java/fixtures/OldTest.java", "submit", "{}")));
+                    return new LocatingCoordinator.Result.ContextCommitted(session.commitContext(
+                            ContextOrigin.TEXT_TOOLS,
+                            List.of(new SourceSnapshot(
+                                    "src/test/java/fixtures/OldTest.java", LocalGitFixture.EXISTING_TEST))));
+                });
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store,
+                ClaimHandle.from(locating),
+                locating.lease().owner(),
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(30))) {
+            coordinator.run(
+                    locating,
+                    store.loadGenerationInput(id),
+                    new LeaseHeartbeatLocatingRunSession(beat),
+                    store.findRunDetail(id).orElseThrow().purpose(),
+                    store.loadContextOrigin(id).orElseThrow());
+        }
+
+        assertThat(readOrigin(id)).isEqualTo("TEXT_TOOLS");
+        assertThat(store.findRun(id).orElseThrow().state()).isEqualTo(RunState.GENERATING);
+        assertThat(store.loadLocatingTrace(id)).extracting(LocatingTraceStep::kind)
+                .contains(LocatingStepKind.SUBMIT);
+    }
+
+    @Test
     void differentContextOriginIsNotMergedIntoOneRun() {
         RunSubmission heuristic = live("origin-h");
         RunSubmission tools = new RunSubmission(

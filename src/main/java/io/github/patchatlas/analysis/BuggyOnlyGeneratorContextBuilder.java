@@ -44,7 +44,8 @@ public final class BuggyOnlyGeneratorContextBuilder {
         FILE_TOO_LARGE,
         FILE_LIMIT,
         TOTAL_SOURCE_LIMIT,
-        REQUEST_BUDGET
+        REQUEST_BUDGET,
+        READ_LIMIT
     }
 
     public record BuggyFile(String relativePath, String blobId, String content) {

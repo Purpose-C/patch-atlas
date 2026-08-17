@@ -132,6 +132,53 @@ class LocatingCoordinatorTest {
     }
 
     @Test
+    void heuristicReadLimitIsRecordedWithoutChangingSmallRepoSelection() throws Exception {
+        Path origin = java.nio.file.Files.createDirectories(temp.resolve("cap-origin"));
+        String buggySha;
+        try (org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.init().setDirectory(origin.toFile()).call()) {
+            Path src = java.nio.file.Files.createDirectories(origin.resolve("mod/src"));
+            java.nio.file.Files.createDirectories(origin.resolve("other/src"));
+            java.nio.file.Files.writeString(origin.resolve("other/src/Outside.java"), "class Outside {}");
+            for (int i = 0; i < BuggyRepositoryReader.MAX_JAVA_FILES + 3; i++) {
+                java.nio.file.Files.writeString(src.resolve("F" + i + ".java"), "class F" + i + " {}");
+            }
+            git.add().addFilepattern(".").call();
+            var who = new org.eclipse.jgit.lib.PersonIdent("fixture", "fixture@example.com");
+            buggySha = git.commit().setMessage("cap").setAuthor(who).setCommitter(who).call().getName();
+        }
+        Path root = java.nio.file.Files.createDirectories(temp.resolve("ws-cap"));
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(origin)),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder());
+        GenerationInput input = new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        buggySha,
+                        "mod",
+                        "21"),
+                "NPE in F0.java",
+                "class F0 fails",
+                List.of());
+
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input, session, RunPurpose.STANDARD);
+
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+        assertThat(session.origin()).isEqualTo(ContextOrigin.HEURISTIC);
+        assertThat(session.committedSnapshots())
+                .noneMatch(snapshot -> snapshot.relativePath().contains("Outside"));
+        assertThat(session.traces())
+                .anyMatch(step -> step.kind() == LocatingStepKind.EXCLUSION
+                        && "READ_LIMIT".equals(step.reason()));
+    }
+
+    @Test
     void diagnosticPurposeEchoesWorkspaceErrorMessage() {
         ClaimedRun claimed = locatingClaim();
         InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);

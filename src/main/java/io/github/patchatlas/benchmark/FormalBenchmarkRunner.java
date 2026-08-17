@@ -3,6 +3,7 @@ package io.github.patchatlas.benchmark;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.BenchmarkPreflight.Result;
+import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunPurpose;
 import java.io.IOException;
@@ -64,7 +65,11 @@ public final class FormalBenchmarkRunner {
 
         UUID launchAgent(CohortCase cohortCase);
 
-        UUID launchDiagnostic();
+        UUID launchDiagnostic(ContextOrigin origin);
+
+        default UUID launchDiagnostic() {
+            return launchDiagnostic(ContextOrigin.HEURISTIC);
+        }
 
         Path exportEvidence(Cohort cohort, List<RunDetailView> details) throws IOException;
     }

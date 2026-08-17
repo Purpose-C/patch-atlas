@@ -196,12 +196,12 @@ public final class PostgresRunStore {
                           id, mode, run_purpose, case_id, repository_url, license, issue_url,
                           issue_title, issue_body, buggy_revision, fixed_revision,
                           module_path, java_version, network_mode, source_snapshots, input_schema_version,
-                          state, version, recovery_count, replay_round
+                          context_origin, state, version, recovery_count, replay_round
                         ) VALUES (
                           :id, :mode, :runPurpose, :caseId, :repositoryUrl, :license, :issueUrl,
                           :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
                           :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
-                          :state, 0, 0, 0
+                          :contextOrigin, :state, 0, 0, 0
                         )
                         """)
                 .param("id", id)
@@ -220,6 +220,7 @@ public final class PostgresRunStore {
                 .param("networkMode", submission.networkMode().name())
                 .param("sourceSnapshots", snapshotsJson)
                 .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
+                .param("contextOrigin", submission.contextOrigin().name())
                 .param("state", RunState.QUEUED.name())
                 .update();
         return id;
@@ -247,13 +248,13 @@ public final class PostgresRunStore {
                               id, mode, case_id, repository_url, license, issue_url,
                               issue_title, issue_body, buggy_revision, fixed_revision,
                               module_path, java_version, network_mode, source_snapshots,
-                              input_schema_version, state, version, recovery_count, replay_round,
+                              input_schema_version, context_origin, state, version, recovery_count, replay_round,
                               idempotency_key, submission_sha256
                             ) VALUES (
                               :id, :mode, :caseId, :repositoryUrl, :license, :issueUrl,
                               :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
                               :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb),
-                              :schemaVersion, :state, 0, 0, 0, :idempotencyKey, :submissionSha256
+                              :schemaVersion, :contextOrigin, :state, 0, 0, 0, :idempotencyKey, :submissionSha256
                             )
                             ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL
                             DO NOTHING
@@ -274,6 +275,7 @@ public final class PostgresRunStore {
                     .param("networkMode", submission.networkMode().name())
                     .param("sourceSnapshots", snapshotsJson)
                     .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
+                    .param("contextOrigin", submission.contextOrigin().name())
                     .param("state", RunState.QUEUED.name())
                     .param("idempotencyKey", key.value())
                     .param("submissionSha256", submissionSha256)
@@ -424,6 +426,18 @@ public final class PostgresRunStore {
                 base.failure(),
                 attempts,
                 base.locatingUsage()));
+    }
+
+    public Optional<ContextOrigin> loadContextOrigin(UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        return jdbc.sql("SELECT context_origin FROM verification_run WHERE id = :id")
+                .param("id", runId)
+                .query((rs, rowNum) -> {
+                    String value = rs.getString("context_origin");
+                    return value == null ? null : ContextOrigin.valueOf(value);
+                })
+                .optional()
+                .flatMap(origin -> origin == null ? Optional.empty() : Optional.of(origin));
     }
 
     public Optional<RunDetails> findRun(UUID runId) {

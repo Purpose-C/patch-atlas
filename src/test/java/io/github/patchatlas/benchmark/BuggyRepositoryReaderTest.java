@@ -50,4 +50,37 @@ class BuggyRepositoryReaderTest {
         assertThat(files.get(1).content().getBytes(StandardCharsets.UTF_8).length)
                 .isGreaterThan(SourceSnapshot.MAX_CONTENT_BYTES);
     }
+
+    @Test
+    void modulePathAndFileCapTruncateWithoutReadingOutsideModule() throws Exception {
+        Path repo = tempDir.resolve("capped");
+        Files.createDirectories(repo);
+        String revision;
+        try (Git git = Git.init().setDirectory(repo.toFile()).call()) {
+            Files.createDirectories(repo.resolve("core/src"));
+            Files.createDirectories(repo.resolve("other/src"));
+            for (int i = 0; i < 5; i++) {
+                Files.writeString(repo.resolve("core/src/C" + i + ".java"), "class C" + i + " {}");
+            }
+            Files.writeString(repo.resolve("other/src/Outside.java"), "class Outside {}");
+            git.add().addFilepattern(".").call();
+            var who = new PersonIdent("fixture", "fixture@example.com");
+            revision = git.commit()
+                    .setMessage("capped")
+                    .setAuthor(who)
+                    .setCommitter(who)
+                    .call()
+                    .getName();
+        }
+
+        BuggyRepositoryReader.JavaFiles read =
+                new BuggyRepositoryReader().readJavaFiles(repo, revision, "core", 3);
+
+        assertThat(read.truncated()).isTrue();
+        assertThat(read.files()).hasSize(3);
+        assertThat(read.files())
+                .allMatch(file -> file.relativePath().startsWith("core/"));
+        assertThat(read.files())
+                .noneMatch(file -> file.relativePath().contains("Outside"));
+    }
 }

@@ -17,6 +17,7 @@ import io.github.patchatlas.run.FormalReplayCoordinator;
 import io.github.patchatlas.run.GatedCandidate;
 import io.github.patchatlas.run.Issue2TestWorker;
 import io.github.patchatlas.run.LeaseHeartbeatReplayRunSession;
+import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.run.ReplayRunSession;
 import io.github.patchatlas.run.RunSubmission;
@@ -152,6 +153,11 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
 
     @Override
     public UUID launchDiagnostic() {
+        return launchDiagnostic(ContextOrigin.HEURISTIC);
+    }
+
+    @Override
+    public UUID launchDiagnostic(ContextOrigin origin) {
         String issueTitle =
                 "SpringMvcContract warns about unwrapped parameters when @GetMapping has a single URI parameter";
         String issueBody =
@@ -168,12 +174,6 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
                 "3f6cd2eb9b5a9675a3b5fd0a0987ad8cfc3e8398",
                 "spring-cloud-openfeign-core",
                 "17");
-        List<SourceSnapshot> snapshots;
-        try {
-            snapshots = materializer.selectFromIssue(generatorContext, issueTitle, issueBody);
-        } catch (IOException ex) {
-            throw new IllegalStateException("diagnostic context materialization failed", ex);
-        }
         RunSubmission diagnostic = new RunSubmission(
                 VerificationMode.HISTORICAL,
                 generatorContext.caseId(),
@@ -187,7 +187,8 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
                 generatorContext.modulePath(),
                 generatorContext.javaVersion(),
                 MavenNetworkMode.ONLINE,
-                snapshots);
+                List.of(),
+                origin);
         return runStore.submitDiagnostic(diagnostic);
     }
 

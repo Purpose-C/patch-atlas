@@ -396,7 +396,7 @@ class FormalBenchmarkRunnerTest {
         }
 
         @Override
-        public UUID launchDiagnostic() {
+        public UUID launchDiagnostic(io.github.patchatlas.run.ContextOrigin origin) {
             return store.create(
                     "scof-1326-diagnostic",
                     RunPurpose.DIAGNOSTIC,
