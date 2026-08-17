@@ -37,10 +37,12 @@ final class LocatingTraceDetails {
         return clip(node);
     }
 
-    static String submitAccepted(int paths) {
+    static String submitAccepted(int paths, int submittedNotRead, int readNotSubmitted) {
         ObjectNode node = JsonMapper.shared().createObjectNode();
         node.put("accepted", true);
         node.put("paths", paths);
+        node.put("submitted_not_read", submittedNotRead);
+        node.put("read_not_submitted", readNotSubmitted);
         return clip(node);
     }
 

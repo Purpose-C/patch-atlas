@@ -73,6 +73,8 @@ class ChatClientTextToolsLocatorTest {
         assertThat(system).isNotBlank();
         assertThat(system).containsIgnoringCase("locat");
         assertThat(system).contains("submit");
+        assertThat(system).containsIgnoringCase("read");
+        assertThat(system).contains("pom.xml");
         assertThat(system).doesNotContainIgnoringCase("fixedRevision");
         assertThat(system).doesNotContainIgnoringCase("fixed revision");
         assertThat(system).doesNotContainIgnoringCase("oracle");

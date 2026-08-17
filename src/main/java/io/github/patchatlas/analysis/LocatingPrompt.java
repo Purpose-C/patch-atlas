@@ -23,6 +23,8 @@ public final class LocatingPrompt {
                 You are locating source files in a Java repository that are needed to reproduce the reported issue.
                 Explore the workspace with the tools listed below. Do not answer the issue in prose.
                 After you have selected files, you must call submit with those repository-relative paths.
+                Submit the source files you read and judged relevant to reproducing the issue.
+                Build files such as pom.xml are usually not the source needed to reproduce a defect.
                 Do not put the selected paths only in chat text.
 
                 %s

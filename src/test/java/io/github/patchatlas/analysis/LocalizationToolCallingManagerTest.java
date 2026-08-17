@@ -482,6 +482,37 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void submitOfUnreadPathStillSucceedsAndRecordsSubmittedNotRead() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult submit =
+                manager.executeToolCalls(prompt(), toolCall("c1", "submit", "{\"paths\":[\"src/Foo.java\"]}"));
+
+        assertThat(submit.returnDirect()).isTrue();
+        assertThat(manager.finish()).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+        assertThat(session.traces().getFirst().detailJson()).contains("\"submitted_not_read\":1");
+    }
+
+    @Test
+    void submitDetailCountsReadPathsThatWereNotSubmitted() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationTools tools = workspaceTools();
+        Files.writeString(temp.resolve("ws/src/Bar.java"), "class Bar {}");
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                tools,
+                session,
+                new LocalizationBudget(25, Duration.ofMinutes(5), T0),
+                Clock.fixed(T0, ZoneOffset.UTC));
+        manager.executeToolCalls(prompt(), toolCall("c1", "read", "{\"path\":\"src/Foo.java\"}"));
+        manager.executeToolCalls(prompt(), toolCall("c2", "read", "{\"path\":\"src/Bar.java\"}"));
+        manager.executeToolCalls(prompt(), toolCall("c3", "submit", "{\"paths\":[\"src/Foo.java\"]}"));
+        String detail = session.traces().getLast().detailJson();
+        assertThat(detail).contains("\"read_not_submitted\":1");
+        assertThat(detail).contains("\"submitted_not_read\":0");
+    }
+
+    @Test
     void directSubmitCommitsTextToolsWithoutExtraToolCalls() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);

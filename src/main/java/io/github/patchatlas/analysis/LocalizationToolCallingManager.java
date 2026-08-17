@@ -13,10 +13,12 @@ import io.github.patchatlas.run.RunFailure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -295,8 +297,35 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 LocatingTraceOutcome.OK,
                 subjectOf(SUBMIT, args),
                 SUBMIT,
-                LocatingTraceDetails.submitAccepted(decision.snapshots().size())));
+                LocatingTraceDetails.submitAccepted(
+                        decision.snapshots().size(),
+                        submittedNotRead(decision.snapshots()),
+                        readNotSubmitted(decision.snapshots()))));
         return new CallResult(responseOf(call.id(), SUBMIT, "{\"ok\":true}"), true);
+    }
+
+    private int submittedNotRead(List<SourceSnapshot> submitted) {
+        int count = 0;
+        for (SourceSnapshot snapshot : submitted) {
+            if (!readContents.containsKey(snapshot.relativePath())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int readNotSubmitted(List<SourceSnapshot> submitted) {
+        Set<String> submittedPaths = new HashSet<>();
+        for (SourceSnapshot snapshot : submitted) {
+            submittedPaths.add(snapshot.relativePath());
+        }
+        int count = 0;
+        for (String path : readContents.keySet()) {
+            if (!submittedPaths.contains(path)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static List<String> parsePaths(String args) {
