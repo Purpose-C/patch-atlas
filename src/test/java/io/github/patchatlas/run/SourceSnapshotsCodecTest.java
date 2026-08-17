@@ -33,6 +33,14 @@ class SourceSnapshotsCodecTest {
     }
 
     @Test
+    void decodesCurrentInputSchemaVersionSameAsLegacy() {
+        List<SourceSnapshot> original = List.of(new SourceSnapshot("a/B.java", "x"));
+        String json = codec.encode(original);
+        assertThat(codec.decode(json, SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION))
+                .isEqualTo(codec.decode(json, SourceSnapshotsCodec.SCHEMA_VERSION));
+    }
+
+    @Test
     void rejectsUnknownSchemaVersion() {
         String json = codec.encode(List.of(new SourceSnapshot("a/B.java", "x")));
         assertThatThrownBy(() -> codec.decode(json, 99))

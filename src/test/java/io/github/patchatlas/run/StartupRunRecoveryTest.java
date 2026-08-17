@@ -88,7 +88,7 @@ class StartupRunRecoveryTest {
             runId = store.submit(liveSubmission("startup-gen"));
             ClaimedRun claimed =
                     store.claimNext("crashed-owner", Duration.ofMinutes(5)).orElseThrow();
-            assertThat(claimed.state()).isEqualTo(RunState.GENERATING);
+            assertThat(claimed.state()).isEqualTo(RunState.LOCATING);
             expireLease(runId);
             assertThat(seed.getBeanNamesForType(Issue2TestWorker.class)).isEmpty();
         }

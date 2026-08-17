@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(8);
+        assertThat(first.migrationsExecuted).isEqualTo(9);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -68,6 +68,7 @@ class FlywayMigrationSmokeTest {
                             "verification_run",
                             "candidate_test_patch",
                             "replay_attempt",
+                            "locating_trace",
                             "flyway_schema_history");
         }
     }

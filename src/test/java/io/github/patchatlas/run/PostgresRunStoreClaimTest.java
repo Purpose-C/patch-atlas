@@ -88,18 +88,18 @@ class PostgresRunStoreClaimTest {
     }
 
     @Test
-    void claimNextMovesQueuedToGeneratingWithLease() {
+    void claimNextMovesQueuedToLocatingWithLease() {
         UUID id = store.submit(liveSubmission("c-claim"));
         ClaimedRun claimed = store.claimNext("worker-a", Duration.ofMinutes(5)).orElseThrow();
 
         assertThat(claimed.runId()).isEqualTo(id);
-        assertThat(claimed.state()).isEqualTo(RunState.GENERATING);
+        assertThat(claimed.state()).isEqualTo(RunState.LOCATING);
         assertThat(claimed.version()).isEqualTo(1);
         assertThat(claimed.lease().owner()).isEqualTo("worker-a");
         assertThat(claimed.candidate()).isEmpty();
 
         RunDetails details = store.findRun(id).orElseThrow();
-        assertThat(details.state()).isEqualTo(RunState.GENERATING);
+        assertThat(details.state()).isEqualTo(RunState.LOCATING);
         assertThat(details.version()).isEqualTo(1);
     }
 

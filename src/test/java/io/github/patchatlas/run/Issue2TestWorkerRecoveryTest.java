@@ -99,7 +99,7 @@ class Issue2TestWorkerRecoveryTest {
         UUID runId = storeA.submit(liveSubmission("gen-crash"));
 
         ClaimedRun abandoned = storeA.claimNext("instance-a", Duration.ofMinutes(5)).orElseThrow();
-        assertThat(abandoned.state()).isEqualTo(RunState.GENERATING);
+        assertThat(abandoned.state()).isEqualTo(RunState.LOCATING);
         expireLease(runId);
 
         Issue2TestWorker workerB = worker(storeB, generateCalls);
@@ -122,7 +122,8 @@ class Issue2TestWorkerRecoveryTest {
 
         // 实例 A：真实 materialize + Gate 后提交 candidate，再崩溃
         TestGenerator generatorA = trackingGenerator(generateCalls);
-        ClaimedRun claimed = storeA.claimNext("instance-a", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                storeA, storeA.claimNext("instance-a", Duration.ofMinutes(5)).orElseThrow());
         GenerationInput input = storeA.loadGenerationInput(claimed.runId());
         CandidateDraft draft = new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET);
         generateCalls.incrementAndGet();

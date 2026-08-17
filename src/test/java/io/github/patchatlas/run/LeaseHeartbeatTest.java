@@ -165,7 +165,8 @@ class LeaseHeartbeatTest {
                 "",
                 null,
                 List.of(new SourceSnapshot("src/A.java", "class A {}"))));
-        return store.claimNext("owner", Duration.ofSeconds(30)).orElseThrow();
+        return LocatingTestSupport.commitPinned(
+                store, store.claimNext("owner", Duration.ofSeconds(30)).orElseThrow());
     }
 
     private static ReplayResult liveResult() {

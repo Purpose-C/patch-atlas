@@ -145,7 +145,7 @@ public final class PostgresRunStore {
                     .param("javaVersion", submission.javaVersion())
                     .param("networkMode", submission.networkMode().name())
                     .param("sourceSnapshots", snapshotsJson)
-                    .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
+                    .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
                     .param("state", RunState.REPLAYING.name())
                     .param("leaseToken", leaseToken)
                     .param("leaseOwner", owner)
@@ -218,7 +218,7 @@ public final class PostgresRunStore {
                 .param("javaVersion", submission.javaVersion())
                 .param("networkMode", submission.networkMode().name())
                 .param("sourceSnapshots", snapshotsJson)
-                .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
+                .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
                 .param("state", RunState.QUEUED.name())
                 .update();
         return id;
@@ -272,7 +272,7 @@ public final class PostgresRunStore {
                     .param("javaVersion", submission.javaVersion())
                     .param("networkMode", submission.networkMode().name())
                     .param("sourceSnapshots", snapshotsJson)
-                    .param("schemaVersion", SourceSnapshotsCodec.SCHEMA_VERSION)
+                    .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
                     .param("state", RunState.QUEUED.name())
                     .param("idempotencyKey", key.value())
                     .param("submissionSha256", submissionSha256)
@@ -797,6 +797,103 @@ public final class PostgresRunStore {
     }
 
     /**
+     * 定位完成：写入上下文来源与快照，进入 {@link RunState#GENERATING}。
+     */
+    public ClaimedRun commitContext(
+            ClaimHandle handle, ContextOrigin origin, List<SourceSnapshot> snapshots) {
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(snapshots, "snapshots");
+        if (handle.state() != RunState.LOCATING) {
+            throw new IllegalArgumentException("commitContext requires LOCATING");
+        }
+        if (!stateMachine.canApply(handle.state(), RunTransition.COMMIT_CONTEXT)) {
+            throw new IllegalArgumentException("illegal commitContext transition");
+        }
+        long newVersion = RunLeaseRules.nextVersion(handle.version());
+        String snapshotsJson = snapshotsCodec.encode(snapshots);
+        return tx.execute(status -> {
+            int updated = jdbc.sql(
+                            """
+                            UPDATE verification_run
+                               SET state = 'GENERATING',
+                                   context_origin = :origin,
+                                   source_snapshots = CAST(:sourceSnapshots AS jsonb),
+                                   version = :version,
+                                   updated_at = CURRENT_TIMESTAMP
+                             WHERE id = :id
+                               AND state = 'LOCATING'
+                               AND lease_token = :token
+                               AND version = :expectedVersion
+                            """)
+                    .param("origin", origin.name())
+                    .param("sourceSnapshots", snapshotsJson)
+                    .param("version", newVersion)
+                    .param("id", handle.runId())
+                    .param("token", handle.leaseToken())
+                    .param("expectedVersion", handle.version())
+                    .update();
+            if (updated != 1) {
+                throw new StaleClaimException(
+                        handle.runId(), "stale commitContext on run " + handle.runId());
+            }
+            return reloadClaimed(handle.runId(), handle.leaseToken(), RunState.GENERATING)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "run disappeared after commitContext: " + handle.runId()));
+        });
+    }
+
+    /** 按 run 清空后重写 locating_trace，seq 由调用方指定。 */
+    public void replaceLocatingTrace(UUID runId, List<LocatingTraceStep> steps) {
+        Objects.requireNonNull(runId, "runId");
+        Objects.requireNonNull(steps, "steps");
+        List<LocatingTraceStep> copy = List.copyOf(steps);
+        tx.executeWithoutResult(status -> {
+            jdbc.sql("DELETE FROM locating_trace WHERE run_id = :runId")
+                    .param("runId", runId)
+                    .update();
+            for (LocatingTraceStep step : copy) {
+                jdbc.sql(
+                                """
+                                INSERT INTO locating_trace (
+                                  id, run_id, seq, step_kind, subject, reason, detail
+                                ) VALUES (
+                                  :id, :runId, :seq, :kind, :subject, :reason, CAST(:detail AS jsonb)
+                                )
+                                """)
+                        .param("id", step.id())
+                        .param("runId", runId)
+                        .param("seq", step.seq())
+                        .param("kind", step.kind().name())
+                        .param("subject", step.subject())
+                        .param("reason", step.reason())
+                        .param("detail", step.detailJson())
+                        .update();
+            }
+        });
+    }
+
+    public List<LocatingTraceStep> loadLocatingTrace(UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        return List.copyOf(jdbc.sql(
+                        """
+                        SELECT id, seq, step_kind, subject, reason, detail::text AS detail
+                          FROM locating_trace
+                         WHERE run_id = :runId
+                         ORDER BY seq ASC
+                        """)
+                .param("runId", runId)
+                .query((rs, rowNum) -> new LocatingTraceStep(
+                        rs.getObject("id", UUID.class),
+                        rs.getInt("seq"),
+                        LocatingStepKind.valueOf(rs.getString("step_kind")),
+                        rs.getString("subject"),
+                        rs.getString("reason"),
+                        rs.getString("detail")))
+                .list());
+    }
+
+    /**
      * 进入/恢复 Replay 前递增 {@code replay_round}（同 token/version fence）。
      */
     public ClaimedRun openReplayRound(ClaimHandle handle) {
@@ -1056,7 +1153,7 @@ public final class PostgresRunStore {
                         SELECT id
                           FROM verification_run
                          WHERE state = 'QUEUED'
-                            OR (state IN ('GENERATING', 'REPLAYING')
+                            OR (state IN ('LOCATING', 'GENERATING', 'REPLAYING')
                                 AND lease_expires_at IS NOT NULL
                                 AND lease_expires_at < CURRENT_TIMESTAMP)
                          ORDER BY created_at ASC, id ASC
@@ -1076,7 +1173,7 @@ public final class PostgresRunStore {
         int updated = jdbc.sql(
                         """
                         UPDATE verification_run
-                           SET state = 'GENERATING',
+                           SET state = 'LOCATING',
                                lease_token = :token,
                                lease_owner = :owner,
                                lease_expires_at = CURRENT_TIMESTAMP + make_interval(secs => :secs),
@@ -1097,7 +1194,7 @@ public final class PostgresRunStore {
         if (updated != 1) {
             throw new IllegalStateException("stale claim on QUEUED run " + row.id);
         }
-        return reloadClaimed(row.id, token, RunState.GENERATING)
+        return reloadClaimed(row.id, token, RunState.LOCATING)
                 .orElseThrow(() -> new IllegalStateException(
                         "run disappeared after claim: " + row.id));
     }
@@ -1161,7 +1258,7 @@ public final class PostgresRunStore {
                                completed_at = CURRENT_TIMESTAMP,
                                updated_at = CURRENT_TIMESTAMP
                          WHERE id = :id
-                           AND state IN ('GENERATING', 'REPLAYING')
+                           AND state IN ('LOCATING', 'GENERATING', 'REPLAYING')
                            AND version = :expectedVersion
                         """)
                 .param("stage", failure.stage().name())

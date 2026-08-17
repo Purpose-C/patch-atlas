@@ -72,7 +72,10 @@ public final class Issue2TestWorker {
     private RunDetails process(ClaimedRun claimed, String owner) {
         ClaimedRun current = claimed;
         if (current.state() == RunState.LOCATING) {
-            throw new UnsupportedOperationException("LOCATING is not wired");
+            current = store.commitContext(
+                    ClaimHandle.from(current),
+                    ContextOrigin.PINNED,
+                    store.loadGenerationInput(current.runId()).sourceSnapshots());
         }
         if (current.state() == RunState.GENERATING) {
             Optional<ClaimedRun> afterGenerate = generatePhase(current, owner);

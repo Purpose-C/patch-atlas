@@ -79,7 +79,7 @@ class TimestamptzDefaultTest {
 
         ClaimedRun claimed = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
         assertThat(claimed.runId()).isEqualTo(id);
-        assertThat(claimed.state()).isEqualTo(RunState.GENERATING);
+        assertThat(claimed.state()).isEqualTo(RunState.LOCATING);
 
         try (Connection connection = DriverManager.getConnection(
                         POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

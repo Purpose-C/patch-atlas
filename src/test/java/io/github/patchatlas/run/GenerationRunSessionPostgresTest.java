@@ -58,7 +58,8 @@ class GenerationRunSessionPostgresTest {
     @Test
     void reserveUsageAndFourthReject() throws Exception {
         store.submit(live("res-1"));
-        ClaimedRun claimed = store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                store, store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow());
 
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store,
@@ -103,7 +104,8 @@ class GenerationRunSessionPostgresTest {
     @Test
     void staleOwnerCannotRecordUsageAfterFencing() throws Exception {
         store.submit(live("fence-1"));
-        ClaimedRun claimed = store.claimNext("old", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                store, store.claimNext("old", Duration.ofMinutes(5)).orElseThrow());
         ClaimHandle staleHandle = ClaimHandle.from(claimed);
 
         expireLease(claimed.runId());
@@ -133,7 +135,8 @@ class GenerationRunSessionPostgresTest {
     @Test
     void recoveryDoesNotResetAttemptCount() throws Exception {
         store.submit(live("recover-count"));
-        ClaimedRun claimed = store.claimNext("a", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                store, store.claimNext("a", Duration.ofMinutes(5)).orElseThrow());
 
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store,
@@ -178,7 +181,8 @@ class GenerationRunSessionPostgresTest {
     @Test
     void recordModelUsageKeepsLegacyNullCount() throws Exception {
         store.submit(live("legacy-null"));
-        ClaimedRun claimed = store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                store, store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow());
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store,
                 ClaimHandle.from(claimed),

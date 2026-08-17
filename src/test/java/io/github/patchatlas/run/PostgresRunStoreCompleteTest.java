@@ -243,7 +243,8 @@ class PostgresRunStoreCompleteTest {
                 "",
                 null,
                 List.of(new SourceSnapshot("src/A.java", "class A {}"))));
-        return store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow();
+        return LocatingTestSupport.commitPinned(
+                store, store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow());
     }
 
     private ClaimedRun claimHistorical(String caseId) {
@@ -260,7 +261,8 @@ class PostgresRunStoreCompleteTest {
                 "",
                 null,
                 List.of(new SourceSnapshot("src/A.java", "class A {}"))));
-        return store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow();
+        return LocatingTestSupport.commitPinned(
+                store, store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow());
     }
 
     private void bumpVersion(UUID runId) throws Exception {

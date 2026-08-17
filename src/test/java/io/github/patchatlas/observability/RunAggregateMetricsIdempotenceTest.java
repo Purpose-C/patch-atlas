@@ -21,6 +21,7 @@ import io.github.patchatlas.run.ClaimedRun;
 import io.github.patchatlas.run.FailureCategory;
 import io.github.patchatlas.run.FailureStage;
 import io.github.patchatlas.run.GatedCandidate;
+import io.github.patchatlas.run.LocatingTestSupport;
 import io.github.patchatlas.run.PersistedCandidatePatch;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.run.RunFailure;
@@ -100,7 +101,8 @@ class RunAggregateMetricsIdempotenceTest {
     @Test
     void completedRunIsCountedOnceAfterRecoveryStaleOwnerAndTerminalRetry() throws Exception {
         store.submit(live("complete-once"));
-        ClaimedRun generating = store.claimNext("old", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun generating = LocatingTestSupport.commitPinned(
+                store, store.claimNext("old", Duration.ofMinutes(5)).orElseThrow());
         ClaimedRun reserved =
                 store.reserveGenerationAttempt(ClaimHandle.from(generating), "openai", "gpt-4.1-mini")
                         .claim();
@@ -143,7 +145,8 @@ class RunAggregateMetricsIdempotenceTest {
     @Test
     void failedRunAndUsageAreNotRecountedAfterStaleOwnerRetry() throws Exception {
         store.submit(live("fail-once"));
-        ClaimedRun oldOwner = store.claimNext("old", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun oldOwner = LocatingTestSupport.commitPinned(
+                store, store.claimNext("old", Duration.ofMinutes(5)).orElseThrow());
         ClaimedRun reserved =
                 store.reserveGenerationAttempt(ClaimHandle.from(oldOwner), "openai", "gpt-4.1-mini")
                         .claim();

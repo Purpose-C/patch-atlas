@@ -246,7 +246,8 @@ class PostgresRunStoreApiSeamTest {
     @Test
     void submitAgentBenchmarkPersistsPurposeWithoutChangingGenerationFlow() {
         UUID runId = store.submitAgentBenchmark(liveSubmission("agent-benchmark-1"));
-        ClaimedRun generating = store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow();
+        ClaimedRun generating = LocatingTestSupport.commitPinned(
+                store, store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow());
         assertThat(generating.runId()).isEqualTo(runId);
 
         PersistedCandidatePatch candidate = PersistedCandidatePatch.fromAccepted(PATCH, TARGET);
@@ -318,7 +319,8 @@ class PostgresRunStoreApiSeamTest {
                 IdempotencyKey.parse("claim-" + caseId),
                 SubmissionFingerprint.sha256Hex(s),
                 s);
-        return store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow();
+        return LocatingTestSupport.commitPinned(
+                store, store.claimNext("worker", Duration.ofMinutes(5)).orElseThrow());
     }
 
     private static SideExecutionResult targetAssertionFailureSide() {
