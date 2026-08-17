@@ -69,6 +69,7 @@ public final class ChatClientTextToolsLocator implements LocatingCoordinator.Tex
         clientBuilder
                 .build()
                 .prompt()
+                .system(LocatingPrompt.textTools())
                 .user(input.issueTitle() + "\n" + input.issueBody())
                 .call()
                 .chatResponse();

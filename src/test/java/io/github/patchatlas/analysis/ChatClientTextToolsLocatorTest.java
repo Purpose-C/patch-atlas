@@ -2,6 +2,7 @@ package io.github.patchatlas.analysis;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.ai.chat.model.ChatModel;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 class ChatClientTextToolsLocatorTest {
 
@@ -54,6 +57,27 @@ class ChatClientTextToolsLocatorTest {
         assertThat(second)
                 .as("second session must not inherit the first session's consumed budget")
                 .isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
+    }
+
+    @Test
+    void locatingRequestIncludesSystemPromptWithoutOracleHints() throws Exception {
+        Path workspace = workspaceWithFoo();
+        stubSubmit();
+        locator(new LocalizationBudget()).run(claimed(), input(), newSession(), workspace);
+
+        String requestBody = wireMock.findAll(postRequestedFor(urlPathMatching(".*/chat/completions")))
+                .getFirst()
+                .getBodyAsString();
+        String system = systemContent(requestBody);
+
+        assertThat(system).isNotBlank();
+        assertThat(system).containsIgnoringCase("locat");
+        assertThat(system).contains("submit");
+        assertThat(system).doesNotContainIgnoringCase("fixedRevision");
+        assertThat(system).doesNotContainIgnoringCase("fixed revision");
+        assertThat(system).doesNotContainIgnoringCase("oracle");
+        assertThat(system).doesNotContainIgnoringCase("human patch");
+        assertThat(system).doesNotContainIgnoringCase("human fix");
     }
 
     @Test
@@ -135,6 +159,24 @@ class ChatClientTextToolsLocatorTest {
                 0,
                 0,
                 Optional.empty());
+    }
+
+    private static String systemContent(String requestBody) {
+        JsonNode messages = JsonMapper.shared().readTree(requestBody).get("messages");
+        StringBuilder system = new StringBuilder();
+        if (messages != null) {
+            for (JsonNode message : messages) {
+                if ("system".equals(text(message, "role"))) {
+                    system.append(text(message, "content"));
+                }
+            }
+        }
+        return system.toString();
+    }
+
+    private static String text(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? "" : value.asString();
     }
 
     private static GenerationInput input() {
