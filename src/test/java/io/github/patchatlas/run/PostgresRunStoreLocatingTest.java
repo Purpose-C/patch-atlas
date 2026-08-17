@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.analysis.LocalizationBudget;
+import io.github.patchatlas.analysis.LocalizationToolCallingManager;
+import io.github.patchatlas.analysis.TextSearchTools;
 import io.github.patchatlas.replay.VerificationMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,9 +17,14 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -438,6 +446,50 @@ class PostgresRunStoreLocatingTest {
         assertThat(traces).extracting(LocatingTraceStep::kind).containsExactly(LocatingStepKind.READ);
         assertThat(traces).extracting(LocatingTraceStep::seq).containsExactly(0);
         assertThat(traces).noneMatch(step -> step.kind() == LocatingStepKind.LIST);
+    }
+
+    @Test
+    void clippedOversizeDetailSatisfiesTraceCheck() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("clip-ws"));
+        Files.writeString(workspace.resolve("hit.txt"), "xxxxx");
+        InMemoryLocatingRunSession memory = new InMemoryLocatingRunSession(new ClaimedRun(
+                UUID.randomUUID(),
+                VerificationMode.LIVE,
+                RunState.LOCATING,
+                1,
+                new RunLease(UUID.randomUUID(), "owner", Instant.now().plusSeconds(60)),
+                0,
+                0,
+                Optional.empty()));
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                new TextSearchTools(workspace), memory, new LocalizationBudget());
+        String huge = "x".repeat(10_000);
+        manager.executeToolCalls(
+                new Prompt("locate"),
+                new ChatResponse(List.of(new Generation(AssistantMessage.builder()
+                        .content("")
+                        .toolCalls(List.of(new AssistantMessage.ToolCall(
+                                "c1", "function", "search", "{\"pattern\":\"" + huge + "\"}")))
+                        .build()))));
+        LocatingTraceStep step = memory.traces().getFirst();
+        assertThat(step.detailJson().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(8192);
+        assertThat(step.detailJson()).contains("truncated");
+
+        UUID id = store.submit(live("clip-detail"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(locating));
+        store.appendLocatingTrace(ClaimHandle.from(locating), step);
+
+        try (Connection connection = open();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(
+                        "SELECT octet_length(detail::text) FROM locating_trace WHERE run_id = '%s'"
+                                .formatted(id))) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getInt(1)).isLessThanOrEqualTo(8192);
+        }
+        assertThat(store.loadLocatingTrace(id).getFirst().detailJson()).contains("truncated");
     }
 
     @Test

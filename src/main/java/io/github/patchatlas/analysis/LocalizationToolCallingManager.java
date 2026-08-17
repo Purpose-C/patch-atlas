@@ -137,7 +137,8 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                         LocatingTraceOutcome.OK,
                         ".",
                         budget.callsExhausted() ? "CALLS" : "CLOCK",
-                        "{}"));
+                        LocatingTraceDetails.budget(
+                                budget.callsExhausted(), budget.calls(), budget.maxCalls())));
                 responses.add(responseOf(call.id(), call.name(), errorJson("budget exhausted")));
                 terminate = true;
                 continue;
@@ -155,14 +156,17 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             }
             String body;
             LocatingTraceOutcome outcome = LocatingTraceOutcome.OK;
+            String detail;
             try {
                 body = dispatch(name, args);
+                detail = LocatingTraceDetails.fromToolResult(name, args, body);
             } catch (RuntimeException ex) {
                 outcome = LocatingTraceOutcome.ERROR;
                 body = errorJson("tool rejected");
+                detail = LocatingTraceDetails.error(ex);
             }
             session.appendTrace(LocatingTraceStep.of(
-                    seq++, kindOf(name), outcome, subjectOf(name, args), name, "{}"));
+                    seq++, kindOf(name), outcome, subjectOf(name, args), name, detail));
             responses.add(responseOf(call.id(), name, body));
         }
         history.add(toolResponses(responses));
@@ -259,7 +263,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     LocatingTraceOutcome.ERROR,
                     subjectOf(SUBMIT, args),
                     SUBMIT,
-                    "{}"));
+                    LocatingTraceDetails.submitRejected(decision.error())));
             return new CallResult(
                     responseOf(call.id(), SUBMIT, errorJson(decision.error())), submitFailures >= 3);
         }
@@ -270,7 +274,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 LocatingTraceOutcome.OK,
                 subjectOf(SUBMIT, args),
                 SUBMIT,
-                "{}"));
+                LocatingTraceDetails.submitAccepted(decision.snapshots().size())));
         return new CallResult(responseOf(call.id(), SUBMIT, "{\"ok\":true}"), true);
     }
 

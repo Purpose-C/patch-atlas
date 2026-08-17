@@ -209,6 +209,70 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void toolErrorDetailHasTypeAndMessageWithoutOutsidePath() throws Exception {
+        Path secret = temp.resolve("secret.txt");
+        Files.writeString(secret, "TOP-SECRET");
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "read", "{\"path\":\"../secret.txt\"}"));
+
+        String detail = session.traces().getFirst().detailJson();
+        assertThat(session.traces().getFirst().outcome()).isEqualTo(LocatingTraceOutcome.ERROR);
+        assertThat(detail).contains("IllegalArgumentException");
+        assertThat(detail).contains("path rejected");
+        assertThat(detail).doesNotContain(secret.toString());
+        assertThat(detail).doesNotContain("TOP-SECRET");
+        assertThat(detail).doesNotContain(temp.toString());
+    }
+
+    @Test
+    void rejectedSubmitDetailNamesTheTriggeredRule() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "submit", "{\"paths\":[\"src/Missing.java\"]}"));
+
+        String detail = session.traces().getFirst().detailJson();
+        assertThat(session.traces().getFirst().outcome()).isEqualTo(LocatingTraceOutcome.ERROR);
+        assertThat(detail).contains("does not exist");
+        assertThat(detail).doesNotContain("class Foo");
+    }
+
+    @Test
+    void oversizeDetailIsClippedWithinCheckLimit() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+        String huge = "x".repeat(10_000);
+
+        manager.executeToolCalls(prompt(), toolCall("c1", "search", "{\"pattern\":\"" + huge + "\"}"));
+
+        String detail = session.traces().getFirst().detailJson();
+        assertThat(detail.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).isLessThanOrEqualTo(8192);
+        assertThat(detail).contains("truncated");
+        JsonMapper.shared().readTree(detail);
+    }
+
+    @Test
+    void sessionRoundCountIsSeparateFromToolCallCount() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationBudget budget = new LocalizationBudget(25, Duration.ofMinutes(5), T0);
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                workspaceTools(), session, budget, Clock.fixed(T0, ZoneOffset.UTC));
+
+        manager.executeToolCalls(
+                prompt(),
+                toolCalls(
+                        tc("c1", "search", "{\"pattern\":\"Foo\"}"),
+                        tc("c2", "list", "{\"path\":\".\"}"),
+                        tc("c3", "read", "{\"path\":\"src/Foo.java\"}")));
+
+        assertThat(manager.executeCalls()).isEqualTo(1);
+        assertThat(budget.calls()).isEqualTo(3);
+        assertThat(session.traces()).hasSize(3);
+    }
+
+    @Test
     void searchReadSubmitWritesThreeTraceRowsInOrder() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);
