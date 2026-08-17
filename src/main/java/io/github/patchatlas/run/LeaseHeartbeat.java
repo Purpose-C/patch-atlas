@@ -84,7 +84,7 @@ public final class LeaseHeartbeat implements AutoCloseable {
 
     public void replaceLocatingTrace(List<LocatingTraceStep> steps) {
         runLocked(h -> {
-            store.replaceLocatingTrace(h.runId(), steps);
+            store.replaceLocatingTrace(h, steps);
             return null;
         });
     }

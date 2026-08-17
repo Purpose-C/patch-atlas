@@ -118,8 +118,8 @@ class RunApiVerticalSliceTest {
                   "mode": "LIVE",
                   "caseId": "vertical-1",
                   "repositoryUrl": "https://github.com/ex/repo.git",
-                  "issueTitle": "vertical title",
-                  "issueBody": "vertical body",
+                  "issueTitle": "NPE in fixtures/OldTest.java",
+                  "issueBody": "class OldTest fails",
                   "buggyRevision": "%s",
                   "modulePath": "",
                   "javaVersion": "21",
@@ -146,7 +146,7 @@ class RunApiVerticalSliceTest {
         mockMvc.perform(get("/api/runs/" + runId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("QUEUED"))
-                .andExpect(jsonPath("$.input.issueTitle").value("vertical title"))
+                .andExpect(jsonPath("$.input.issueTitle").value("NPE in fixtures/OldTest.java"))
                 .andExpect(jsonPath("$.result").doesNotExist());
 
         Issue2TestWorker worker = buildFakeWorker(store);

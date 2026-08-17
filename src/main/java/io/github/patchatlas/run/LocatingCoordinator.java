@@ -37,10 +37,12 @@ public final class LocatingCoordinator {
         this.contextBuilder = Objects.requireNonNull(contextBuilder, "contextBuilder");
     }
 
-    public Result run(ClaimedRun claimed, GenerationInput input, LocatingRunSession session) {
+    public Result run(
+            ClaimedRun claimed, GenerationInput input, LocatingRunSession session, RunPurpose purpose) {
         Objects.requireNonNull(claimed, "claimed");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(session, "session");
+        Objects.requireNonNull(purpose, "purpose");
         try {
             if (!input.sourceSnapshots().isEmpty()) {
                 return pinned(input, session);
@@ -49,8 +51,7 @@ public final class LocatingCoordinator {
         } catch (StaleClaimException stale) {
             throw stale;
         } catch (Exception ex) {
-            return new Result.RunFailed(
-                    session.fail(WorkspaceFailureSummarizer.failure(ex, RunPurpose.STANDARD)));
+            return new Result.RunFailed(session.fail(WorkspaceFailureSummarizer.failure(ex, purpose)));
         }
     }
 
@@ -68,6 +69,12 @@ public final class LocatingCoordinator {
             Selection selection = contextBuilder.build(
                     input.generatorContext(), input.issueTitle(), input.issueBody(), files);
             session.replaceTrace(toTrace(selection));
+            if (selection.snapshots().isEmpty()) {
+                return new Result.RunFailed(session.fail(new RunFailure(
+                        FailureStage.LOCATING,
+                        FailureCategory.LOCATING_NO_CONTEXT,
+                        "heuristic locating selected no source snapshots")));
+            }
             return new Result.ContextCommitted(
                     session.commitContext(ContextOrigin.HEURISTIC, selection.snapshots()));
         }

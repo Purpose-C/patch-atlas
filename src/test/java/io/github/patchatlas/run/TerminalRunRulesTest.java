@@ -63,6 +63,19 @@ class TerminalRunRulesTest {
     }
 
     @Test
+    void locatingNoContextIsFailedWithLocatingStage() {
+        RunFailure failure = new RunFailure(
+                FailureStage.LOCATING,
+                FailureCategory.LOCATING_NO_CONTEXT,
+                "heuristic locating selected no source snapshots");
+        assertThatCode(() -> TerminalRunRules.requireFailed(null, failure)).doesNotThrowAnyException();
+        assertThat(failure.stage()).isEqualTo(FailureStage.LOCATING);
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RunFailure(
+                        FailureStage.LOCATING, FailureCategory.GENERATION_EXHAUSTED, "nope"));
+    }
+
+    @Test
     void recoveryExhaustedIsFailedWithRecoveryStage() {
         RunFailure failure = new RunFailure(
                 FailureStage.RECOVERY, FailureCategory.RECOVERY_EXHAUSTED, "max recoveries reached");

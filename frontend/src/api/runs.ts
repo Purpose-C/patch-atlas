@@ -1,4 +1,4 @@
-export type RunState = 'QUEUED' | 'GENERATING' | 'REPLAYING' | 'COMPLETED' | 'FAILED'
+export type RunState = 'QUEUED' | 'LOCATING' | 'GENERATING' | 'REPLAYING' | 'COMPLETED' | 'FAILED'
 export type RunPurpose = 'STANDARD' | 'CALIBRATION' | 'AGENT_BENCHMARK' | 'DIAGNOSTIC'
 export type TestPatchProvenance = 'AGENT_GENERATED' | 'KNOWN_TRIGGER'
 

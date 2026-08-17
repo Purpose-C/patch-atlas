@@ -843,14 +843,36 @@ public final class PostgresRunStore {
         });
     }
 
-    /** 按 run 清空后重写 locating_trace，seq 由调用方指定。 */
-    public void replaceLocatingTrace(UUID runId, List<LocatingTraceStep> steps) {
-        Objects.requireNonNull(runId, "runId");
+    /** 按当前 LOCATING 租约清空后重写 locating_trace。 */
+    public void replaceLocatingTrace(ClaimHandle handle, List<LocatingTraceStep> steps) {
+        Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(steps, "steps");
+        if (handle.state() != RunState.LOCATING) {
+            throw new IllegalArgumentException("replaceLocatingTrace requires LOCATING");
+        }
         List<LocatingTraceStep> copy = List.copyOf(steps);
         tx.executeWithoutResult(status -> {
+            Integer claimed = jdbc.sql(
+                            """
+                            SELECT 1
+                              FROM verification_run
+                             WHERE id = :id
+                               AND state = 'LOCATING'
+                               AND lease_token = :token
+                               AND version = :expectedVersion
+                            """)
+                    .param("id", handle.runId())
+                    .param("token", handle.leaseToken())
+                    .param("expectedVersion", handle.version())
+                    .query(Integer.class)
+                    .optional()
+                    .orElse(null);
+            if (claimed == null) {
+                throw new StaleClaimException(
+                        handle.runId(), "stale replaceLocatingTrace on run " + handle.runId());
+            }
             jdbc.sql("DELETE FROM locating_trace WHERE run_id = :runId")
-                    .param("runId", runId)
+                    .param("runId", handle.runId())
                     .update();
             for (LocatingTraceStep step : copy) {
                 jdbc.sql(
@@ -862,7 +884,7 @@ public final class PostgresRunStore {
                                 )
                                 """)
                         .param("id", step.id())
-                        .param("runId", runId)
+                        .param("runId", handle.runId())
                         .param("seq", step.seq())
                         .param("kind", step.kind().name())
                         .param("subject", step.subject())

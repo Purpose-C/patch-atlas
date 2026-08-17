@@ -153,6 +153,7 @@ class RunAggregateMetersTest {
                         ReplayVerdict.INCONCLUSIVE);
         assertThat(FailureStage.values())
                 .containsExactly(
+                        FailureStage.LOCATING,
                         FailureStage.GENERATION,
                         FailureStage.PATCH_GATE,
                         FailureStage.WORKSPACE,
@@ -170,7 +171,8 @@ class RunAggregateMetersTest {
                         FailureCategory.WORKSPACE_UNSAFE,
                         FailureCategory.WORKSPACE_ERROR,
                         FailureCategory.REPLAY_SYSTEM_ERROR,
-                        FailureCategory.RECOVERY_EXHAUSTED);
+                        FailureCategory.RECOVERY_EXHAUSTED,
+                        FailureCategory.LOCATING_NO_CONTEXT);
         assertThat(RecordedUsageStatus.values())
                 .containsExactly(
                         RecordedUsageStatus.TRACKING_UNAVAILABLE,
@@ -186,7 +188,7 @@ class RunAggregateMetersTest {
                 }
             }
         }
-        assertThat(legalPairs).isEqualTo(12);
+        assertThat(legalPairs).isEqualTo(13);
         assertThat(expectedFailedTags()).hasSize(VerificationMode.values().length * legalPairs);
     }
 

@@ -29,7 +29,8 @@ class LocatingCoordinatorTest {
         LocatingCoordinator coordinator = new LocatingCoordinator(
                 unusedWorkspaces(), new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder());
 
-        LocatingCoordinator.Result result = coordinator.run(claimed, input(List.of(snapshot)), session);
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input(List.of(snapshot)), session, RunPurpose.STANDARD);
 
         assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
         assertThat(session.origin()).isEqualTo(ContextOrigin.PINNED);
@@ -61,7 +62,8 @@ class LocatingCoordinatorTest {
                 "class OldTest fails",
                 List.of());
 
-        LocatingCoordinator.Result result = coordinator.run(claimed, input, session);
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input, session, RunPurpose.STANDARD);
 
         assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
         assertThat(session.origin()).isEqualTo(ContextOrigin.HEURISTIC);
@@ -86,11 +88,64 @@ class LocatingCoordinatorTest {
         LocatingCoordinator coordinator = new LocatingCoordinator(
                 failing, new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder());
 
-        LocatingCoordinator.Result result = coordinator.run(claimed, input(List.of()), session);
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input(List.of()), session, RunPurpose.STANDARD);
 
         assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
         assertThat(session.origin()).isNull();
         assertThat(session.claim().state()).isEqualTo(RunState.LOCATING);
+    }
+
+    @Test
+    void emptyHeuristicSelectionFailsAsLocatingNotGeneration() throws Exception {
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("empty"));
+        Path root = java.nio.file.Files.createDirectories(temp.resolve("ws-empty"));
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder());
+        GenerationInput input = new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        fixture.buggySha(),
+                        "",
+                        "21"),
+                "复现时偶发空指针",
+                "没有路径也没有类名",
+                List.of());
+
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input, session, RunPurpose.STANDARD);
+
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
+        RunDetails details = ((LocatingCoordinator.Result.RunFailed) result).details();
+        assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.LOCATING);
+        assertThat(details.failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(session.origin()).isNull();
+        assertThat(session.claim().state()).isEqualTo(RunState.LOCATING);
+    }
+
+    @Test
+    void diagnosticPurposeEchoesWorkspaceErrorMessage() {
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        CandidateWorkspaceFactory failing = (run, url, revision, module, policy) -> {
+            throw new IllegalStateException("clone failed");
+        };
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                failing, new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder());
+
+        LocatingCoordinator.Result result =
+                coordinator.run(claimed, input(List.of()), session, RunPurpose.DIAGNOSTIC);
+
+        RunDetails details = ((LocatingCoordinator.Result.RunFailed) result).details();
+        assertThat(details.failure().orElseThrow().summary()).contains("clone failed");
     }
 
     private static GenerationInput input(List<SourceSnapshot> snapshots) {

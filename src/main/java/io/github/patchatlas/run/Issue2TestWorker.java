@@ -98,8 +98,9 @@ public final class Issue2TestWorker {
         try (LeaseHeartbeat beat = LeaseHeartbeat.start(
                 store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
             GenerationInput input = store.loadGenerationInput(claimed.runId());
+            RunPurpose purpose = store.findRunDetail(claimed.runId()).orElseThrow().purpose();
             LocatingRunSession session = new LeaseHeartbeatLocatingRunSession(beat);
-            return switch (locatingCoordinator.run(claimed, input, session)) {
+            return switch (locatingCoordinator.run(claimed, input, session, purpose)) {
                 case LocatingCoordinator.Result.ContextCommitted committed ->
                         Optional.of(committed.claim());
                 case LocatingCoordinator.Result.RunFailed ignored -> Optional.empty();

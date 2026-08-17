@@ -33,5 +33,6 @@ describe('runs api client', () => {
   it('isTerminalState', () => {
     expect(isTerminalState('COMPLETED')).toBe(true)
     expect(isTerminalState('QUEUED')).toBe(false)
+    expect(isTerminalState('LOCATING')).toBe(false)
   })
 })

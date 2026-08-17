@@ -1,6 +1,7 @@
 package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.SourceSnapshot;
@@ -135,7 +136,7 @@ class PostgresRunStoreLocatingTest {
         UUID id = store.submit(live("locating-rerun"));
         ClaimedRun first = store.claimNext("owner-a", Duration.ofMinutes(5)).orElseThrow();
         store.replaceLocatingTrace(
-                id,
+                ClaimHandle.from(first),
                 List.of(
                         LocatingTraceStep.of(0, LocatingStepKind.SELECTION, "src/A.java", "PINNED", "{}"),
                         LocatingTraceStep.of(1, LocatingStepKind.SELECTION, "src/B.java", "PINNED", "{}")));
@@ -195,7 +196,8 @@ class PostgresRunStoreLocatingTest {
             coordinator.run(
                     locating,
                     store.loadGenerationInput(id),
-                    new LeaseHeartbeatLocatingRunSession(beat));
+                    new LeaseHeartbeatLocatingRunSession(beat),
+                    RunPurpose.STANDARD);
         }
 
         List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
@@ -220,8 +222,65 @@ class PostgresRunStoreLocatingTest {
             coordinator.run(
                     locating,
                     store.loadGenerationInput(locating.runId()),
-                    new LeaseHeartbeatLocatingRunSession(beat));
+                    new LeaseHeartbeatLocatingRunSession(beat),
+                    store.findRunDetail(locating.runId()).orElseThrow().purpose());
         }
+    }
+
+    @Test
+    void replaceLocatingTraceRejectsStaleHandle() {
+        store.submit(live("trace-fence"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        ClaimHandle stale = new ClaimHandle(
+                locating.runId(), UUID.randomUUID(), locating.version(), RunState.LOCATING);
+        assertThatThrownBy(() -> store.replaceLocatingTrace(
+                        stale,
+                        List.of(LocatingTraceStep.of(
+                                0, LocatingStepKind.SELECTION, "src/A.java", "PINNED", "{}"))))
+                .isInstanceOf(StaleClaimException.class);
+    }
+
+    @Test
+    void emptyHeuristicSelectionFailsWithoutConsumingAttempts() throws Exception {
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("empty-git"));
+        UUID id = store.submit(new RunSubmission(
+                VerificationMode.LIVE,
+                "empty-locate",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "复现时偶发空指针",
+                "没有路径也没有类名",
+                fixture.buggySha(),
+                null,
+                "",
+                "21",
+                List.of()));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        Path root = Files.createDirectories(temp.resolve("ws-empty"));
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new io.github.patchatlas.analysis.BuggyRepositoryReader(),
+                new io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder());
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store,
+                ClaimHandle.from(locating),
+                locating.lease().owner(),
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(30))) {
+            coordinator.run(
+                    locating,
+                    store.loadGenerationInput(id),
+                    new LeaseHeartbeatLocatingRunSession(beat),
+                    store.findRunDetail(id).orElseThrow().purpose());
+        }
+
+        RunDetails details = store.findRun(id).orElseThrow();
+        assertThat(details.state()).isEqualTo(RunState.FAILED);
+        assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.LOCATING);
+        assertThat(details.failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(generationAttemptCount(id)).isZero();
     }
 
     private static CandidateWorkspaceFactory unusedWorkspaces() {
