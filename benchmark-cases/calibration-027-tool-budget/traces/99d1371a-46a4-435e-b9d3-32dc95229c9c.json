@@ -1,0 +1,42 @@
+{
+  "runId" : "99d1371a-46a4-435e-b9d3-32dc95229c9c",
+  "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"SPECIAL_WORD_CHARS_SET_DEFAULT\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"class WordWrap\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/davidmoten/text/utils/WordWrap.java\", \"bytes\": 13775, \"lines\": 400, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/davidmoten/text/utils/WordWrapTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/davidmoten/text/utils/WordWrapTest.java\", \"bytes\": 10738, \"lines\": 400, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 2, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=2 truncated=false", "search hits=2 truncated=false", "read path=src/main/java/org/davidmoten/text/utils/WordWrap.java lines=400", "read path=src/test/java/org/davidmoten/text/utils/WordWrapTest.java lines=400", "submit OK paths=2" ]
+}

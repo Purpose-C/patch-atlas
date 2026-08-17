@@ -1,0 +1,70 @@
+{
+  "runId" : "091f4bc5-7df3-42eb-88cc-081655c13de2",
+  "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 6, \"pattern\": \"uploadMedia\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 5, \"pattern\": \"MultipartBody\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 16, \"pattern\": \"okhttp\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "list",
+    "detail" : "{\"path\": \".\", \"entries\": 9, \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "read",
+    "detail" : "{\"path\": \"pom.xml\", \"bytes\": 5284, \"lines\": 139, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java\", \"bytes\": 5255, \"lines\": 119, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 6,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/service/WhatsappBusinessCloudApiService.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/service/WhatsappBusinessCloudApiService.java\", \"bytes\": 1791, \"lines\": 58, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java\", \"bytes\": 5212, \"lines\": 156, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 8,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 3, \"accepted\": true, \"read_not_submitted\": 1, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=6 truncated=false", "search hits=5 truncated=false", "search hits=16 truncated=false", "list path=. entries=9", "read path=pom.xml lines=139", "read path=src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java lines=119", "read path=src/main/java/com/whatsapp/api/service/WhatsappBusinessCloudApiService.java lines=58", "read path=src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java lines=156", "submit OK paths=3" ]
+}

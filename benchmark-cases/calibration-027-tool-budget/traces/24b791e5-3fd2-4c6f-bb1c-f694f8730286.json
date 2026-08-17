@@ -1,0 +1,42 @@
+{
+  "runId" : "24b791e5-3fd2-4c6f-bb1c-f694f8730286",
+  "caseId" : "jhy-jsoup-91b630f86b5c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 25, \"pattern\": \"removeAttr\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"class Attributes\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Attributes.java\", \"bytes\": 13070, \"lines\": 400, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attribute.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Attribute.java\", \"bytes\": 9147, \"lines\": 244, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 1, \"accepted\": true, \"read_not_submitted\": 1, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=25 truncated=false", "search hits=2 truncated=false", "read path=src/main/java/org/jsoup/nodes/Attributes.java lines=400", "read path=src/main/java/org/jsoup/nodes/Attribute.java lines=244", "submit OK paths=1" ]
+}

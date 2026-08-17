@@ -1,0 +1,203 @@
+{
+  "runId" : "fbb51e84-0115-4801-a868-56a4b4a7c3ef",
+  "caseId" : "jhy-jsoup-a96ebc95f9ad",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 8, \"pattern\": \"encodeUrl|encodeUri|decodeUri|escapeUri\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "list",
+    "detail" : "{\"path\": \".\", \"entries\": 9, \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 3153, \"lines\": 100, \"startLine\": 110, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 1109, \"lines\": 30, \"startLine\": 250, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 50, \"pattern\": \"new URI|URI\\\\(|URI\\\\.encode|escapeUri|toASCIIURI|normalize\", \"truncated\": true}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 927, \"lines\": 30, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 3, \"pattern\": \"test.*encode|encode.*test|%20|percent|already.*encod\", \"truncated\": false}"
+  }, {
+    "seq" : 7,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 0, \"pattern\": \"45ed00232722efacafdf58cb0e2bdcc751585f84\", \"truncated\": false}"
+  }, {
+    "seq" : 8,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 7, \"pattern\": \"encodeUrl|encode.*URL|URI\\\\(\", \"pathGlob\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"truncated\": false}"
+  }, {
+    "seq" : 9,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/integration/UrlConnectTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/integration/UrlConnectTest.java\", \"bytes\": 2397, \"lines\": 50, \"startLine\": 400, \"truncated\": true}"
+  }, {
+    "seq" : 10,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 0, \"pattern\": \"already.*encod|double.*encod|percent.*encod\", \"truncated\": false}"
+  }, {
+    "seq" : 11,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 3862, \"lines\": 125, \"startLine\": 126, \"truncated\": true}"
+  }, {
+    "seq" : 12,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 3, \"pattern\": \"test.*url|url.*test\", \"pathGlob\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"truncated\": false}"
+  }, {
+    "seq" : 13,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 0, \"pattern\": \"connect.*%20|%20.*connect|encodeUrl.*test\", \"truncated\": false}"
+  }, {
+    "seq" : 14,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 12121, \"lines\": 313, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 15,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/integration/UrlConnectTest.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 6, \"pattern\": \"%25|percent|escape|encode\", \"pathGlob\": \"src/test/java/org/jsoup/integration/UrlConnectTest.java\", \"truncated\": false}"
+  }, {
+    "seq" : 16,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 0, \"pattern\": \"already.*encoded|double.*encoded|preserve.*encod|uri.*encode|encode.*uri\", \"truncated\": false}"
+  }, {
+    "seq" : 17,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 3399, \"lines\": 110, \"startLine\": 110, \"truncated\": true}"
+  }, {
+    "seq" : 18,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 1, \"pattern\": \"handlesEscapedRedirectUrls\", \"truncated\": false}"
+  }, {
+    "seq" : 19,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/integration/UrlConnectTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/integration/UrlConnectTest.java\", \"bytes\": 2110, \"lines\": 30, \"startLine\": 440, \"truncated\": true}"
+  }, {
+    "seq" : 20,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "CHANGES",
+    "reason" : "search",
+    "detail" : "{\"hits\": 3, \"pattern\": \"encodeUrl|URL.*encod|encod.*URL|1\\\\.15\\\\.4\", \"pathGlob\": \"CHANGES\", \"truncated\": false}"
+  }, {
+    "seq" : 21,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "CHANGES",
+    "reason" : "read",
+    "detail" : "{\"path\": \"CHANGES\", \"bytes\": 2573, \"lines\": 50, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 22,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 3, \"pattern\": \"1873|%5B|%5D|\\\\[One\\\\]\", \"truncated\": false}"
+  }, {
+    "seq" : 23,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 2233, \"lines\": 59, \"startLine\": 255, \"truncated\": false}"
+  }, {
+    "seq" : 24,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 0, \"pattern\": \"testEncodeUrl|test.*encodeUrl|encodeUrl.*test\", \"truncated\": false}"
+  }, {
+    "seq" : 25,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 3603, \"lines\": 115, \"startLine\": 113, \"truncated\": true}"
+  }, {
+    "seq" : 26,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/integration/UrlConnectTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/integration/UrlConnectTest.java\", \"bytes\": 31, \"lines\": 1, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 27,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 2, \"accepted\": true, \"read_not_submitted\": 2, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=8 truncated=false", "list path=. entries=9", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=100", "read path=src/test/java/org/jsoup/helper/HttpConnectionTest.java lines=30", "search hits=50 truncated=true", "read path=src/test/java/org/jsoup/helper/HttpConnectionTest.java lines=30", "search hits=3 truncated=false", "search hits=0 truncated=false", "search hits=7 truncated=false", "read path=src/test/java/org/jsoup/integration/UrlConnectTest.java lines=50", "search hits=0 truncated=false", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=125", "search hits=3 truncated=false", "search hits=0 truncated=false", "read path=src/test/java/org/jsoup/helper/HttpConnectionTest.java lines=313", "search hits=6 truncated=false", "search hits=0 truncated=false", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=110", "search hits=1 truncated=false", "read path=src/test/java/org/jsoup/integration/UrlConnectTest.java lines=30", "search hits=3 truncated=false", "read path=CHANGES lines=50", "search hits=3 truncated=false", "read path=src/test/java/org/jsoup/helper/HttpConnectionTest.java lines=59", "search hits=0 truncated=false", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=115", "read path=src/test/java/org/jsoup/integration/UrlConnectTest.java lines=1", "submit OK paths=2" ]
+}
