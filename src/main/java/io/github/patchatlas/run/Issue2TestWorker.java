@@ -16,6 +16,7 @@ public final class Issue2TestWorker {
     public static final Duration DEFAULT_HEARTBEAT = Duration.ofMinutes(2);
 
     private final PostgresRunStore store;
+    private final LocatingCoordinator locatingCoordinator;
     private final CandidateGenerationCoordinator generationCoordinator;
     private final FormalReplayCoordinator replayCoordinator;
     private final Duration leaseDuration;
@@ -23,11 +24,13 @@ public final class Issue2TestWorker {
 
     public Issue2TestWorker(
             PostgresRunStore store,
+            LocatingCoordinator locatingCoordinator,
             CandidateGenerationCoordinator generationCoordinator,
             FormalReplayCoordinator replayCoordinator,
             Duration leaseDuration,
             Duration heartbeatInterval) {
         this.store = Objects.requireNonNull(store, "store");
+        this.locatingCoordinator = Objects.requireNonNull(locatingCoordinator, "locatingCoordinator");
         this.generationCoordinator =
                 Objects.requireNonNull(generationCoordinator, "generationCoordinator");
         this.replayCoordinator = Objects.requireNonNull(replayCoordinator, "replayCoordinator");
@@ -72,10 +75,11 @@ public final class Issue2TestWorker {
     private RunDetails process(ClaimedRun claimed, String owner) {
         ClaimedRun current = claimed;
         if (current.state() == RunState.LOCATING) {
-            current = store.commitContext(
-                    ClaimHandle.from(current),
-                    ContextOrigin.PINNED,
-                    store.loadGenerationInput(current.runId()).sourceSnapshots());
+            Optional<ClaimedRun> afterLocate = locatePhase(current, owner);
+            if (afterLocate.isEmpty()) {
+                return store.findRun(claimed.runId()).orElseThrow();
+            }
+            current = afterLocate.get();
         }
         if (current.state() == RunState.GENERATING) {
             Optional<ClaimedRun> afterGenerate = generatePhase(current, owner);
@@ -88,6 +92,19 @@ public final class Issue2TestWorker {
             return replayPhase(current, owner);
         }
         throw new IllegalStateException("unexpected claimed state " + current.state());
+    }
+
+    private Optional<ClaimedRun> locatePhase(ClaimedRun claimed, String owner) {
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store, ClaimHandle.from(claimed), owner, leaseDuration, heartbeatInterval)) {
+            GenerationInput input = store.loadGenerationInput(claimed.runId());
+            LocatingRunSession session = new LeaseHeartbeatLocatingRunSession(beat);
+            return switch (locatingCoordinator.run(claimed, input, session)) {
+                case LocatingCoordinator.Result.ContextCommitted committed ->
+                        Optional.of(committed.claim());
+                case LocatingCoordinator.Result.RunFailed ignored -> Optional.empty();
+            };
+        }
     }
 
     private Optional<ClaimedRun> generatePhase(ClaimedRun claimed, String owner) {

@@ -1,7 +1,9 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.ReplayResult;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -74,6 +76,17 @@ public final class LeaseHeartbeat implements AutoCloseable {
 
     public ClaimedRun commitCandidate(GatedCandidate gated) {
         return runTransition(h -> store.commitCandidate(h, gated));
+    }
+
+    public ClaimedRun commitContext(ContextOrigin origin, List<SourceSnapshot> snapshots) {
+        return runTransition(h -> store.commitContext(h, origin, snapshots));
+    }
+
+    public void replaceLocatingTrace(List<LocatingTraceStep> steps) {
+        runLocked(h -> {
+            store.replaceLocatingTrace(h.runId(), steps);
+            return null;
+        });
     }
 
     public PostgresRunStore.ReservedGenerationAttempt reserveGenerationAttempt(

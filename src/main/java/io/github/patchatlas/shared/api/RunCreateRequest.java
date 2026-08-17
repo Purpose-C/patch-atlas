@@ -1,7 +1,6 @@
 package io.github.patchatlas.shared.api;
 
-import java.util.List;
-
+/** REST 建 Run 入参：只接收仓库、Revision 与 Issue，不含源码快照。 */
 public record RunCreateRequest(
         String mode,
         String caseId,
@@ -14,19 +13,4 @@ public record RunCreateRequest(
         String fixedRevision,
         String modulePath,
         String javaVersion,
-        String networkMode,
-        List<SourceSnapshotDto> sourceSnapshots) {
-
-    public RunCreateRequest {
-        if (sourceSnapshots != null) {
-            sourceSnapshots = List.copyOf(sourceSnapshots);
-        }
-    }
-
-    @Override
-    public List<SourceSnapshotDto> sourceSnapshots() {
-        return sourceSnapshots == null ? null : List.copyOf(sourceSnapshots);
-    }
-
-    public record SourceSnapshotDto(String relativePath, String content) {}
-}
+        String networkMode) {}

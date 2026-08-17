@@ -2,6 +2,8 @@ package io.github.patchatlas.run;
 
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
+import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
+import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.sandbox.SandboxExecutionObserver;
@@ -18,11 +20,15 @@ import java.util.Objects;
  */
 public final class Issue2TestRuntime {
 
+    private final LocatingCoordinator locating;
     private final CandidateGenerationCoordinator generation;
     private final FormalReplayCoordinator replay;
 
     private Issue2TestRuntime(
-            CandidateGenerationCoordinator generation, FormalReplayCoordinator replay) {
+            LocatingCoordinator locating,
+            CandidateGenerationCoordinator generation,
+            FormalReplayCoordinator replay) {
+        this.locating = locating;
         this.generation = generation;
         this.replay = replay;
     }
@@ -87,13 +93,16 @@ public final class Issue2TestRuntime {
         Objects.requireNonNull(sideReplay, "sideReplay");
         Objects.requireNonNull(replayer, "replayer");
         return new Issue2TestRuntime(
+                new LocatingCoordinator(
+                        workspaces, new BuggyRepositoryReader(), new BuggyOnlyGeneratorContextBuilder()),
                 new CandidateGenerationCoordinator(generator, gate, workspaces, warmup, sideReplay),
                 new FormalReplayCoordinator(gate, workspaces, warmup, replayer));
     }
 
     public Issue2TestWorker worker(
             PostgresRunStore store, Duration leaseDuration, Duration heartbeatInterval) {
-        return new Issue2TestWorker(store, generation, replay, leaseDuration, heartbeatInterval);
+        return new Issue2TestWorker(
+                store, locating, generation, replay, leaseDuration, heartbeatInterval);
     }
 
     public FormalReplayCoordinator replayCoordinator() {

@@ -123,10 +123,7 @@ class RunApiVerticalSliceTest {
                   "buggyRevision": "%s",
                   "modulePath": "",
                   "javaVersion": "21",
-                  "networkMode": "OFFLINE",
-                  "sourceSnapshots": [
-                    {"relativePath": "src/A.java", "content": "class A {}"}
-                  ]
+                  "networkMode": "OFFLINE"
                 }
                 """
                         .formatted(fixture.buggySha());

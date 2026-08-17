@@ -1,6 +1,5 @@
 package io.github.patchatlas.shared.api;
 
-import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.observability.EstimatedModelCost;
 import io.github.patchatlas.observability.EstimatedModelCostCalculator;
 import io.github.patchatlas.observability.PricingReference;
@@ -13,7 +12,6 @@ import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.run.RunSummary;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,22 +32,12 @@ final class RunDtos {
         if (req.networkMode() == null || req.networkMode().isBlank()) {
             throw new IllegalArgumentException("networkMode is required");
         }
-        if (req.sourceSnapshots() == null) {
-            throw new IllegalArgumentException("sourceSnapshots is required");
-        }
         // 字段必须出现：null = 缺失；显式 "" = 根模块
         if (req.modulePath() == null) {
             throw new IllegalArgumentException("modulePath is required (use empty string for root module)");
         }
         VerificationMode mode = VerificationMode.valueOf(req.mode().trim().toUpperCase());
         MavenNetworkMode network = MavenNetworkMode.valueOf(req.networkMode().trim().toUpperCase());
-        List<SourceSnapshot> snaps = new ArrayList<>(req.sourceSnapshots().size());
-        for (RunCreateRequest.SourceSnapshotDto dto : req.sourceSnapshots()) {
-            if (dto == null) {
-                throw new IllegalArgumentException("sourceSnapshots entry must not be null");
-            }
-            snaps.add(new SourceSnapshot(dto.relativePath(), dto.content()));
-        }
         String modulePath = req.modulePath();
         return new RunSubmission(
                 mode,
@@ -64,7 +52,7 @@ final class RunDtos {
                 modulePath,
                 req.javaVersion().trim(),
                 network,
-                snaps);
+                List.of());
     }
 
     static RunListResponse toListResponse(RunListPage page) {

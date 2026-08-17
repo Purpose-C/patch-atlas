@@ -14,6 +14,9 @@ import java.util.Objects;
 /**
  * 一次 Verification Run 的不可变提交输入。
  *
+ * <p>{@code sourceSnapshots} 是预置上下文：非空则 {@code LOCATING} 按 PINNED 透传，
+ * 空则由启发式现场产出。REST 入参不再携带该字段。
+ *
  * <p>Historical 可持有 Fixed Revision（供后续 Replay 投影）；生成路径必须经
  * {@link GenerationInputMapper} 剥离 Oracle。
  */

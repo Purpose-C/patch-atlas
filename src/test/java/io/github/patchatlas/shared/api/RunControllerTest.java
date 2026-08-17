@@ -3,6 +3,7 @@ package io.github.patchatlas.shared.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,8 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.IdempotencyKey;
 import io.github.patchatlas.run.IdempotentSubmitResult;
 import io.github.patchatlas.run.PostgresRunStore;
+import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunListPage;
 import io.github.patchatlas.run.RunPurpose;
@@ -20,7 +23,9 @@ import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.RunSummary;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = {RunController.class, ApiExceptionHandler.class})
@@ -98,10 +104,7 @@ class RunControllerTest {
                   "issueBody": "b",
                   "buggyRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                   "javaVersion": "21",
-                  "networkMode": "OFFLINE",
-                  "sourceSnapshots": [
-                    {"relativePath": "src/main/java/A.java", "content": "class A {}"}
-                  ]
+                  "networkMode": "OFFLINE"
                 }
                 """;
         mockMvc.perform(post("/api/runs")
@@ -199,11 +202,45 @@ class RunControllerTest {
                   "buggyRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                   "modulePath": "",
                   "javaVersion": "21",
+                  "networkMode": "OFFLINE"
+                }
+                """;
+    }
+
+    @Test
+    void createRequestDoesNotDeclareSourceSnapshotsAndIgnoresTheField() throws Exception {
+        assertThat(Arrays.stream(RunCreateRequest.class.getRecordComponents())
+                        .map(RecordComponent::getName))
+                .doesNotContain("sourceSnapshots");
+
+        UUID id = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        when(store.submitIdempotent(any(), any(), any()))
+                .thenReturn(new IdempotentSubmitResult.Accepted(id, RunState.QUEUED, true));
+
+        String bodyWithSnapshots =
+                """
+                {
+                  "mode": "LIVE",
+                  "repositoryUrl": "https://github.com/ex/repo.git",
+                  "issueTitle": "t",
+                  "issueBody": "b",
+                  "buggyRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "modulePath": "",
+                  "javaVersion": "21",
                   "networkMode": "OFFLINE",
                   "sourceSnapshots": [
                     {"relativePath": "src/main/java/A.java", "content": "class A {}"}
                   ]
                 }
                 """;
+        mockMvc.perform(post("/api/runs")
+                        .header("Idempotency-Key", "demo-ignore")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithSnapshots))
+                .andExpect(status().isAccepted());
+
+        ArgumentCaptor<RunSubmission> submission = ArgumentCaptor.forClass(RunSubmission.class);
+        verify(store).submitIdempotent(any(IdempotencyKey.class), any(), submission.capture());
+        assertThat(submission.getValue().sourceSnapshots()).isEmpty();
     }
 }
