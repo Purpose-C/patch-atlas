@@ -152,6 +152,9 @@ final class ToolBudgetCalibration {
                 if (smoke && report.submits >= 1) {
                     break;
                 }
+                if (!matchesCase(item)) {
+                    continue;
+                }
                 if (report.submits >= MAX_SUBMITS
                         || Duration.between(report.startedAt, Instant.now()).compareTo(MAX_WALL) >= 0) {
                     report.stopReason = report.submits >= MAX_SUBMITS ? "submit cap 25" : "wall clock 2h";
@@ -341,6 +344,14 @@ final class ToolBudgetCalibration {
             }
         }
         return false;
+    }
+
+    static boolean matchesCase(PreparedCase item) {
+        String only = System.getenv("PATCHATLAS_CALIBRATE_CASE");
+        if (only == null || only.isBlank()) {
+            return true;
+        }
+        return item.slot().caseId().contains(only);
     }
 
     static String smokeVerdict(Report report) {

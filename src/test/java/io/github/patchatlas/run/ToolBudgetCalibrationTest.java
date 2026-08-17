@@ -278,6 +278,14 @@ class ToolBudgetCalibrationTest {
     }
 
     @Test
+    void matchesCaseUsesOptionalCaseIdSubstring() {
+        ToolBudgetCalibration.Slot slot = slotWithDigest("a".repeat(64));
+        ToolBudgetCalibration.PreparedCase prepared =
+                new ToolBudgetCalibration.PreparedCase(slot, "t", "b");
+        assertThat(ToolBudgetCalibration.matchesCase(prepared)).isTrue();
+    }
+
+    @Test
     void smokeVerdictRequiresExploreThenReadThenSubmit() {
         ToolBudgetCalibration.Report empty =
                 ToolBudgetCalibration.Report.empty("agnes-2.5-flash", "https://example.invalid", Instant.now());
