@@ -48,7 +48,7 @@ public final class TargetTestDeriver {
     public Result derive(String patchText) {
         UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patchText);
         if (!parsed.isOk()) {
-            return reject("补丁无法解析，无法确定目标");
+            return new Result.Rejected(parsed.category(), parsed.reason());
         }
         List<Discovered> found = new ArrayList<>();
         boolean bodyOnly = false;

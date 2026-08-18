@@ -19,6 +19,21 @@ class TargetTestDeriverTest {
     }
 
     @Test
+    void parseFailureKeepsUnifiedDiffParserReasonAndCategory() {
+        String patch = FakeTestGeneratorTest.minimalCreatePatch() + "\nThis is an explanation\n";
+        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patch);
+        assertThat(parsed.isOk()).isFalse();
+
+        TargetTestDeriver.Result result = deriver.derive(patch);
+
+        assertThat(result).isInstanceOf(TargetTestDeriver.Result.Rejected.class);
+        var rejected = (TargetTestDeriver.Result.Rejected) result;
+        assertThat(rejected.reason()).isEqualTo(parsed.reason());
+        assertThat(rejected.category()).isEqualTo(parsed.category());
+        assertThat(rejected.reason()).isNotEqualTo("补丁无法解析，无法确定目标");
+    }
+
+    @Test
     void rejectsTwoAddedTestMethodsWithCountInReason() {
         TargetTestDeriver.Result result = deriver.derive(createPatch(
                 "src/test/java/fixtures/NewTest.java",
