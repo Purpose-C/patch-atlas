@@ -1,6 +1,7 @@
 package io.github.patchatlas.benchmark;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.benchmark.FrozenCohortSelector.CandidateFacts;
 import io.github.patchatlas.benchmark.FrozenCohortSelector.ExclusionCode;
@@ -42,6 +43,7 @@ class FrozenCohortSelectorTest {
         assertThat(first.probeQueue()).hasSize(FrozenCohortSelector.MAX_DYNAMIC_PROBES);
         assertThat(first.probeQueue())
                 .containsExactlyElementsOf(first.rankedEligible().subList(0, 18));
+        assertThat(first.maxDynamicProbes()).isEqualTo(FrozenCohortSelector.MAX_DYNAMIC_PROBES);
     }
 
     @Test
@@ -77,6 +79,55 @@ class FrozenCohortSelectorTest {
     }
 
     @Test
+    void defaultSelectorIgnoresMissingSpringAndDiagnosticIds() {
+        var selection = selector.select(List.of(
+                facts("plain", true, true, Set.of(17), false, true, true, true, true, false),
+                facts("scof-1326", true, true, Set.of(17), false, true, true, true, true, true)));
+
+        assertThat(selection.rankedEligible()).extracting(FrozenCohortSelector.RankedCandidate::caseId)
+                .containsExactlyInAnyOrder("plain", "scof-1326");
+        assertThat(selection.exclusions()).isEmpty();
+    }
+
+    @Test
+    void springSelectorRequiresSpringExcludesDiagnosticsAndCapsProbesAtTwentyFour() {
+        FrozenCohortSelector spring = SpringCohortFreezeRules.selector();
+        List<CandidateFacts> candidates = IntStream.range(0, 30)
+                .mapToObj(i -> eligible("spring-case-" + i))
+                .toList();
+        List<CandidateFacts> mixed = new ArrayList<>(candidates);
+        mixed.add(facts("no-spring", true, true, Set.of(17), false, true, true, true, true, false));
+        mixed.add(facts("org.spring-cloud-openfeign-1", true, true, Set.of(17), false, true, true, true, true, true));
+        mixed.add(facts("scof-1326", true, true, Set.of(17), false, true, true, true, true, true));
+        mixed.add(facts("broken-and-no-spring", false, true, Set.of(17), false, true, true, true, true, false));
+
+        var selection = spring.select(mixed);
+
+        assertThat(selection.maxDynamicProbes()).isEqualTo(SpringCohortFreezeRules.MAX_DYNAMIC_PROBES);
+        assertThat(selection.probeQueue()).hasSize(SpringCohortFreezeRules.MAX_DYNAMIC_PROBES);
+        assertThat(selection.rankedEligible()).extracting(FrozenCohortSelector.RankedCandidate::caseId)
+                .doesNotContain("no-spring", "org.spring-cloud-openfeign-1", "scof-1326", "broken-and-no-spring");
+        assertThat(selection.exclusions())
+                .extracting(
+                        FrozenCohortSelector.ExcludedCandidate::caseId,
+                        FrozenCohortSelector.ExcludedCandidate::code)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "broken-and-no-spring", ExclusionCode.METADATA_INVALID),
+                        org.assertj.core.groups.Tuple.tuple("no-spring", ExclusionCode.SPRING_DEPENDENCY_ABSENT),
+                        org.assertj.core.groups.Tuple.tuple(
+                                "org.spring-cloud-openfeign-1", ExclusionCode.DIAGNOSTIC_CASE),
+                        org.assertj.core.groups.Tuple.tuple("scof-1326", ExclusionCode.DIAGNOSTIC_CASE));
+    }
+
+    @Test
+    void rejectsAnUndeclaredProbeLimit() {
+        assertThatThrownBy(() -> new FrozenCohortSelector(DATASET_REVISION, SEED, true, 23))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("probe limit");
+    }
+
+    @Test
     void caseIdTieBreakerUsesUnicodeCodePoints() {
         String supplementary = "\uD800\uDC00";
         String privateUse = "\uE000";
@@ -98,6 +149,30 @@ class FrozenCohortSelectorTest {
             boolean testChangePresent,
             boolean licenseResolved,
             boolean patchGateCompatible) {
+        return facts(
+                caseId,
+                metadataValid,
+                mavenBuild,
+                supportedJavaVersions,
+                snapshotDependencyPresent,
+                issueAvailable,
+                testChangePresent,
+                licenseResolved,
+                patchGateCompatible,
+                true);
+    }
+
+    private static CandidateFacts facts(
+            String caseId,
+            boolean metadataValid,
+            boolean mavenBuild,
+            Set<Integer> supportedJavaVersions,
+            boolean snapshotDependencyPresent,
+            boolean issueAvailable,
+            boolean testChangePresent,
+            boolean licenseResolved,
+            boolean patchGateCompatible,
+            boolean springDependencyPresent) {
         return new CandidateFacts(
                 caseId,
                 metadataValid,
@@ -107,6 +182,7 @@ class FrozenCohortSelectorTest {
                 issueAvailable,
                 testChangePresent,
                 licenseResolved,
-                patchGateCompatible);
+                patchGateCompatible,
+                springDependencyPresent);
     }
 }

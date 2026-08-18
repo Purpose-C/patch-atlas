@@ -23,7 +23,8 @@ public final class RepositoryStaticInspector {
             boolean inspectionComplete,
             Set<Integer> supportedJavaVersions,
             boolean snapshotDependencyPresent,
-            Optional<String> licenseSpdx) {
+            Optional<String> licenseSpdx,
+            boolean springDependencyPresent) {
         public RepositoryFacts {
             supportedJavaVersions = Set.copyOf(
                     Objects.requireNonNull(supportedJavaVersions, "supportedJavaVersions"));
@@ -61,7 +62,8 @@ public final class RepositoryStaticInspector {
             Set<Integer> javaVersions = supportedJavaVersions(pomTexts);
             boolean snapshot = pomTexts.stream().anyMatch(RepositoryStaticInspector::hasSnapshotDependency);
             Optional<String> license = resolveLicense(root, pomTexts);
-            return new RepositoryFacts(true, javaVersions, snapshot, license);
+            boolean spring = SpringDependencyPresence.scan(pomTexts).present();
+            return new RepositoryFacts(true, javaVersions, snapshot, license, spring);
         } catch (IOException | RuntimeException ex) {
             return incomplete();
         }
@@ -172,6 +174,6 @@ public final class RepositoryStaticInspector {
     }
 
     private static RepositoryFacts incomplete() {
-        return new RepositoryFacts(false, Set.of(), false, Optional.empty());
+        return new RepositoryFacts(false, Set.of(), false, Optional.empty(), false);
     }
 }

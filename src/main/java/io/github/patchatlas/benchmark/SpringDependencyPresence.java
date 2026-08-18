@@ -15,17 +15,17 @@ import java.util.regex.Pattern;
  * <p>Does not inspect repository names, issue text, test patches, or fixed revisions.
  * Parent and plugin coordinates are not dependencies and are not counted.
  */
-final class SpringDependencyPresence {
+public final class SpringDependencyPresence {
 
-    static final String SPRING_GROUP_MARKER = "org.springframework";
+    public static final String SPRING_GROUP_MARKER = "org.springframework";
 
     private static final Pattern DEPENDENCY =
             Pattern.compile("(?is)<dependency\\b[^>]*>(.*?)</dependency>");
     private static final Pattern GROUP_ID =
             Pattern.compile("(?is)<groupId>\\s*([^<]+)\\s*</groupId>");
 
-    record Scan(boolean present, List<String> matchingGroupIds) {
-        Scan {
+    public record Scan(boolean present, List<String> matchingGroupIds) {
+        public Scan {
             matchingGroupIds = List.copyOf(
                     Objects.requireNonNull(matchingGroupIds, "matchingGroupIds"));
         }
@@ -33,7 +33,7 @@ final class SpringDependencyPresence {
 
     private SpringDependencyPresence() {}
 
-    static Scan scan(List<String> pomTexts) {
+    public static Scan scan(List<String> pomTexts) {
         Objects.requireNonNull(pomTexts, "pomTexts");
         Set<String> matches = new LinkedHashSet<>();
         for (String pom : pomTexts) {
@@ -42,7 +42,7 @@ final class SpringDependencyPresence {
         return new Scan(!matches.isEmpty(), List.copyOf(matches));
     }
 
-    static Scan scan(String pomText) {
+    public static Scan scan(String pomText) {
         return scan(List.of(Objects.requireNonNull(pomText, "pomText")));
     }
 

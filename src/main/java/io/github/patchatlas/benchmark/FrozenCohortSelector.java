@@ -24,7 +24,9 @@ public final class FrozenCohortSelector {
         ISSUE_UNAVAILABLE,
         TEST_CHANGE_ABSENT,
         LICENSE_UNRESOLVED,
-        PATCH_GATE_INCOMPATIBLE
+        PATCH_GATE_INCOMPATIBLE,
+        DIAGNOSTIC_CASE,
+        SPRING_DEPENDENCY_ABSENT
     }
 
     public record CandidateFacts(
@@ -36,7 +38,8 @@ public final class FrozenCohortSelector {
             boolean issueAvailable,
             boolean testChangePresent,
             boolean licenseResolved,
-            boolean patchGateCompatible) {
+            boolean patchGateCompatible,
+            boolean springDependencyPresent) {
 
         public CandidateFacts {
             if (caseId == null || caseId.isBlank()) {
@@ -63,15 +66,20 @@ public final class FrozenCohortSelector {
     }
 
     public record StaticSelection(
-            List<RankedCandidate> rankedEligible, List<ExcludedCandidate> exclusions) {
+            List<RankedCandidate> rankedEligible,
+            List<ExcludedCandidate> exclusions,
+            int maxDynamicProbes) {
         public StaticSelection {
             rankedEligible = List.copyOf(Objects.requireNonNull(rankedEligible, "rankedEligible"));
             exclusions = List.copyOf(Objects.requireNonNull(exclusions, "exclusions"));
+            if (!SpringCohortFreezeRules.isAllowedProbeLimit(maxDynamicProbes)) {
+                throw new IllegalArgumentException("undeclared dynamic probe limit");
+            }
         }
 
         public List<RankedCandidate> probeQueue() {
             return List.copyOf(rankedEligible.subList(
-                    0, Math.min(MAX_DYNAMIC_PROBES, rankedEligible.size())));
+                    0, Math.min(maxDynamicProbes, rankedEligible.size())));
         }
     }
 
@@ -81,10 +89,22 @@ public final class FrozenCohortSelector {
 
     private final String datasetRevision;
     private final String seed;
+    private final boolean requireSpring;
+    private final int maxDynamicProbes;
 
     public FrozenCohortSelector(String datasetRevision, String seed) {
+        this(datasetRevision, seed, false, MAX_DYNAMIC_PROBES);
+    }
+
+    public FrozenCohortSelector(
+            String datasetRevision, String seed, boolean requireSpring, int maxDynamicProbes) {
         this.datasetRevision = requireSha(datasetRevision, "datasetRevision");
         this.seed = requireSha(seed, "seed");
+        this.requireSpring = requireSpring;
+        if (!SpringCohortFreezeRules.isAllowedProbeLimit(maxDynamicProbes)) {
+            throw new IllegalArgumentException("undeclared dynamic probe limit");
+        }
+        this.maxDynamicProbes = maxDynamicProbes;
     }
 
     public StaticSelection select(List<CandidateFacts> candidates) {
@@ -105,7 +125,7 @@ public final class FrozenCohortSelector {
 
         eligible.sort(RANKING_ORDER);
         excluded.sort((left, right) -> compareCaseIds(left.caseId(), right.caseId()));
-        return new StaticSelection(eligible, excluded);
+        return new StaticSelection(eligible, excluded, maxDynamicProbes);
     }
 
     public String rankingKey(String caseId) {
@@ -135,7 +155,7 @@ public final class FrozenCohortSelector {
         return Integer.compare(leftPoints.length, rightPoints.length);
     }
 
-    private static Optional<ExclusionCode> exclusionFor(CandidateFacts candidate) {
+    private Optional<ExclusionCode> exclusionFor(CandidateFacts candidate) {
         if (!candidate.metadataValid()) {
             return Optional.of(ExclusionCode.METADATA_INVALID);
         }
@@ -160,6 +180,12 @@ public final class FrozenCohortSelector {
         }
         if (!candidate.patchGateCompatible()) {
             return Optional.of(ExclusionCode.PATCH_GATE_INCOMPATIBLE);
+        }
+        if (requireSpring && SpringCohortFreezeRules.isDiagnosticCase(candidate.caseId())) {
+            return Optional.of(ExclusionCode.DIAGNOSTIC_CASE);
+        }
+        if (requireSpring && !candidate.springDependencyPresent()) {
+            return Optional.of(ExclusionCode.SPRING_DEPENDENCY_ABSENT);
         }
         return Optional.empty();
     }

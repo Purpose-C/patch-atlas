@@ -168,7 +168,7 @@ public final class BenchmarkArtifacts {
             String result,
             List<StageAudit> stages) {
         public ProbeAudit {
-            if (probePosition < 1 || probePosition > FrozenCohortSelector.MAX_DYNAMIC_PROBES) {
+            if (probePosition < 1 || probePosition > SpringCohortFreezeRules.MAX_DYNAMIC_PROBES) {
                 throw new IllegalArgumentException("probePosition out of range");
             }
             requireText(caseId, "caseId");
@@ -203,7 +203,7 @@ public final class BenchmarkArtifacts {
             requireSha(datasetRevision, "datasetRevision");
             requireSha(seed, "seed");
             requireText(selectorVersion, "selectorVersion");
-            if (maxDynamicProbes != FrozenCohortSelector.MAX_DYNAMIC_PROBES) {
+            if (!SpringCohortFreezeRules.isAllowedProbeLimit(maxDynamicProbes)) {
                 throw new IllegalArgumentException("unexpected dynamic probe limit");
             }
             staticExclusions = List.copyOf(Objects.requireNonNull(staticExclusions, "staticExclusions"));

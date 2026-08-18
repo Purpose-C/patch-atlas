@@ -3,6 +3,8 @@ package io.github.patchatlas.benchmark;
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
+import io.github.patchatlas.repository.ParentRevisionCheckResult;
+import io.github.patchatlas.repository.ParentRevisionValidator;
 import io.github.patchatlas.replay.AttemptPhase;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideExecutionResult;
@@ -39,7 +41,8 @@ public final class DynamicCaseQualifier {
         BUGGY_TRIGGER_MISMATCH,
         FIXED_TRIGGER_MISMATCH,
         TRIGGER_FLAKY,
-        OFFLINE_REPLAY_FAILED
+        OFFLINE_REPLAY_FAILED,
+        PARENT_REVISION_MISMATCH
     }
 
     public record Input(
@@ -113,10 +116,16 @@ public final class DynamicCaseQualifier {
         SideExecutionResult replay(Path workspace, MavenTestCommand command, TargetTest target);
     }
 
+    @FunctionalInterface
+    interface ParentRevisionPort {
+        boolean matches(Path workspace, String buggyRevision, String fixedRevision);
+    }
+
     private final CheckoutPort checkout;
     private final TriggerPort trigger;
     private final WarmupPort warmup;
     private final ReplayPort replay;
+    private final ParentRevisionPort parentRevision;
 
     public DynamicCaseQualifier(
             BenchmarkGitWorkspace git,
@@ -153,7 +162,8 @@ public final class DynamicCaseQualifier {
                     }
                 },
                 (workspace, command) -> warmupRunner.warm(workspace, command).isEmpty(),
-                replayRunner::runSide);
+                replayRunner::runSide,
+                matchingParentRevision(new ParentRevisionValidator()));
     }
 
     DynamicCaseQualifier(
@@ -161,10 +171,27 @@ public final class DynamicCaseQualifier {
             TriggerPort trigger,
             WarmupPort warmup,
             ReplayPort replay) {
+        this(checkout, trigger, warmup, replay, (workspace, buggyRevision, fixedRevision) -> true);
+    }
+
+    DynamicCaseQualifier(
+            CheckoutPort checkout,
+            TriggerPort trigger,
+            WarmupPort warmup,
+            ReplayPort replay,
+            ParentRevisionPort parentRevision) {
         this.checkout = Objects.requireNonNull(checkout, "checkout");
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.warmup = Objects.requireNonNull(warmup, "warmup");
         this.replay = Objects.requireNonNull(replay, "replay");
+        this.parentRevision = Objects.requireNonNull(parentRevision, "parentRevision");
+    }
+
+    static ParentRevisionPort matchingParentRevision(ParentRevisionValidator validator) {
+        Objects.requireNonNull(validator, "validator");
+        return (workspace, buggyRevision, fixedRevision) ->
+                validator.check(workspace.toFile(), buggyRevision, fixedRevision)
+                        instanceof ParentRevisionCheckResult.Match;
     }
 
     public Result qualify(Input input) {
@@ -210,6 +237,13 @@ public final class DynamicCaseQualifier {
                         input.repositoryUrl(), input.fixedRevision(), input.caseId() + "-fixed"));
         if (fixed.isEmpty()) {
             return excluded(ExclusionCode.CHECKOUT_FAILED, stages);
+        }
+        if (!timed(
+                stages,
+                "parent_revision",
+                () -> parentRevision.matches(
+                        fixed.orElseThrow(), input.buggyRevision(), input.fixedRevision()))) {
+            return excluded(ExclusionCode.PARENT_REVISION_MISMATCH, stages);
         }
 
         MavenExecutionPolicy policy =

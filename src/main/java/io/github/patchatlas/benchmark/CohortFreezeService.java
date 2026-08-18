@@ -284,7 +284,8 @@ public final class CohortFreezeService {
                                 source.issueAvailable(),
                                 source.javaTestChangePresent(),
                                 true,
-                                trigger.isPresent()),
+                                trigger.isPresent(),
+                                false),
                         Optional.empty());
             }
 
@@ -303,7 +304,8 @@ public final class CohortFreezeService {
                                 true,
                                 true,
                                 false,
-                                true),
+                                true,
+                                false),
                         Optional.empty());
             }
             RepositoryStaticInspector.RepositoryFacts repoFacts =
@@ -318,7 +320,8 @@ public final class CohortFreezeService {
                     true,
                     true,
                     repoFacts.licenseSpdx().isPresent(),
-                    true);
+                    true,
+                    repoFacts.springDependencyPresent());
             Optional<PreparedCase> prepared = complete
                             && !repoFacts.snapshotDependencyPresent()
                             && repoFacts.licenseSpdx().isPresent()

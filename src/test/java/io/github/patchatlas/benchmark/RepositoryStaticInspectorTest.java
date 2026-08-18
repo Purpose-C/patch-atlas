@@ -35,6 +35,7 @@ class RepositoryStaticInspectorTest {
         assertThat(facts.supportedJavaVersions()).isEqualTo(Set.of(17, 21));
         assertThat(facts.snapshotDependencyPresent()).isTrue();
         assertThat(facts.licenseSpdx()).contains("Apache-2.0");
+        assertThat(facts.springDependencyPresent()).isFalse();
     }
 
     @Test
@@ -62,5 +63,32 @@ class RepositoryStaticInspectorTest {
 
         assertThat(facts.supportedJavaVersions()).isEmpty();
         assertThat(facts.licenseSpdx()).isEmpty();
+        assertThat(facts.springDependencyPresent()).isFalse();
+    }
+
+    @Test
+    void recordsSpringPresenceFromAModulePomDependencyWithoutReadingFixes() throws Exception {
+        Files.writeString(
+                workspace.resolve("pom.xml"),
+                "<project><modules><module>app</module></modules></project>");
+        Path module = Files.createDirectories(workspace.resolve("app"));
+        Files.writeString(
+                module.resolve("pom.xml"),
+                """
+                <project>
+                  <dependencies>
+                    <dependency>
+                      <groupId>org.springframework</groupId>
+                      <artifactId>spring-context</artifactId>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """);
+        Files.writeString(workspace.resolve("LICENSE"), "MIT License\nPermission is hereby granted");
+
+        var facts = new RepositoryStaticInspector().inspect(workspace);
+
+        assertThat(facts.inspectionComplete()).isTrue();
+        assertThat(facts.springDependencyPresent()).isTrue();
     }
 }

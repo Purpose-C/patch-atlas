@@ -109,6 +109,6 @@ class CohortFreezeServiceTest {
 
     private static CandidateFacts facts(String id) {
         return new CandidateFacts(
-                id, true, true, Set.of(17, 21), false, true, true, true, true);
+                id, true, true, Set.of(17, 21), false, true, true, true, true, true);
     }
 }
