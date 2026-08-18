@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -615,17 +616,22 @@ public final class ThreeArmEvidenceExporter {
             md.append(" |\n");
         }
         md.append('\n');
-        md.append("- anyHit: ").append(arm.anyHitCount()).append(" / 6\n");
-        md.append("- mean recall: ").append(formatRatio(arm.meanRecall())).append('\n');
-        md.append("- mean precision: ").append(formatRatio(arm.meanPrecision())).append('\n');
-        md.append("- mean selectedCount: ").append(formatCount(arm.meanSelectedCount())).append("\n\n");
+        md.append("- anyHit: ").append(arm.anyHitCount()).append(" / ").append(arm.coverageSampleCount()).append('\n');
+        md.append("- mean recall: ").append(formatRatio(arm.meanRecall()))
+                .append(" (n=").append(arm.coverageSampleCount()).append(")\n");
+        md.append("- mean precision: ").append(formatRatio(arm.meanPrecision()))
+                .append(" (n=").append(arm.precisionSampleCount()).append(")\n");
+        md.append("- mean selectedCount: ").append(formatCount(arm.meanSelectedCount()))
+                .append(" (n=").append(arm.coverageSampleCount()).append(")\n\n");
 
         md.append("### Reproduction rate\n\n");
         md.append("VALID_REPRODUCTION ").append(arm.validReproductions()).append(" / ").append(arm.runCount()).append('\n');
         md.append("Denominator: every AGENT_BENCHMARK run on this arm, including locating failure and non-valid replay verdicts.\n\n");
 
         md.append("### Cost\n\n");
-        md.append("- generation token median: ").append(formatCount(arm.generationTokenMedian())).append('\n');
+        md.append("- generation token median: ").append(formatCount(arm.generationTokenMedian()))
+                .append(" (n=").append(arm.generationTokenSampleCount()).append(")\n");
+        md.append("- runs that never reached generation: ").append(arm.runsNeverReachedGeneration()).append('\n');
         md.append("- locating model tokens: ").append(tokenLabel(facts.getFirst().locating().locatingTokens())).append('\n');
         if (arm.locatingToolCallP50() == null) {
             md.append("- locating tool calls: —\n");
@@ -660,7 +666,7 @@ public final class ThreeArmEvidenceExporter {
             case Score.NotApplicable ignored -> "N/A | N/A | N/A | N/A";
             case Score.Measured measured -> measured.anyHit()
                     + " | " + formatRatio(measured.recall())
-                    + " | " + formatRatio(measured.precision().orElse(0.0))
+                    + " | " + formatOptionalRatio(measured.precision())
                     + " | " + measured.selectedCount();
         };
     }
@@ -670,9 +676,13 @@ public final class ThreeArmEvidenceExporter {
             case Score.NotApplicable ignored -> "N/A / N/A / N/A / N/A";
             case Score.Measured measured -> measured.anyHit()
                     + " / " + formatRatio(measured.recall())
-                    + " / " + formatRatio(measured.precision().orElse(0.0))
+                    + " / " + formatOptionalRatio(measured.precision())
                     + " / " + measured.selectedCount();
         };
+    }
+
+    private static String formatOptionalRatio(OptionalDouble value) {
+        return value.isPresent() ? formatRatio(value.getAsDouble()) : "N/A";
     }
 
     private static String formatRatio(double value) {

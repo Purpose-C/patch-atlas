@@ -68,7 +68,7 @@ class ThreeArmEvidenceExporterTest {
         assertThat(md).contains("recall");
         assertThat(md).contains("precision");
         assertThat(md).contains("selectedCount");
-        assertThat(md).contains("| false | 0.0000 | 0.0000 | 0 |");
+        assertThat(md).contains("| false | 0.0000 | N/A | 0 |");
         assertThat(md).contains("locating model tokens: unknown");
         assertThat(md).doesNotContain("locating model tokens: 0");
         assertThat(md).contains("locating model tokens: none");
@@ -141,6 +141,31 @@ class ThreeArmEvidenceExporterTest {
         assertThat(heuristic.validReproductions()).isZero();
         assertThat(Files.readString(tempDir.resolve("evidence-report.md")))
                 .contains("VALID_REPRODUCTION 0 / 6");
+    }
+
+    @Test
+    void undefinedPrecisionRendersAsNaNotZero() throws Exception {
+        new ThreeArmEvidenceExporter().export(
+                COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("| false | 0.0000 | N/A | 0 |");
+        assertThat(md).contains("false / 0.0000 / N/A / 0");
+        assertThat(md).doesNotContain("| false | 0.0000 | 0.0000 | 0 |");
+        assertThat(md).doesNotContain("false / 0.0000 / 0.0000 / 0");
+    }
+
+    @Test
+    void meanAndCostLinesShowSampleCountsAndNeverGeneratedRuns() throws Exception {
+        new ThreeArmEvidenceExporter().export(
+                COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("mean precision: 0.5000 (n=5)");
+        assertThat(md).contains("mean recall: 0.2083 (n=6)");
+        assertThat(md).contains("mean selectedCount: 10 (n=6)");
+        assertThat(md).contains("generation token median: 3300 (n=5)");
+        assertThat(md).contains("runs that never reached generation: 1");
     }
 
     @Test
