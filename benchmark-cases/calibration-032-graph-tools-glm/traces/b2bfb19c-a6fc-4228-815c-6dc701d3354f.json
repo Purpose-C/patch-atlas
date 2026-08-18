@@ -1,0 +1,77 @@
+{
+  "runId" : "b2bfb19c-a6fc-4228-815c-6dc701d3354f",
+  "caseId" : "jhy-jsoup-91b630f86b5c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": true, \"durationMs\": 121}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "removeAttr",
+    "reason" : "find",
+    "detail" : "{\"hits\": 17, \"query\": \"removeAttr\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "Attributes iterator",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"Attributes iterator\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "Attributes",
+    "reason" : "find",
+    "detail" : "{\"hits\": 50, \"query\": \"Attributes\", \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Attributes.java\", \"bytes\": 1397, \"lines\": 50, \"startLine\": 210, \"truncated\": true}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Attributes.java\", \"bytes\": 1772, \"lines\": 60, \"startLine\": 315, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Node.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Node.java\", \"bytes\": 589, \"lines\": 20, \"startLine\": 140, \"truncated\": true}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/nodes/ElementTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/nodes/ElementTest.java\", \"bytes\": 1313, \"lines\": 40, \"startLine\": 1420, \"truncated\": true}"
+  }, {
+    "seq" : 8,
+    "kind" : "SUBMIT",
+    "outcome" : "ERROR",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "submit",
+    "detail" : "{\"rule\": \"file exceeds 64 KiB\", \"reason\": \"file exceeds 64 KiB: src/test/java/org/jsoup/nodes/ElementTest.java\", \"rejected\": true}"
+  }, {
+    "seq" : 9,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 2, \"accepted\": true, \"read_not_submitted\": 1, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

@@ -1,0 +1,56 @@
+{
+  "runId" : "2f20310c-e9ce-469b-bde5-d301216a513f",
+  "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": false, \"durationMs\": 274}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "WordWrap.java",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"WordWrap.java\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "WordWrap",
+    "reason" : "find",
+    "detail" : "{\"hits\": 50, \"query\": \"WordWrap\", \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/davidmoten/text/utils/WordWrap.java\", \"bytes\": 971, \"lines\": 30, \"startLine\": 26, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/davidmoten/text/utils/WordWrap.java\", \"bytes\": 4604, \"lines\": 120, \"startLine\": 140, \"truncated\": true}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/davidmoten/text/utils/WordWrap.java\", \"bytes\": 687, \"lines\": 20, \"startLine\": 395, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/davidmoten/text/utils/WordWrap.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 1, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

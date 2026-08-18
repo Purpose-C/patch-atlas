@@ -1,0 +1,280 @@
+{
+  "runId" : "f8ab95f5-bd2e-4c4e-b510-ae91835866b0",
+  "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": true, \"durationMs\": 14}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "WhatsappBusinessCloudApi uploadMedia",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"WhatsappBusinessCloudApi uploadMedia\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "okhttp3 MultipartBody create",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"okhttp3 MultipartBody create\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "WhatsappBusinessCloudApi",
+    "reason" : "find",
+    "detail" : "{\"hits\": 47, \"query\": \"WhatsappBusinessCloudApi\", \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "pom.xml okhttp",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"pom.xml okhttp\", \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java\", \"bytes\": 1885, \"lines\": 30, \"startLine\": 60, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"pom.xml\", \"truncated\": false}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java\", \"bytes\": 1162, \"lines\": 30, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 8,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "okhttp3 dependency version",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"okhttp3 dependency version\", \"truncated\": false}"
+  }, {
+    "seq" : 9,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "MultipartBody create",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"MultipartBody create\", \"truncated\": false}"
+  }, {
+    "seq" : 10,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "okhttp",
+    "reason" : "find",
+    "detail" : "{\"hits\": 4, \"query\": \"okhttp\", \"truncated\": false}"
+  }, {
+    "seq" : 11,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/WhatsappApiServiceGenerator.java\", \"bytes\": 5212, \"lines\": 156, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 12,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/service/WhatsappBusinessCloudApiService.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/service/WhatsappBusinessCloudApiService.java\", \"bytes\": 1791, \"lines\": 58, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 13,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/com/whatsapp/api/impl/WhatsappBusinessCloudApiTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/com/whatsapp/api/impl/WhatsappBusinessCloudApiTest.java\", \"bytes\": 1403, \"lines\": 30, \"startLine\": 249, \"truncated\": true}"
+  }, {
+    "seq" : 14,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/com/whatsapp/api/examples/UploadMediaExample.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/com/whatsapp/api/examples/UploadMediaExample.java\", \"bytes\": 952, \"lines\": 33, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 15,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/impl/WhatsappBusinessCloudApi.java\", \"bytes\": 742, \"lines\": 15, \"startLine\": 70, \"truncated\": true}"
+  }, {
+    "seq" : 16,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "pom.xml okhttp3",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"pom.xml okhttp3\", \"truncated\": false}"
+  }, {
+    "seq" : 17,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "build.gradle",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"build.gradle\", \"truncated\": false}"
+  }, {
+    "seq" : 18,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "okhttp3 version",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"okhttp3 version\", \"truncated\": false}"
+  }, {
+    "seq" : 19,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "FileType",
+    "reason" : "find",
+    "detail" : "{\"hits\": 12, \"query\": \"FileType\", \"truncated\": false}"
+  }, {
+    "seq" : 20,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/domain/media/FileType.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/domain/media/FileType.java\", \"bytes\": 1952, \"lines\": 112, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 21,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "build.gradle okhttp",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"build.gradle okhttp\", \"truncated\": false}"
+  }, {
+    "seq" : 22,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "gradle",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"gradle\", \"truncated\": false}"
+  }, {
+    "seq" : 23,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "okhttp3",
+    "reason" : "find",
+    "detail" : "{\"hits\": 4, \"query\": \"okhttp3\", \"truncated\": false}"
+  }, {
+    "seq" : 24,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/com/whatsapp/api/interceptor/AuthenticationInterceptor.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/com/whatsapp/api/interceptor/AuthenticationInterceptor.java\", \"bytes\": 845, \"lines\": 37, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 25,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "find",
+    "detail" : "{\"repeat_of\": 6}"
+  }, {
+    "seq" : 26,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "dependency okhttp",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"dependency okhttp\", \"truncated\": false}"
+  }, {
+    "seq" : 27,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "retrofit2",
+    "reason" : "find",
+    "detail" : "{\"hits\": 3, \"query\": \"retrofit2\", \"truncated\": false}"
+  }, {
+    "seq" : 28,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "xml dependency",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"xml dependency\", \"truncated\": false}"
+  }, {
+    "seq" : 29,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "build.gradle.kts",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"build.gradle.kts\", \"truncated\": false}"
+  }, {
+    "seq" : 30,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "whatsapp-business-java-api pom",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"whatsapp-business-java-api pom\", \"truncated\": false}"
+  }, {
+    "seq" : 31,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "groupId com.squareup.okhttp3",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"groupId com.squareup.okhttp3\", \"truncated\": false}"
+  }, {
+    "seq" : 32,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "squareup",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"squareup\", \"truncated\": false}"
+  }, {
+    "seq" : 33,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "build file",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"build file\", \"truncated\": false}"
+  }, {
+    "seq" : 34,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "WhatsappApiFactory",
+    "reason" : "find",
+    "detail" : "{\"hits\": 34, \"query\": \"WhatsappApiFactory\", \"truncated\": false}"
+  }, {
+    "seq" : 35,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "xml",
+    "reason" : "find",
+    "detail" : "{\"hits\": 41, \"query\": \"xml\", \"truncated\": false}"
+  }, {
+    "seq" : 36,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "read",
+    "detail" : "{\"path\": \"pom.xml\", \"bytes\": 5284, \"lines\": 139, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 37,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "MultipartBody.create",
+    "reason" : "find",
+    "detail" : "{\"hits\": 1, \"query\": \"MultipartBody.create\", \"truncated\": false}"
+  }, {
+    "seq" : 38,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "pom.xml",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 8, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

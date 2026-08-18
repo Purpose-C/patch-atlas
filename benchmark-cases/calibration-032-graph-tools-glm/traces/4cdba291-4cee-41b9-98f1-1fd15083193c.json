@@ -1,0 +1,133 @@
+{
+  "runId" : "4cdba291-4cee-41b9-98f1-1fd15083193c",
+  "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": false, \"durationMs\": 979}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "property path conflict",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"property path conflict\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "YAML serialization property",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"YAML serialization property\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "YamlConfiguration",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"YamlConfiguration\", \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "ConfigurationSection",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"ConfigurationSection\", \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "snakeyaml",
+    "reason" : "find",
+    "detail" : "{\"hits\": 50, \"query\": \"snakeyaml\", \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "DumperOptions",
+    "reason" : "find",
+    "detail" : "{\"hits\": 19, \"query\": \"DumperOptions\", \"truncated\": false}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImpl.java\", \"bytes\": 3291, \"lines\": 89, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 8,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/YamlFileResource.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/YamlFileResource.java\", \"bytes\": 7365, \"lines\": 189, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 9,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainer.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainer.java\", \"bytes\": 2013, \"lines\": 51, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 10,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "PropertyPathTraverser",
+    "reason" : "find",
+    "detail" : "{\"hits\": 32, \"query\": \"PropertyPathTraverser\", \"truncated\": false}"
+  }, {
+    "seq" : 11,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/PropertyPathTraverser.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/PropertyPathTraverser.java\", \"bytes\": 5616, \"lines\": 156, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 12,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImplTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImplTest.java\", \"bytes\": 8006, \"lines\": 165, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 13,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "YamlFileResourceTest",
+    "reason" : "find",
+    "detail" : "{\"hits\": 18, \"query\": \"YamlFileResourceTest\", \"truncated\": false}"
+  }, {
+    "seq" : 14,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java\", \"bytes\": 9009, \"lines\": 200, \"startLine\": 49, \"truncated\": true}"
+  }, {
+    "seq" : 15,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImpl.java\", \"bytes\": 7772, \"lines\": 174, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 16,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java\", \"bytes\": 5878, \"lines\": 160, \"startLine\": 249, \"truncated\": false}"
+  }, {
+    "seq" : 17,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/YamlFileResource.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 8, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 1}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

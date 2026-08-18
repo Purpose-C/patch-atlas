@@ -1,0 +1,105 @@
+{
+  "runId" : "20282912-3905-4554-b818-2f770da5ce38",
+  "caseId" : "jhy-jsoup-9de27fa7cd82",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": true, \"durationMs\": 65}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "fixHeaderEncoding",
+    "reason" : "find",
+    "detail" : "{\"hits\": 2, \"query\": \"fixHeaderEncoding\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1926, \"lines\": 60, \"startLine\": 440, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1217, \"lines\": 40, \"startLine\": 500, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1552, \"lines\": 50, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 5,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "ISO_8859_1",
+    "reason" : "find",
+    "detail" : "{\"hits\": 2, \"query\": \"ISO_8859_1\", \"truncated\": false}"
+  }, {
+    "seq" : 6,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1017, \"lines\": 20, \"startLine\": 60, \"truncated\": true}"
+  }, {
+    "seq" : 7,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "getHeaderField",
+    "reason" : "find",
+    "detail" : "{\"hits\": 1, \"query\": \"getHeaderField\", \"truncated\": false}"
+  }, {
+    "seq" : 8,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 2961, \"lines\": 60, \"startLine\": 1100, \"truncated\": true}"
+  }, {
+    "seq" : 9,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1438, \"lines\": 30, \"startLine\": 1160, \"truncated\": true}"
+  }, {
+    "seq" : 10,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "fixHeaderEncoding test",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"fixHeaderEncoding test\", \"truncated\": false}"
+  }, {
+    "seq" : 11,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "header encoding utf8",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"header encoding utf8\", \"truncated\": false}"
+  }, {
+    "seq" : 12,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "looksLikeUtf8",
+    "reason" : "find",
+    "detail" : "{\"hits\": 2, \"query\": \"looksLikeUtf8\", \"truncated\": false}"
+  }, {
+    "seq" : 13,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 1, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

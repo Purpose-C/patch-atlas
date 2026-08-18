@@ -1,0 +1,112 @@
+{
+  "runId" : "ab83a26f-1ab4-4d28-9e0a-823ef3e61a9e",
+  "caseId" : "jhy-jsoup-a96ebc95f9ad",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SELECTION",
+    "outcome" : "OK",
+    "subject" : "graph",
+    "reason" : "GRAPH_BUILD",
+    "detail" : "{\"cacheHit\": true, \"durationMs\": 79}"
+  }, {
+    "seq" : 1,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "HttpConnection",
+    "reason" : "find",
+    "detail" : "{\"hits\": 50, \"query\": \"HttpConnection\", \"truncated\": true}"
+  }, {
+    "seq" : 2,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "URL encoder escape",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"URL encoder escape\", \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1981, \"lines\": 60, \"startLine\": 110, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 894, \"lines\": 30, \"startLine\": 170, \"truncated\": true}"
+  }, {
+    "seq" : 5,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "HttpConnectionTest",
+    "reason" : "find",
+    "detail" : "{\"hits\": 29, \"query\": \"HttpConnectionTest\", \"truncated\": false}"
+  }, {
+    "seq" : 6,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 1239, \"lines\": 30, \"startLine\": 257, \"truncated\": true}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1079, \"lines\": 40, \"startLine\": 79, \"truncated\": true}"
+  }, {
+    "seq" : 8,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "org.jsoup.helper.HttpConnection.Request#url",
+    "reason" : "find",
+    "detail" : "{\"hits\": 0, \"query\": \"org.jsoup.helper.HttpConnection.Request#url\", \"truncated\": false}"
+  }, {
+    "seq" : 9,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "class Request extends",
+    "reason" : "find",
+    "detail" : "{\"hits\": 1, \"query\": \"class Request extends\", \"truncated\": false}"
+  }, {
+    "seq" : 10,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 3133, \"lines\": 80, \"startLine\": 629, \"truncated\": true}"
+  }, {
+    "seq" : 11,
+    "kind" : "FIND",
+    "outcome" : "OK",
+    "subject" : "class Base",
+    "reason" : "find",
+    "detail" : "{\"hits\": 2, \"query\": \"class Base\", \"truncated\": false}"
+  }, {
+    "seq" : 12,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 2785, \"lines\": 80, \"startLine\": 396, \"truncated\": true}"
+  }, {
+    "seq" : 13,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 691, \"lines\": 25, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 14,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 2, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ ]
+}

@@ -6,6 +6,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.github.patchatlas.agent.GenerationInput;
@@ -278,6 +279,74 @@ class ToolBudgetCalibrationTest {
     }
 
     @Test
+    void graphLocatingRequestSendsFindExpandReadSubmitWithoutSearch() throws Exception {
+        wireMock.stubFor(post(urlPathMatching(".*/chat/completions"))
+                .willReturn(okJson(
+                        """
+                        {
+                          "id": "chatcmpl-graph-1",
+                          "object": "chat.completion",
+                          "created": 1,
+                          "model": "glm-5.2",
+                          "choices": [{
+                            "index": 0,
+                            "message": { "role": "assistant", "content": "done" },
+                            "finish_reason": "stop"
+                          }],
+                          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                        }
+                        """)));
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("graph-git"));
+        Path root = Files.createDirectories(temp.resolve("graph-root"));
+        Path graphCache = Files.createDirectories(temp.resolve("graph-cache"));
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder(),
+                null,
+                ToolBudgetCalibration.graphLoop(
+                        OpenAiChatModelFactory.create("sk-test", "glm-5.2", wireMock.baseUrl()),
+                        "glm-5.2",
+                        graphCache));
+        ClaimedRun claimed = new ClaimedRun(
+                UUID.randomUUID(),
+                VerificationMode.LIVE,
+                RunState.LOCATING,
+                1L,
+                new RunLease(UUID.randomUUID(), "owner", Instant.now().plusSeconds(60)),
+                0,
+                0,
+                Optional.empty());
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        GenerationInput input = new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        fixture.buggySha(),
+                        "",
+                        "21"),
+                "title",
+                "body",
+                List.of());
+        coordinator.run(claimed, input, session, RunPurpose.DIAGNOSTIC, ContextOrigin.GRAPH_TOOLS);
+        String requestBody = wireMock.findAll(postRequestedFor(urlPathMatching(".*/chat/completions")))
+                .getFirst()
+                .getBodyAsString();
+        assertThat(requestBody).contains("\"name\":\"find\"");
+        assertThat(requestBody).contains("\"name\":\"expand\"");
+        assertThat(requestBody).contains("\"name\":\"read\"");
+        assertThat(requestBody).contains("\"name\":\"submit\"");
+        assertThat(requestBody).doesNotContain("\"name\":\"search\"");
+        assertThat(requestBody).doesNotContain("\"name\":\"list\"");
+        assertThat(requestBody).doesNotContain("patchText");
+        assertThat(requestBody).doesNotContain("json_schema");
+        assertThat(session.traces())
+                .anyMatch(step -> "GRAPH_BUILD".equals(step.reason()));
+    }
+
+    @Test
     void matchesCaseUsesOptionalCaseIdSubstring() {
         ToolBudgetCalibration.Slot slot = slotWithDigest("a".repeat(64));
         ToolBudgetCalibration.PreparedCase prepared =
@@ -330,6 +399,74 @@ class ToolBudgetCalibrationTest {
                 List.of(),
                 List.of(
                         LocatingTraceStep.of(0, LocatingStepKind.SEARCH, ".", "search", "{}"),
+                        LocatingTraceStep.of(1, LocatingStepKind.READ, "src/A.java", "read", "{}"),
+                        LocatingTraceStep.of(2, LocatingStepKind.SUBMIT, "src/A.java", "submit", "{}"))));
+        assertThat(ToolBudgetCalibration.smokeVerdict(explored)).isEqualTo("smoke passed");
+    }
+
+    @Test
+    void parseOriginDefaultsToTextToolsAndAcceptsGraphTools() {
+        assertThat(ToolBudgetCalibration.parseOrigin(null)).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(ToolBudgetCalibration.parseOrigin("  ")).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(ToolBudgetCalibration.parseOrigin("TEXT_TOOLS")).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(ToolBudgetCalibration.parseOrigin("GRAPH_TOOLS")).isEqualTo(ContextOrigin.GRAPH_TOOLS);
+        assertThat(ToolBudgetCalibration.defaultOutput(ContextOrigin.TEXT_TOOLS))
+                .isEqualTo("benchmark-cases/calibration-027-tool-budget");
+        assertThat(ToolBudgetCalibration.defaultOutput(ContextOrigin.GRAPH_TOOLS))
+                .isEqualTo("benchmark-cases/calibration-032-graph-tools-glm");
+        assertThatThrownBy(() -> ToolBudgetCalibration.parseOrigin("HEURISTIC"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported calibrate origin");
+    }
+
+    @Test
+    void submissionCanSelectGraphToolsWithoutFixedRevision() {
+        ToolBudgetCalibration.Slot slot = slotWithDigest("b".repeat(64));
+        ToolBudgetCalibration.PreparedCase prepared =
+                new ToolBudgetCalibration.PreparedCase(slot, "title", "body");
+        RunSubmission submission = ToolBudgetCalibration.submission(prepared, ContextOrigin.GRAPH_TOOLS);
+
+        assertThat(submission.mode()).isEqualTo(VerificationMode.LIVE);
+        assertThat(submission.fixedRevision()).isNull();
+        assertThat(submission.contextOrigin()).isEqualTo(ContextOrigin.GRAPH_TOOLS);
+        assertThat(submission.sourceSnapshots()).isEmpty();
+    }
+
+    @Test
+    void toolCallsCountFindAndExpandButNotGraphBuild() {
+        LocatingTraceStep build = LocatingTraceStep.of(
+                0, LocatingStepKind.SELECTION, "graph", "GRAPH_BUILD", "{\"durationMs\":12,\"cacheHit\":false}");
+        LocatingTraceStep find = LocatingTraceStep.of(1, LocatingStepKind.FIND, ".", "find", "{}");
+        LocatingTraceStep expand = LocatingTraceStep.of(2, LocatingStepKind.EXPAND, "e1", "expand", "{}");
+        LocatingTraceStep read = LocatingTraceStep.of(3, LocatingStepKind.READ, "src/A.java", "read", "{}");
+        LocatingTraceStep submit = LocatingTraceStep.of(4, LocatingStepKind.SUBMIT, "src/A.java", "submit", "{}");
+        assertThat(ToolBudgetCalibration.toolCalls(List.of(build, find, expand, read, submit))).isEqualTo(4);
+        assertThat(ToolBudgetCalibration.graphBuild(List.of(build, find)))
+                .contains(new ToolBudgetCalibration.GraphBuild(12L, false));
+        assertThat(ToolBudgetCalibration.graphBuild(List.of(find))).isEmpty();
+    }
+
+    @Test
+    void smokeVerdictAcceptsFindThenReadThenSubmit() {
+        ToolBudgetCalibration.Report explored =
+                ToolBudgetCalibration.Report.empty("glm-5.2", "https://example.invalid", Instant.now());
+        explored.absorb(new ToolBudgetCalibration.SessionRow(
+                UUID.randomUUID().toString(),
+                "case",
+                1,
+                Instant.now().toString(),
+                10L,
+                3,
+                true,
+                "SUBMIT",
+                false,
+                false,
+                false,
+                true,
+                List.of(),
+                List.of(),
+                List.of(
+                        LocatingTraceStep.of(0, LocatingStepKind.FIND, ".", "find", "{}"),
                         LocatingTraceStep.of(1, LocatingStepKind.READ, "src/A.java", "read", "{}"),
                         LocatingTraceStep.of(2, LocatingStepKind.SUBMIT, "src/A.java", "submit", "{}"))));
         assertThat(ToolBudgetCalibration.smokeVerdict(explored)).isEqualTo("smoke passed");

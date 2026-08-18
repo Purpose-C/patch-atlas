@@ -4,6 +4,8 @@ import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
+import io.github.patchatlas.analysis.ChatClientGraphToolsLocator;
+import io.github.patchatlas.analysis.JavaParserCodeGraphBuilder;
 import io.github.patchatlas.analysis.LocalizationBudget;
 import io.github.patchatlas.analysis.LocalizationToolCallingManager;
 import io.github.patchatlas.analysis.LocalizationTools;
@@ -48,10 +50,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * One-off TEXT_TOOLS locating sampler. Not a production entry.
+ * One-off locating sampler. Not a production entry.
  *
  * <p>Reads the frozen cohort, fetches public Issue text, checks {@code issueContentSha256},
- * then submits {@code LIVE + DIAGNOSTIC + TEXT_TOOLS} and runs locating only.
+ * then submits {@code LIVE + DIAGNOSTIC} with {@code TEXT_TOOLS} or {@code GRAPH_TOOLS}
+ * ({@code PATCHATLAS_CALIBRATE_ORIGIN}) and runs locating only.
  */
 final class ToolBudgetCalibration {
 
@@ -83,9 +86,8 @@ final class ToolBudgetCalibration {
     static int execute() throws Exception {
         Path projectRoot = Path.of("").toAbsolutePath().normalize();
         Path artifactsRoot = projectRoot.resolve("benchmark-cases/task018");
-        Path output = Path.of(envOrDefault(
-                        "PATCHATLAS_CALIBRATION_OUTPUT",
-                        "benchmark-cases/calibration-027-tool-budget"))
+        ContextOrigin origin = contextOrigin();
+        Path output = Path.of(envOrDefault("PATCHATLAS_CALIBRATION_OUTPUT", defaultOutput(origin)))
                 .toAbsolutePath()
                 .normalize();
         Path workspaceRoot = Path.of(requiredEnv("PATCHATLAS_WORKER_WORKSPACE_ROOT"))
@@ -94,7 +96,9 @@ final class ToolBudgetCalibration {
         if (!Files.isDirectory(workspaceRoot)) {
             throw new IllegalStateException("workspace root must be an existing directory");
         }
+        Path graphCache = projectRoot.resolve(".patch-atlas-cache/code-graph");
         Files.createDirectories(output.resolve("traces"));
+        Files.createDirectories(graphCache);
 
         String apiKey = requiredEnv("OPENAI_API_KEY");
         String model = envOrDefault("PATCHATLAS_OPENAI_MODEL", DEFAULT_MODEL);
@@ -160,7 +164,7 @@ final class ToolBudgetCalibration {
                     report.stopReason = report.submits >= MAX_SUBMITS ? "submit cap 25" : "wall clock 2h";
                     break;
                 }
-                SessionRow row = runOne(store, workspaces, chatModel, model, item, repeat);
+                SessionRow row = runOne(store, workspaces, chatModel, model, item, repeat, graphCache, origin);
                 report.absorb(row);
                 writeReportFiles(output, report);
                 System.out.println("session case="
@@ -249,7 +253,12 @@ final class ToolBudgetCalibration {
     }
 
     static RunSubmission submission(PreparedCase prepared) {
+        return submission(prepared, contextOrigin());
+    }
+
+    static RunSubmission submission(PreparedCase prepared, ContextOrigin origin) {
         Objects.requireNonNull(prepared, "prepared");
+        Objects.requireNonNull(origin, "origin");
         Slot slot = prepared.slot();
         return new RunSubmission(
                 VerificationMode.LIVE,
@@ -265,7 +274,33 @@ final class ToolBudgetCalibration {
                 slot.javaVersion(),
                 MavenNetworkMode.ONLINE,
                 List.of(),
-                ContextOrigin.TEXT_TOOLS);
+                origin);
+    }
+
+    static ContextOrigin contextOrigin() {
+        return parseOrigin(System.getenv("PATCHATLAS_CALIBRATE_ORIGIN"));
+    }
+
+    static ContextOrigin parseOrigin(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ContextOrigin.TEXT_TOOLS;
+        }
+        String value = raw.strip();
+        if (ContextOrigin.TEXT_TOOLS.name().equals(value)) {
+            return ContextOrigin.TEXT_TOOLS;
+        }
+        if (ContextOrigin.GRAPH_TOOLS.name().equals(value)) {
+            return ContextOrigin.GRAPH_TOOLS;
+        }
+        throw new IllegalArgumentException("unsupported calibrate origin: " + value);
+    }
+
+    static String defaultOutput(ContextOrigin origin) {
+        Objects.requireNonNull(origin, "origin");
+        if (origin == ContextOrigin.GRAPH_TOOLS) {
+            return "benchmark-cases/calibration-032-graph-tools-glm";
+        }
+        return "benchmark-cases/calibration-027-tool-budget";
     }
 
     static boolean isParallelGuard(String summary) {
@@ -330,7 +365,7 @@ final class ToolBudgetCalibration {
         int count = 0;
         for (LocatingTraceStep step : traces) {
             switch (step.kind()) {
-                case SEARCH, LIST, READ, SUBMIT -> count++;
+                case SEARCH, LIST, FIND, EXPAND, READ, SUBMIT -> count++;
                 default -> {}
             }
         }
@@ -372,7 +407,10 @@ final class ToolBudgetCalibration {
         boolean read = false;
         boolean submitted = row.reachedSubmit;
         for (LocatingTraceStep step : row.traces) {
-            if (step.kind() == LocatingStepKind.SEARCH || step.kind() == LocatingStepKind.LIST) {
+            if (step.kind() == LocatingStepKind.SEARCH
+                    || step.kind() == LocatingStepKind.LIST
+                    || step.kind() == LocatingStepKind.FIND
+                    || step.kind() == LocatingStepKind.EXPAND) {
                 searched = true;
             }
             if (step.kind() == LocatingStepKind.READ) {
@@ -432,10 +470,12 @@ final class ToolBudgetCalibration {
             ChatModel chatModel,
             String modelName,
             PreparedCase prepared,
-            int repeat)
+            int repeat,
+            Path graphCache,
+            ContextOrigin origin)
             throws Exception {
         Instant started = Instant.now();
-        UUID runId = store.submitDiagnostic(submission(prepared));
+        UUID runId = store.submitDiagnostic(submission(prepared, origin));
         ClaimedRun claimed = store.claimNext(OWNER, LEASE)
                 .orElseThrow(() -> new IllegalStateException("claimNext empty after submit"));
         if (!claimed.runId().equals(runId)) {
@@ -446,7 +486,8 @@ final class ToolBudgetCalibration {
                 workspaces,
                 new BuggyRepositoryReader(),
                 new BuggyOnlyGeneratorContextBuilder(),
-                recordingLoop(chatModel, modelName, recorded));
+                recordingLoop(chatModel, modelName, recorded),
+                graphLoop(chatModel, modelName, graphCache));
         String termination = "OTHER";
         boolean transport = false;
         boolean parallel = false;
@@ -455,7 +496,6 @@ final class ToolBudgetCalibration {
                 store, ClaimHandle.from(claimed), OWNER, LEASE, HEARTBEAT)) {
             GenerationInput input = store.loadGenerationInput(runId);
             RunPurpose purpose = store.findRunDetail(runId).orElseThrow().purpose();
-            ContextOrigin origin = store.loadContextOrigin(runId).orElse(ContextOrigin.HEURISTIC);
             LocatingCoordinator.Result result = coordinator.run(
                     claimed, input, new LeaseHeartbeatLocatingRunSession(beat), purpose, origin);
             switch (result) {
@@ -526,6 +566,7 @@ final class ToolBudgetCalibration {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("endpoint", report.baseUrl);
         root.put("model", report.model);
+        root.put("contextOrigin", contextOrigin().name());
         root.put("measureMaxToolCalls", MEASURE_MAX_CALLS);
         root.put("measureWallClock", MEASURE_WALL_CLOCK.toString());
         root.put("startedAt", report.startedAt.toString());
@@ -696,6 +737,10 @@ final class ToolBudgetCalibration {
             map.put("parallelGuard", parallelGuard);
             map.put("startedLocating", startedLocating);
             map.put("submitRejections", submitRejections);
+            graphBuild(traces).ifPresent(build -> {
+                map.put("graphBuildDurationMs", build.durationMs());
+                map.put("cacheHit", build.cacheHit());
+            });
             return map;
         }
     }
@@ -824,9 +869,38 @@ final class ToolBudgetCalibration {
         }
     }
 
+    static Optional<GraphBuild> graphBuild(List<LocatingTraceStep> traces) {
+        Objects.requireNonNull(traces, "traces");
+        for (LocatingTraceStep step : traces) {
+            if (step.kind() != LocatingStepKind.SELECTION || !"GRAPH_BUILD".equals(step.reason())) {
+                continue;
+            }
+            JsonNode detail = JSON.readTree(step.detailJson() == null ? "{}" : step.detailJson());
+            JsonNode duration = detail.get("durationMs");
+            JsonNode hit = detail.get("cacheHit");
+            long durationMs = duration == null || duration.isNull() ? 0L : duration.asLong();
+            boolean cacheHit = hit != null && !hit.isNull() && hit.asBoolean();
+            return Optional.of(new GraphBuild(durationMs, cacheHit));
+        }
+        return Optional.empty();
+    }
+
+    record GraphBuild(long durationMs, boolean cacheHit) {}
+
     static LocatingCoordinator.TextToolsLoop recordingLoop(
             ChatModel chatModel, String modelName, RecordingTools tools) {
         return new RecordingLoop(chatModel, modelName, tools);
+    }
+
+    static LocatingCoordinator.GraphToolsLoop graphLoop(ChatModel chatModel, String modelName, Path graphCache) {
+        LocalizationBudget budget = new LocalizationBudget(MEASURE_MAX_CALLS, MEASURE_WALL_CLOCK, Instant.now());
+        return new ChatClientGraphToolsLocator(
+                chatModel,
+                locatingOptions(modelName),
+                budget,
+                new JavaParserCodeGraphBuilder(),
+                ChatClientGraphToolsLocator.GRAPH_BUILD_TIMEOUT,
+                graphCache);
     }
 
     private static final class RecordingLoop implements LocatingCoordinator.TextToolsLoop {
