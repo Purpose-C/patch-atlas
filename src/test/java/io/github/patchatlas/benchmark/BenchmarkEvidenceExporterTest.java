@@ -5,7 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
+import io.github.patchatlas.agent.PatchRejectionCategory;
 import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.CaseResult;
+import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.CaseRejections;
+import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.GenerationRejection;
+import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.GenerationRejectionLog;
 import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.ResultsExport;
 import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.replay.ReplayVerdict;
@@ -261,6 +265,109 @@ class BenchmarkEvidenceExporterTest {
     }
 
     @Test
+    void frozenRejectionLogKeepsExistingFieldsWithoutRejectionCategory() throws IOException {
+        GenerationRejectionLog log = new BenchmarkArtifacts().readJson(
+                Path.of("benchmark-cases/task018/generation-rejections.json"),
+                GenerationRejectionLog.class);
+
+        assertThat(log.cases()).extracting(CaseRejections::caseId)
+                .containsExactly(
+                        "jhy-jsoup-a96ebc95f9ad",
+                        "jhy-jsoup-9de27fa7cd82",
+                        "AuthMe-ConfigMe-7bf10c513479");
+        for (CaseRejections item : log.cases()) {
+            assertThat(item.rejections()).isNotEmpty();
+            for (GenerationRejection rejection : item.rejections()) {
+                assertThat(rejection.feedbackCategory()).isEqualTo("PATCH_POLICY_REJECTED");
+                assertThat(rejection.feedbackSummary()).isIn("trailing non-patch text", "hunk new count mismatch");
+                assertThat(rejection.rejectionCategory()).isNull();
+            }
+        }
+        assertThat(log.cases().get(0).rejections())
+                .extracting(GenerationRejection::feedbackSummary)
+                .containsOnly("trailing non-patch text");
+        assertThat(log.cases().get(1).rejections())
+                .extracting(GenerationRejection::feedbackSummary)
+                .containsOnly("hunk new count mismatch");
+    }
+
+    @Test
+    void rejectionCategoryKeepsPatchGateDistinctionsThatFeedbackCategoryFlattens() throws IOException {
+        Files.writeString(tempDir.resolve("generation-rejections.json"), """
+                {
+                  "cases": [
+                    {
+                      "caseId": "case-4",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_POLICY_REJECTED",
+                          "feedbackSummary": "cannot derive unique target test",
+                          "rejectionCategory": "TARGET_TEST_NOT_DERIVABLE"
+                        }
+                      ]
+                    },
+                    {
+                      "caseId": "case-5",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_POLICY_REJECTED",
+                          "feedbackSummary": "target file not in patch",
+                          "rejectionCategory": "TARGET_NOT_CHANGED_BY_PATCH"
+                        }
+                      ]
+                    },
+                    {
+                      "caseId": "case-6",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_APPLICATION_FAILED",
+                          "feedbackSummary": "application failure",
+                          "rejectionCategory": "APPLICATION_FAILURE"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agentFailedNoCandidate(4, "case-4", 1),
+                agentFailedNoCandidate(5, "case-5", 1),
+                agentFailedNoCandidate(6, "case-6", 1));
+
+        new BenchmarkEvidenceExporter().export(COHORT, results, protocolPath, tempDir);
+
+        GenerationRejectionLog log = new BenchmarkArtifacts().readJson(
+                tempDir.resolve("generation-rejections.json"),
+                GenerationRejectionLog.class);
+        assertThat(log.cases().get(0).rejections().get(0).feedbackCategory())
+                .isEqualTo("PATCH_POLICY_REJECTED");
+        assertThat(log.cases().get(1).rejections().get(0).feedbackCategory())
+                .isEqualTo("PATCH_POLICY_REJECTED");
+        assertThat(log.cases().get(0).rejections().get(0).feedbackSummary())
+                .isEqualTo("cannot derive unique target test");
+        assertThat(log.cases().get(1).rejections().get(0).feedbackSummary())
+                .isEqualTo("target file not in patch");
+        assertThat(log.cases().get(0).rejections().get(0).rejectionCategory())
+                .isEqualTo(PatchRejectionCategory.TARGET_TEST_NOT_DERIVABLE);
+        assertThat(log.cases().get(1).rejections().get(0).rejectionCategory())
+                .isEqualTo(PatchRejectionCategory.TARGET_NOT_CHANGED_BY_PATCH);
+        assertThat(log.cases().get(2).rejections().get(0).rejectionCategory())
+                .isEqualTo(PatchRejectionCategory.APPLICATION_FAILURE);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("| TARGET_TEST_NOT_DERIVABLE | 1 |");
+        assertThat(md).contains("| TARGET_NOT_CHANGED_BY_PATCH | 1 |");
+        assertThat(md).contains("| APPLICATION_FAILURE | 1 |");
+        assertThat(md).contains("| trailing non-patch text |");
+    }
+
+    @Test
     void exportsLocalizationCoverageNumbersAndNotApplicable() throws IOException {
         List<CaseResult> results = List.of(
                 calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
@@ -372,13 +479,17 @@ class BenchmarkEvidenceExporterTest {
     }
 
     private static CaseResult agentFailedNoCandidate(int pos, String caseId) {
+        return agentFailedNoCandidate(pos, caseId, 3);
+    }
+
+    private static CaseResult agentFailedNoCandidate(int pos, String caseId, int attempts) {
         return new CaseResult(
                 pos, caseId, RunPurpose.AGENT_BENCHMARK, UUID.randomUUID(),
                 RunState.FAILED, null,
                 Optional.empty(),
                 Optional.of("GENERATION"), Optional.of("GENERATION_EXHAUSTED"),
                 Optional.of("generation attempts exhausted"),
-                3, "openai", "gpt-4.1-mini", 100, 200, 300, 1,
+                attempts, "openai", "gpt-4.1-mini", 100, 200, 300, 1,
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 NOW, NOW);
     }

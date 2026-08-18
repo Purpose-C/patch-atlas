@@ -1,5 +1,6 @@
 package io.github.patchatlas.benchmark;
 
+import io.github.patchatlas.agent.PatchRejectionCategory;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
@@ -323,13 +324,21 @@ public final class BenchmarkEvidenceExporter {
         return export;
     }
 
-    public record GenerationRejection(int attemptOrdinal, String feedbackCategory, String feedbackSummary) {
+    public record GenerationRejection(
+            int attemptOrdinal,
+            String feedbackCategory,
+            String feedbackSummary,
+            PatchRejectionCategory rejectionCategory) {
         public GenerationRejection {
             if (attemptOrdinal < 1) {
                 throw new IllegalArgumentException("attemptOrdinal must be >= 1");
             }
             Objects.requireNonNull(feedbackCategory, "feedbackCategory");
             Objects.requireNonNull(feedbackSummary, "feedbackSummary");
+        }
+
+        public GenerationRejection(int attemptOrdinal, String feedbackCategory, String feedbackSummary) {
+            this(attemptOrdinal, feedbackCategory, feedbackSummary, null);
         }
     }
 
@@ -536,6 +545,7 @@ public final class BenchmarkEvidenceExporter {
                     .append("This Gate therefore measures whether a model can emit a patch that satisfies this Gate, ")
                     .append("including a non-safety cleanliness rule. A different Gate tolerance would change the numbers. ")
                     .append("This batch does not change the Gate; the observation belongs to follow-up work.\n\n");
+            appendRejectionCategoryTable(md, rejections);
         }
 
         boolean allAgentsExhaustedAtGate = results.stream()
@@ -551,6 +561,34 @@ public final class BenchmarkEvidenceExporter {
         }
 
         Files.writeString(outputDir.resolve("evidence-report.md"), md.toString(), StandardCharsets.UTF_8);
+    }
+
+    private static void appendRejectionCategoryTable(StringBuilder md, GenerationRejectionLog rejections) {
+        int[] counts = new int[PatchRejectionCategory.values().length];
+        int categorized = 0;
+        for (CaseRejections item : rejections.cases()) {
+            for (GenerationRejection rejection : item.rejections()) {
+                PatchRejectionCategory category = rejection.rejectionCategory();
+                if (category != null) {
+                    counts[category.ordinal()]++;
+                    categorized++;
+                }
+            }
+        }
+        if (categorized == 0) {
+            return;
+        }
+        md.append("## Generation Rejection Category\n\n");
+        md.append("`rejectionCategory` is the Patch Gate category. ");
+        md.append("`feedbackCategory` remains the bounded generation-feedback class.\n\n");
+        md.append("| rejectionCategory | Count |\n| --- | --- |\n");
+        for (PatchRejectionCategory category : PatchRejectionCategory.values()) {
+            int count = counts[category.ordinal()];
+            if (count > 0) {
+                md.append("| ").append(category.name()).append(" | ").append(count).append(" |\n");
+            }
+        }
+        md.append('\n');
     }
 
     private static String coverageCell(Score score) {
