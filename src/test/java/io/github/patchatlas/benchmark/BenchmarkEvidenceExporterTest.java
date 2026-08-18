@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -377,10 +378,10 @@ class BenchmarkEvidenceExporterTest {
                 agent(5, "case-5", ReplayVerdict.NOT_REPRODUCED, false),
                 agent(6, "case-6", null, true));
         List<Score> coverage = List.of(
-                new Score.Measured(true, 1.0, 0.5, 2),
+                new Score.Measured(true, 1.0, OptionalDouble.of(0.5), 2),
                 new Score.NotApplicable(),
-                new Score.Measured(false, 0.0, 0.0, 1),
-                new Score.Measured(true, 1.0 / 3.0, 0.5, 2),
+                new Score.Measured(false, 0.0, OptionalDouble.of(0.0), 1),
+                new Score.Measured(true, 1.0 / 3.0, OptionalDouble.of(0.5), 2),
                 new Score.NotApplicable(),
                 new Score.NotApplicable());
 

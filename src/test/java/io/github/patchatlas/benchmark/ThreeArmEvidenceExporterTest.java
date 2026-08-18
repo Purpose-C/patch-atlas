@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -174,7 +175,11 @@ class ThreeArmEvidenceExporterTest {
         int selected = locatingMiss ? 0 : origin == ContextOrigin.HEURISTIC ? 12 : position;
         double precision = selected == 0 ? 0.0 : 0.5;
         double recall = selected == 0 ? 0.0 : 0.25;
-        Score coverage = new Score.Measured(selected > 0 && position <= 2, recall, precision, selected);
+        Score coverage = new Score.Measured(
+                selected > 0 && position <= 2,
+                recall,
+                selected == 0 ? OptionalDouble.empty() : OptionalDouble.of(precision),
+                selected);
         int expand = origin == ContextOrigin.GRAPH_TOOLS && position == 1 ? expandOnFirstGraphCase : 0;
         LocatingTokenAccounting tokens = origin == ContextOrigin.HEURISTIC
                 ? LocatingTokenAccounting.NONE

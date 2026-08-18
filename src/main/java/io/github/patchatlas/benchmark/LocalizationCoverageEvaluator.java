@@ -5,26 +5,41 @@ import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.RunState;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 /**
  * 文件级 Issue 定位覆盖率：anyHit / recall / precision / selectedCount 四个数一起给出。
  *
  * <p>Live 与空地面真值标不适用，不得记成 0。零命中才是真正的 0。
+ * 选中集为空时 precision 未定义（空 {@link java.util.OptionalDouble}），recall 与 anyHit 仍是有效观测。
  */
 public final class LocalizationCoverageEvaluator {
 
     static final int MAX_SELECTED = 12;
 
     public sealed interface Score permits Score.Measured, Score.NotApplicable {
-        record Measured(boolean anyHit, double recall, double precision, int selectedCount)
+        record Measured(boolean anyHit, double recall, OptionalDouble precision, int selectedCount)
                 implements Score {
             public Measured {
                 if (selectedCount < 0 || selectedCount > MAX_SELECTED) {
                     throw new IllegalArgumentException("selectedCount must be 0..12");
                 }
-                if (recall < 0.0 || recall > 1.0 || precision < 0.0 || precision > 1.0) {
-                    throw new IllegalArgumentException("recall and precision must be in 0..1");
+                if (recall < 0.0 || recall > 1.0) {
+                    throw new IllegalArgumentException("recall must be in 0..1");
+                }
+                Objects.requireNonNull(precision, "precision");
+                if (selectedCount == 0) {
+                    if (precision.isPresent()) {
+                        throw new IllegalArgumentException("precision is undefined when selectedCount is 0");
+                    }
+                } else if (precision.isEmpty()) {
+                    throw new IllegalArgumentException("precision is required when selectedCount > 0");
+                } else {
+                    double value = precision.getAsDouble();
+                    if (value < 0.0 || value > 1.0) {
+                        throw new IllegalArgumentException("precision must be in 0..1");
+                    }
                 }
             }
         }
@@ -60,7 +75,9 @@ public final class LocalizationCoverageEvaluator {
         hits.retainAll(truth);
         int selectedCount = chosen.size();
         double recall = (double) hits.size() / truth.size();
-        double precision = selectedCount == 0 ? 0.0 : (double) hits.size() / selectedCount;
+        OptionalDouble precision = selectedCount == 0
+                ? OptionalDouble.empty()
+                : OptionalDouble.of((double) hits.size() / selectedCount);
         return new Score.Measured(!hits.isEmpty(), recall, precision, selectedCount);
     }
 }

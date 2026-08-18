@@ -413,7 +413,10 @@ public final class BenchmarkEvidenceExporter {
             case null -> null;
             case Score.NotApplicable ignored -> null;
             case Score.Measured measured -> new LocalizationCoverageExport(
-                    measured.anyHit(), measured.recall(), measured.precision(), measured.selectedCount());
+                    measured.anyHit(),
+                    measured.recall(),
+                    measured.precision().orElse(0.0),
+                    measured.selectedCount());
         };
     }
 
@@ -592,7 +595,7 @@ public final class BenchmarkEvidenceExporter {
             case Score.NotApplicable ignored -> "N/A | N/A | N/A | N/A";
             case Score.Measured measured -> measured.anyHit()
                     + " | " + formatRatio(measured.recall())
-                    + " | " + formatRatio(measured.precision())
+                    + " | " + formatRatio(measured.precision().orElse(0.0))
                     + " | " + measured.selectedCount();
         };
     }

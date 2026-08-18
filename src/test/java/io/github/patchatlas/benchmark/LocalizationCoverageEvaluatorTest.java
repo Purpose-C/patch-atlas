@@ -7,6 +7,7 @@ import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.benchmark.RepairGroundTruthExtractor.Result;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.RunState;
+import java.util.OptionalDouble;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ class LocalizationCoverageEvaluatorTest {
         Score.Measured measured = (Score.Measured) score;
         assertThat(measured.anyHit()).isTrue();
         assertThat(measured.recall()).isEqualTo(1.0);
-        assertThat(measured.precision()).isEqualTo(0.5);
+        assertThat(measured.precision()).hasValue(0.5);
         assertThat(measured.selectedCount()).isEqualTo(2);
     }
 
@@ -47,7 +48,7 @@ class LocalizationCoverageEvaluatorTest {
         Score.Measured measured = (Score.Measured) score;
         assertThat(measured.anyHit()).isTrue();
         assertThat(measured.recall()).isEqualTo(1.0 / 3.0);
-        assertThat(measured.precision()).isEqualTo(0.5);
+        assertThat(measured.precision()).hasValue(0.5);
         assertThat(measured.selectedCount()).isEqualTo(2);
     }
 
@@ -64,8 +65,26 @@ class LocalizationCoverageEvaluatorTest {
         Score.Measured measured = (Score.Measured) score;
         assertThat(measured.anyHit()).isFalse();
         assertThat(measured.recall()).isEqualTo(0.0);
-        assertThat(measured.precision()).isEqualTo(0.0);
+        assertThat(measured.precision()).hasValue(0.0);
         assertThat(measured.selectedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void emptySelectionLeavesPrecisionUndefinedAndKeepsZeroRecall() {
+        Result truth = new Result.Applicable(Set.of("src/main/java/a/A.java"));
+        Score score = evaluator.score(
+                RunState.FAILED,
+                VerificationMode.HISTORICAL,
+                truth,
+                Set.of());
+
+        assertThat(score).isInstanceOf(Score.Measured.class);
+        Score.Measured measured = (Score.Measured) score;
+        assertThat(measured.anyHit()).isFalse();
+        assertThat(measured.recall()).isEqualTo(0.0);
+        assertThat(measured.precision()).isEmpty();
+        assertThat(measured.selectedCount()).isZero();
+        assertThat(score).isNotInstanceOf(Score.NotApplicable.class);
     }
 
     @Test
@@ -122,11 +141,17 @@ class LocalizationCoverageEvaluatorTest {
 
     @Test
     void measuredScoreRejectsOutOfRangeValues() {
-        assertThatThrownBy(() -> new Score.Measured(true, 1.0, 1.0, 13))
+        assertThatThrownBy(() -> new Score.Measured(true, 1.0, OptionalDouble.of(1.0), 13))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("selectedCount");
-        assertThatThrownBy(() -> new Score.Measured(true, 1.1, 0.0, 1))
+        assertThatThrownBy(() -> new Score.Measured(true, 1.1, OptionalDouble.of(0.0), 1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("recall");
+        assertThatThrownBy(() -> new Score.Measured(false, 0.0, OptionalDouble.of(0.0), 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("undefined");
+        assertThatThrownBy(() -> new Score.Measured(false, 0.0, OptionalDouble.empty(), 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("required");
     }
 }
