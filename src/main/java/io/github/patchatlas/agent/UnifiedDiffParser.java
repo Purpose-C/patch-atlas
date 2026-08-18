@@ -3,6 +3,7 @@ package io.github.patchatlas.agent;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +28,11 @@ final class UnifiedDiffParser {
     private UnifiedDiffParser() {}
 
     static ParseOutcome parse(String patchText) {
+        return parse(patchText, CompletionDiagnostics.unknown());
+    }
+
+    static ParseOutcome parse(String patchText, CompletionDiagnostics diagnostics) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
         if (patchText == null) {
             return reject("null patch");
         }
@@ -57,7 +63,7 @@ final class UnifiedDiffParser {
             if (!line.startsWith("diff --git ")) {
                 return reject("trailing non-patch text");
             }
-            FileParse file = parseFile(lines, i);
+            FileParse file = parseFile(lines, i, diagnostics.indicatesComplete());
             if (!file.ok()) {
                 return file.error;
             }
@@ -101,7 +107,7 @@ final class UnifiedDiffParser {
         return lines;
     }
 
-    private static FileParse parseFile(List<String> lines, int start) {
+    private static FileParse parseFile(List<String> lines, int start, boolean recountFromBody) {
         int i = start;
         String header = lines.get(i);
         String[] parts = header.split(" ");
@@ -310,10 +316,14 @@ final class UnifiedDiffParser {
                 return FileParse.err(ParseOutcome.reject(
                         PatchRejectionCategory.UNSUPPORTED_CHANGE_TYPE, "deletions not allowed"));
             }
-            if ((long) context + plus != newCount) {
+            long bodyNew = (long) context + plus;
+            long bodyOld = (long) context + minus;
+            if (recountFromBody) {
+                newCount = bodyNew;
+                oldCount = bodyOld;
+            } else if (bodyNew != newCount) {
                 return FileParse.err(reject("hunk new count mismatch"));
-            }
-            if ((long) context + minus != oldCount) {
+            } else if (bodyOld != oldCount) {
                 return FileParse.err(reject("hunk old count mismatch"));
             }
             if (kind == ParsedFileDiff.Kind.CREATE && (oldCount != 0 || context != 0)) {

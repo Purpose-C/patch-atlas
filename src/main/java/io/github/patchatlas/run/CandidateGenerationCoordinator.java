@@ -161,7 +161,8 @@ public final class CandidateGenerationCoordinator {
             return PatchGateOutcomeMapper.toDecision(
                     PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()), draft);
         }
-        return attemptInWorkspace(draft, claimAfterReserve, generationInput, executionPolicy, session);
+        return attemptInWorkspace(
+                draft, diagnostics, claimAfterReserve, generationInput, executionPolicy, session);
     }
 
     /**
@@ -175,6 +176,7 @@ public final class CandidateGenerationCoordinator {
      */
     private AttemptDecision attemptInWorkspace(
             CandidateDraft draft,
+            CompletionDiagnostics diagnostics,
             ClaimedRun claimAfterReserve,
             GenerationInput generationInput,
             MavenExecutionPolicy executionPolicy,
@@ -193,7 +195,8 @@ public final class CandidateGenerationCoordinator {
                     workspace.workspace(),
                     workspace.modulePath(),
                     draft,
-                    workspace.executionPolicy());
+                    workspace.executionPolicy(),
+                    diagnostics);
             if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
                 return PatchGateOutcomeMapper.toDecision(
                         PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()), draft);

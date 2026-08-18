@@ -66,6 +66,19 @@ class CandidateGenerationCoordinatorTest {
             +class Other {}
             """;
 
+    private static final String WRONG_OLD_AND_NEW_COUNT_PATCH =
+            """
+            diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
+            --- a/src/test/java/fixtures/OldTest.java
+            +++ b/src/test/java/fixtures/OldTest.java
+            @@ -6,99 +6,99 @@
+               @Test
+               void already() {}
+            +
+            +  @Test
+            +  void added() {}
+            """;
+
     private static final String HUNK_COUNT_MISMATCH_PATCH =
             """
             diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
@@ -133,6 +146,54 @@ class CandidateGenerationCoordinatorTest {
         assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
         assertThat(materializeLog).isEmpty();
         assertThat(session.generationAttemptCount()).isEqualTo(3);
+    }
+
+    @Test
+    void stopFinishReasonAcceptsHeaderCountMismatchAndAppliesBody() throws Exception {
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(WRONG_OLD_AND_NEW_COUNT_PATCH, TARGET),
+                Optional.empty(),
+                Optional.of(CompletionDiagnostics.of("stop", "0", "10"))));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.of(
+                ScriptedSandboxRunner.targetAssertionFailure(),
+                ScriptedSandboxRunner.targetAssertionFailure());
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.CandidateCommitted.class);
+        assertThat(session.generationAttemptCount()).isEqualTo(1);
+        assertThat(((CandidateGenerationCoordinator.Result.CandidateCommitted) result)
+                        .claim()
+                        .candidate()
+                        .orElseThrow()
+                        .patchText())
+                .isEqualTo(WRONG_OLD_AND_NEW_COUNT_PATCH);
+    }
+
+    @Test
+    void unknownFinishReasonStillRejectsHeaderCountMismatch() throws Exception {
+        FakeTestGenerator generator = FakeTestGenerator.of(new GenerationResult.GeneratedDraft(
+                new CandidateDraft(WRONG_OLD_AND_NEW_COUNT_PATCH, TARGET),
+                Optional.empty(),
+                Optional.of(CompletionDiagnostics.unknown())));
+        CandidateGenerationCoordinator coordinator = coordinator(generator, unusedSandbox());
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var result = coordinator.run(input, session);
+            assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+            List<ch.qos.logback.classic.spi.ILoggingEvent> rejected = rejectedEvents(appender);
+            assertThat(kv(rejected.getFirst())).containsEntry("feedback_summary", "hunk new count mismatch");
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test

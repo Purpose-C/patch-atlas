@@ -360,4 +360,68 @@ class PatchGateTest {
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         assertThat(Files.exists(workspace.resolve("core/src/test/java/com/ex/T.java"))).isTrue();
     }
+
+    @Test
+    void stopFinishReasonAppliesUsingBodyCountsNotHeader() throws Exception {
+        Path existing = workspace.resolve("src/test/java/fixtures/OldTest.java");
+        Files.createDirectories(existing.getParent());
+        Files.writeString(existing, EXISTING_TEST, StandardCharsets.UTF_8);
+        String expected =
+                """
+                package fixtures;
+
+                import org.junit.jupiter.api.Test;
+
+                class OldTest {
+                  @Test
+                  void already() {}
+
+                  @Test
+                  void added() {}
+                }
+                """;
+
+        CandidateDraft candidate = new CandidateDraft(
+                WRONG_HEADER_COUNTS_PATCH, new TargetTest("fixtures.OldTest", "added"));
+
+        PatchPreparationResult unknown = gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        assertThat(unknown).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
+        assertThat(((PatchPreparationResult.RejectedCandidate) unknown).reason())
+                .isEqualTo("hunk new count mismatch");
+        assertThat(Files.readString(existing)).isEqualTo(EXISTING_TEST);
+
+        PatchPreparationResult accepted = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.of("stop", "0", "10"));
+        assertThat(accepted).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
+        assertThat(Files.readString(existing)).isEqualTo(expected);
+    }
+
+    private static final String EXISTING_TEST =
+            """
+            package fixtures;
+
+            import org.junit.jupiter.api.Test;
+
+            class OldTest {
+              @Test
+              void already() {}
+            }
+            """;
+
+    private static final String WRONG_HEADER_COUNTS_PATCH =
+            """
+            diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
+            --- a/src/test/java/fixtures/OldTest.java
+            +++ b/src/test/java/fixtures/OldTest.java
+            @@ -6,99 +6,99 @@
+               @Test
+               void already() {}
+            +
+            +  @Test
+            +  void added() {}
+            """;
 }

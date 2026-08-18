@@ -63,7 +63,22 @@ public final class PatchGate {
                 workspace,
                 modulePath,
                 candidate,
-                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode));
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode),
+                CompletionDiagnostics.unknown());
+    }
+
+    public PatchPreparationResult prepare(
+            Path workspace,
+            String modulePath,
+            CandidateDraft candidate,
+            MavenNetworkMode networkMode,
+            CompletionDiagnostics diagnostics) {
+        return prepare(
+                workspace,
+                modulePath,
+                candidate,
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode),
+                diagnostics);
     }
 
     public PatchPreparationResult prepare(
@@ -71,10 +86,20 @@ public final class PatchGate {
             String modulePath,
             CandidateDraft candidate,
             MavenExecutionPolicy executionPolicy) {
+        return prepare(workspace, modulePath, candidate, executionPolicy, CompletionDiagnostics.unknown());
+    }
+
+    public PatchPreparationResult prepare(
+            Path workspace,
+            String modulePath,
+            CandidateDraft candidate,
+            MavenExecutionPolicy executionPolicy,
+            CompletionDiagnostics diagnostics) {
         Objects.requireNonNull(workspace, "workspace");
         Objects.requireNonNull(modulePath, "modulePath");
         Objects.requireNonNull(candidate, "candidate");
         Objects.requireNonNull(executionPolicy, "executionPolicy");
+        Objects.requireNonNull(diagnostics, "diagnostics");
 
         final Path trustedWorkspace;
         try {
@@ -83,7 +108,7 @@ public final class PatchGate {
             return reject(PatchRejectionCategory.WORKSPACE_UNSAFE, "workspace outside allowed root");
         }
 
-        PolicyDetails policy = inspectInternal(modulePath, candidate, executionPolicy);
+        PolicyDetails policy = inspectInternal(modulePath, candidate, executionPolicy, diagnostics);
         if (!policy.accepted()) {
             return policy.rejection();
         }
@@ -140,7 +165,8 @@ public final class PatchGate {
             return reject(PatchRejectionCategory.WORKSPACE_UNSAFE, "workspace outside allowed root");
         }
 
-        PolicyDetails policy = inspectInternal(modulePath, candidate, executionPolicy);
+        PolicyDetails policy = inspectInternal(
+                modulePath, candidate, executionPolicy, CompletionDiagnostics.unknown());
         if (!policy.accepted()) {
             return policy.rejection();
         }
@@ -178,7 +204,8 @@ public final class PatchGate {
         Objects.requireNonNull(modulePath, "modulePath");
         Objects.requireNonNull(candidate, "candidate");
         Objects.requireNonNull(executionPolicy, "executionPolicy");
-        PolicyDetails details = inspectInternal(modulePath, candidate, executionPolicy);
+        PolicyDetails details = inspectInternal(
+                modulePath, candidate, executionPolicy, CompletionDiagnostics.unknown());
         if (!details.accepted()) {
             return new PatchPolicyInspection.Rejected(
                     details.rejection().category(), details.rejection().reason());
@@ -189,7 +216,8 @@ public final class PatchGate {
     private static PolicyDetails inspectInternal(
             String modulePath,
             CandidateDraft candidate,
-            MavenExecutionPolicy executionPolicy) {
+            MavenExecutionPolicy executionPolicy,
+            CompletionDiagnostics diagnostics) {
         try {
             validateModulePath(modulePath);
         } catch (IllegalArgumentException ex) {
@@ -197,7 +225,8 @@ public final class PatchGate {
                     PatchRejectionCategory.UNSAFE_OR_OUT_OF_SCOPE_PATH, "unsafe module path"));
         }
 
-        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(candidate.patchText());
+        UnifiedDiffParser.ParseOutcome parsed =
+                UnifiedDiffParser.parse(candidate.patchText(), diagnostics);
         if (!parsed.isOk()) {
             return PolicyDetails.rejected(reject(parsed.category(), parsed.reason()));
         }

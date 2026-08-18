@@ -29,6 +29,14 @@ public record CompletionDiagnostics(String finishReason, String reasoningTokens,
         return new CompletionDiagnostics(finishReason, reasoningTokens, textTokens);
     }
 
+    /**
+     * 是否拿到「响应已完成」的正面证据。仅此时允许按正文重算 hunk 计数。
+     * {@code unknown} 与截断（{@code length}）都不是完成。
+     */
+    public boolean indicatesComplete() {
+        return "stop".equals(finishReason) || "tool_calls".equals(finishReason);
+    }
+
     private static String sanitizeFinish(String raw) {
         if (raw == null || raw.isBlank()) {
             return UNKNOWN;

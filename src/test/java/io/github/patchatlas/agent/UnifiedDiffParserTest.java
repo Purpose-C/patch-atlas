@@ -275,4 +275,161 @@ class UnifiedDiffParserTest {
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
+
+    @Test
+    void stopFinishReasonRecountsHunkCountsFromBody() {
+        UnifiedDiffParser.ParseOutcome outcome =
+                UnifiedDiffParser.parse(wrongHeaderCountsPatch(), complete("stop"));
+        assertThat(outcome.isOk()).isTrue();
+        ParsedFileDiff.Hunk hunk = outcome.files().getFirst().hunks().getFirst();
+        assertThat(hunk.oldCount()).isEqualTo(2);
+        assertThat(hunk.newCount()).isEqualTo(5);
+    }
+
+    @Test
+    void toolCallsFinishReasonRecountsHunkCountsFromBody() {
+        UnifiedDiffParser.ParseOutcome outcome =
+                UnifiedDiffParser.parse(wrongHeaderCountsPatch(), complete("tool_calls"));
+        assertThat(outcome.isOk()).isTrue();
+        ParsedFileDiff.Hunk hunk = outcome.files().getFirst().hunks().getFirst();
+        assertThat(hunk.oldCount()).isEqualTo(2);
+        assertThat(hunk.newCount()).isEqualTo(5);
+    }
+
+    @Test
+    void unknownFinishReasonStillRejectsCountMismatch() {
+        UnifiedDiffParser.ParseOutcome outcome =
+                UnifiedDiffParser.parse(wrongHeaderCountsPatch(), CompletionDiagnostics.unknown());
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
+        assertThat(outcome.reason()).isEqualTo("hunk new count mismatch");
+    }
+
+    @Test
+    void lengthFinishReasonDoesNotEnableRecount() {
+        UnifiedDiffParser.ParseOutcome outcome =
+                UnifiedDiffParser.parse(wrongHeaderCountsPatch(), complete("length"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.reason()).isEqualTo("hunk new count mismatch");
+    }
+
+    @Test
+    void stopStillRejectsDeletionLines() {
+        String patch =
+                """
+                diff --git a/src/test/java/fixtures/A.java b/src/test/java/fixtures/A.java
+                --- a/src/test/java/fixtures/A.java
+                +++ b/src/test/java/fixtures/A.java
+                @@ -1,1 +1,1 @@
+                -old
+                +new
+                """;
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.UNSUPPORTED_CHANGE_TYPE);
+    }
+
+    @Test
+    void stopStillRejectsCreatePatchWithOldFileContext() {
+        String patch =
+                """
+                diff --git a/src/test/java/fixtures/A.java b/src/test/java/fixtures/A.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/A.java
+                @@ -1,1 +1,2 @@
+                 package fixtures;
+                +class A {}
+                """;
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.reason()).contains("create patch must not carry old-file context");
+    }
+
+    @Test
+    void stopStillRejectsOverlappingHunksUsingRecountedCounts() {
+        String patch =
+                """
+                diff --git a/src/test/java/fixtures/A.java b/src/test/java/fixtures/A.java
+                --- a/src/test/java/fixtures/A.java
+                +++ b/src/test/java/fixtures/A.java
+                @@ -1,2 +1,3 @@
+                 a
+                 b
+                +x
+                @@ -2,1 +3,2 @@
+                 b
+                +y
+                """;
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.reason()).contains("overlapping");
+    }
+
+    @Test
+    void stopStillRejectsMoreThanTwoFiles() {
+        String patch = FakeTestGeneratorTest.minimalCreatePatch()
+                + """
+                diff --git a/src/test/java/fixtures/B.java b/src/test/java/fixtures/B.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/B.java
+                @@ -0,0 +1,1 @@
+                +class B {}
+                diff --git a/src/test/java/fixtures/C.java b/src/test/java/fixtures/C.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/C.java
+                @@ -0,0 +1,1 @@
+                +class C {}
+                """;
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.FILE_OR_LINE_LIMIT_EXCEEDED);
+    }
+
+    @Test
+    void stopStillRejectsMoreThanTwoHundredChangedLines() {
+        StringBuilder patch = new StringBuilder(
+                """
+                diff --git a/src/test/java/fixtures/A.java b/src/test/java/fixtures/A.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/A.java
+                @@ -0,0 +1,201 @@
+                """);
+        for (int i = 0; i < 201; i++) {
+            patch.append("+line").append(i).append('\n');
+        }
+        UnifiedDiffParser.ParseOutcome outcome =
+                UnifiedDiffParser.parse(patch.toString(), complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.FILE_OR_LINE_LIMIT_EXCEEDED);
+    }
+
+    @Test
+    void stopStillRejectsOversizedPatch() {
+        String huge = "x".repeat(UnifiedDiffParser.MAX_PATCH_BYTES + 1);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(huge, complete("stop"));
+        assertThat(outcome.isOk()).isFalse();
+        assertThat(outcome.reason()).isEqualTo("patch size out of bounds");
+    }
+
+    private static String wrongHeaderCountsPatch() {
+        return """
+                diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
+                --- a/src/test/java/fixtures/OldTest.java
+                +++ b/src/test/java/fixtures/OldTest.java
+                @@ -6,99 +6,99 @@
+                   @Test
+                   void already() {}
+                +
+                +  @Test
+                +  void added() {}
+                """;
+    }
+
+    private static CompletionDiagnostics complete(String finishReason) {
+        return CompletionDiagnostics.of(finishReason, "0", "10");
+    }
 }
