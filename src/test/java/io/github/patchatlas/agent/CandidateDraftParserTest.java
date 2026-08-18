@@ -82,6 +82,52 @@ class CandidateDraftParserTest {
         assertThat(rejected.reason()).contains("2");
     }
 
+    @Test
+    void lengthFinishReasonOverridesDeriveRejectAsTruncated() {
+        CandidateDraftParser.ParseResult result =
+                parser.parse(envelope(wrongHeaderCreate()), CompletionDiagnostics.of("length", "0", "10"));
+        assertThat(result).isInstanceOf(CandidateDraftParser.ParseResult.Rejected.class);
+        var rejected = (CandidateDraftParser.ParseResult.Rejected) result;
+        assertThat(rejected.category()).isEqualTo(PatchRejectionCategory.RESPONSE_TRUNCATED);
+        assertThat(rejected.reason()).contains("响应被截断");
+    }
+
+    @Test
+    void lengthFinishReasonKeepsSelfConsistentEnvelopeOk() {
+        CandidateDraftParser.ParseResult result = parser.parse(
+                envelope(FakeTestGeneratorTest.minimalCreatePatch()),
+                CompletionDiagnostics.of("length", "0", "10"));
+        assertThat(result).isInstanceOf(CandidateDraftParser.ParseResult.Ok.class);
+    }
+
+    @Test
+    void unknownFinishReasonDoesNotOverrideHunkMismatchAsTruncated() {
+        CandidateDraftParser.ParseResult result =
+                parser.parse(envelope(wrongHeaderCreate()), CompletionDiagnostics.unknown());
+        assertThat(result).isInstanceOf(CandidateDraftParser.ParseResult.Rejected.class);
+        var rejected = (CandidateDraftParser.ParseResult.Rejected) result;
+        assertThat(rejected.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
+        assertThat(rejected.reason()).contains("hunk new count mismatch");
+    }
+
+    private static String wrongHeaderCreate() {
+        return """
+                diff --git a/src/test/java/fixtures/NewTest.java b/src/test/java/fixtures/NewTest.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/NewTest.java
+                @@ -0,0 +1,99 @@
+                +package fixtures;
+                +
+                +import org.junit.jupiter.api.Test;
+                +
+                +class NewTest {
+                +  @Test
+                +  void works() {}
+                +}
+                """;
+    }
+
     static String envelope(String patch) {
         return JsonMapper.shared().writeValueAsString(Map.of("patch", patch));
     }

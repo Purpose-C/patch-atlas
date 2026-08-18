@@ -13,6 +13,7 @@ import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
+import io.github.patchatlas.agent.PatchRejectionCategory;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.HistoricalReplayEngine;
@@ -457,6 +458,60 @@ class CandidateGenerationCoordinatorTest {
         assertThat(retry.isCorrection()).isFalse();
         assertThat(retry.generationFeedback().orElseThrow().category())
                 .isEqualTo(GenerationFeedbackCategory.STRUCTURED_OUTPUT_INVALID);
+    }
+
+    @Test
+    void draftRejectedRetriesWithoutDraftAndKeepsPatchPolicyCategory() throws Exception {
+        FakeTestGenerator generator = FakeTestGenerator.of(
+                new GenerationResult.DraftRejected(
+                        PatchRejectionCategory.TARGET_TEST_NOT_DERIVABLE,
+                        "2 added @Test methods",
+                        Optional.empty(),
+                        Optional.of(CompletionDiagnostics.of("tool_calls", "0", "10"))),
+                new GenerationResult.GeneratedDraft(
+                        new CandidateDraft(LocalGitFixture.MODIFY_EXISTING_PATCH, TARGET)));
+        ScriptedSandboxRunner sandbox = ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+        CandidateGenerationCoordinator coordinator = coordinator(generator, sandbox);
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.CandidateCommitted.class);
+        assertThat(generator.callCount()).isEqualTo(2);
+        GenerationRequest retry = generator.capturedRequests().get(1);
+        assertThat(retry.hasFeedback()).isTrue();
+        assertThat(retry.previousDraft()).isEmpty();
+        assertThat(retry.isCorrection()).isFalse();
+        assertThat(retry.generationFeedback().orElseThrow().category())
+                .isEqualTo(GenerationFeedbackCategory.PATCH_POLICY_REJECTED)
+                .isNotEqualTo(GenerationFeedbackCategory.STRUCTURED_OUTPUT_INVALID);
+        assertThat(retry.generationFeedback().orElseThrow().summary()).contains("2 added");
+        assertThat(materializeLog).hasSize(1);
+    }
+
+    @Test
+    void truncatedSelfConsistentDraftStillUsesCoordinatorGuard() throws Exception {
+        FakeTestGenerator generator = truncatedDrafts(LocalGitFixture.MODIFY_EXISTING_PATCH);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, unusedSandbox());
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var result = coordinator.run(input, session);
+            assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+            assertThat(materializeLog).isEmpty();
+            List<ch.qos.logback.classic.spi.ILoggingEvent> rejected = rejectedEvents(appender);
+            assertThat(rejected).isNotEmpty();
+            assertThat(kv(rejected.getFirst()))
+                    .containsEntry("feedback_summary", "响应被截断")
+                    .containsEntry("feedback_category", "PATCH_POLICY_REJECTED");
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test

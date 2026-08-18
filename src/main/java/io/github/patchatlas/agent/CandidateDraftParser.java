@@ -101,8 +101,14 @@ public final class CandidateDraftParser {
                     yield new ParseResult.Invalid(ex.getMessage());
                 }
             }
-            case TargetTestDeriver.Result.Rejected rejected ->
-                    new ParseResult.Rejected(rejected.category(), rejected.reason());
+            case TargetTestDeriver.Result.Rejected rejected -> {
+                if (ResponseTruncationGuard.truncated(diagnostics)) {
+                    PatchPreparationResult.RejectedCandidate truncation =
+                            ResponseTruncationGuard.rejection();
+                    yield new ParseResult.Rejected(truncation.category(), truncation.reason());
+                }
+                yield new ParseResult.Rejected(rejected.category(), rejected.reason());
+            }
         };
     }
 

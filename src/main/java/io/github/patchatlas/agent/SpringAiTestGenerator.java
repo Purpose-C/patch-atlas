@@ -166,9 +166,9 @@ public final class SpringAiTestGenerator implements TestGenerator {
                             usage,
                             diagnostics);
             case CandidateDraftParser.ParseResult.Rejected rejected ->
-                    new GenerationResult.GenerationCallFailure(
-                            CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
-                            sanitizeBounded(rejected.reason(), "structured output invalid"),
+                    new GenerationResult.DraftRejected(
+                            rejected.category(),
+                            sanitizeBounded(rejected.reason(), rejected.category().name()),
                             usage,
                             diagnostics);
         };

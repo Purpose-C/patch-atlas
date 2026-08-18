@@ -23,6 +23,7 @@ class TestGeneratorOracleBoundaryTest {
                 SourceSnapshot.class,
                 GenerationResult.class,
                 GenerationResult.GeneratedDraft.class,
+                GenerationResult.DraftRejected.class,
                 GenerationResult.GenerationCallFailure.class,
                 CandidateDraft.class,
                 FakeTestGenerator.class);

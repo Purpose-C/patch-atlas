@@ -11,14 +11,19 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import io.github.patchatlas.benchmark.BenchmarkArtifacts;
+import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.GenerationRejectionLog;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.TargetTest;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.ai.chat.model.ChatModel;
+import tools.jackson.databind.json.JsonMapper;
 
 class SpringAiHttpContractTest {
 
@@ -68,19 +73,100 @@ class SpringAiHttpContractTest {
     }
 
     @Test
+    void lengthFinishReasonRejectsWrongHunkHeaderAsTruncatedNotStructuredInvalid() {
+        String envelope = CandidateDraftParserTest.envelope(wrongHeaderCreatePatch());
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "length"))));
+
+        ObservedCall call = generate();
+
+        assertThat(call.result()).isInstanceOf(GenerationResult.DraftRejected.class);
+        var rejected = (GenerationResult.DraftRejected) call.result();
+        assertThat(rejected.category()).isEqualTo(PatchRejectionCategory.RESPONSE_TRUNCATED);
+        assertThat(rejected.reason()).contains("响应被截断");
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GenerationCallFailure.class);
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GeneratedDraft.class);
+    }
+
+    @Test
+    void underivableTargetIsDraftRejectedNotStructuredInvalid() {
+        String envelope = CandidateDraftParserTest.envelope(twoTestsCreatePatch());
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "stop"))));
+
+        ObservedCall call = generate();
+
+        assertThat(call.result()).isInstanceOf(GenerationResult.DraftRejected.class);
+        var rejected = (GenerationResult.DraftRejected) call.result();
+        assertThat(rejected.category()).isEqualTo(PatchRejectionCategory.TARGET_TEST_NOT_DERIVABLE);
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GenerationCallFailure.class);
+    }
+
+    @Test
+    void invalidJsonRemainsStructuredOutputInvalidEvenWhenFinishReasonIsLength() {
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion("not-json", "length"))));
+        ObservedCall call = generate();
+        assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
+        assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary()).contains("not json");
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.DraftRejected.class);
+    }
+
+    @Test
+    void generatorPathRejectionCategorySurvivesEvidenceLog() throws Exception {
+        String envelope = CandidateDraftParserTest.envelope(twoTestsCreatePatch());
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "stop"))));
+        ObservedCall call = generate();
+        var rejected = (GenerationResult.DraftRejected) call.result();
+
+        Path file = Files.createTempFile("generation-rejections", ".json");
+        try {
+            String json =
+                    """
+                    {
+                      "cases": [
+                        {
+                          "caseId": "generator-path",
+                          "rejections": [
+                            {
+                              "attemptOrdinal": 1,
+                              "feedbackCategory": "PATCH_POLICY_REJECTED",
+                              "feedbackSummary": %s,
+                              "rejectionCategory": "%s"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """
+                            .formatted(
+                                    JsonMapper.shared().writeValueAsString(rejected.reason()),
+                                    rejected.category().name());
+            Files.writeString(file, json);
+            GenerationRejectionLog log =
+                    new BenchmarkArtifacts().readJson(file, GenerationRejectionLog.class);
+            assertThat(log.cases().getFirst().rejections().getFirst().rejectionCategory())
+                    .isEqualTo(PatchRejectionCategory.TARGET_TEST_NOT_DERIVABLE);
+            assertThat(log.cases().getFirst().rejections().getFirst().feedbackCategory())
+                    .isNotEqualTo("STRUCTURED_OUTPUT_INVALID");
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
     void missingFinishReasonStillRejectsWrongHunkHeaderThroughRealGenerator() {
         String envelope = CandidateDraftParserTest.envelope(wrongHeaderCreatePatch());
         wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "unknown"))));
 
         ObservedCall call = generate();
 
-        assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
-        assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary())
-                .contains("hunk new count mismatch");
+        assertThat(call.result()).isInstanceOf(GenerationResult.DraftRejected.class);
+        var rejected = (GenerationResult.DraftRejected) call.result();
+        assertThat(rejected.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
+        assertThat(rejected.reason()).contains("hunk new count mismatch");
         CompletionDiagnostics diagnostics = call.result().completionDiagnostics().orElseThrow();
         assertThat(diagnostics.indicatesComplete()).isFalse();
         assertThat(diagnostics.finishReason()).isNotIn("stop", "tool_calls");
         assertThat(call.result()).isNotInstanceOf(GenerationResult.GeneratedDraft.class);
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GenerationCallFailure.class);
     }
 
     @Test
@@ -411,6 +497,24 @@ class SpringAiHttpContractTest {
                 +  void works() {}
                 +}
                 """;
+    }
+
+    private static String twoTestsCreatePatch() {
+        return TargetTestDeriverTest.createPatch(
+                "src/test/java/fixtures/NewTest.java",
+                """
+                package fixtures;
+
+                import org.junit.jupiter.api.Test;
+
+                class NewTest {
+                  @Test
+                  void first() {}
+
+                  @Test
+                  void second() {}
+                }
+                """);
     }
 
     private static String textCompletion(String contentJson) {

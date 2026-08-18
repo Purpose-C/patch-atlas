@@ -148,21 +148,30 @@ public final class CandidateGenerationCoordinator {
             GenerationInput generationInput,
             MavenExecutionPolicy executionPolicy,
             GenerationRunSession session) {
-        if (call instanceof GenerationResult.GenerationCallFailure failure) {
-            boolean remaining = ordinal < GenerationRequest.MAX_ATTEMPTS;
-            return CallFailureMapper.toDecision(
-                    CallFailureMapper.map(failure.category(), failure.summary(), remaining));
-        }
-        CandidateDraft draft = ((GenerationResult.GeneratedDraft) call).draft();
-        CompletionDiagnostics diagnostics =
-                call.completionDiagnostics().orElseGet(CompletionDiagnostics::unknown);
-        if (ResponseTruncationGuard.truncated(diagnostics)) {
-            PatchPreparationResult.RejectedCandidate rejected = ResponseTruncationGuard.rejection();
-            return PatchGateOutcomeMapper.toDecision(
-                    PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()), draft);
-        }
-        return attemptInWorkspace(
-                draft, diagnostics, claimAfterReserve, generationInput, executionPolicy, session);
+        return switch (call) {
+            case GenerationResult.GenerationCallFailure failure -> {
+                boolean remaining = ordinal < GenerationRequest.MAX_ATTEMPTS;
+                yield CallFailureMapper.toDecision(
+                        CallFailureMapper.map(failure.category(), failure.summary(), remaining));
+            }
+            case GenerationResult.DraftRejected rejected ->
+                    PatchGateOutcomeMapper.toDecision(
+                            PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()),
+                            Optional.empty());
+            case GenerationResult.GeneratedDraft generated -> {
+                CandidateDraft draft = generated.draft();
+                CompletionDiagnostics diagnostics =
+                        generated.completionDiagnostics().orElseGet(CompletionDiagnostics::unknown);
+                if (ResponseTruncationGuard.truncated(diagnostics)) {
+                    PatchPreparationResult.RejectedCandidate truncated =
+                            ResponseTruncationGuard.rejection();
+                    yield PatchGateOutcomeMapper.toDecision(
+                            PatchGateOutcomeMapper.map(truncated.category(), truncated.reason()), draft);
+                }
+                yield attemptInWorkspace(
+                        draft, diagnostics, claimAfterReserve, generationInput, executionPolicy, session);
+            }
+        };
     }
 
     /**

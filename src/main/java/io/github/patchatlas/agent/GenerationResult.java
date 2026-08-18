@@ -4,10 +4,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * 单次 {@link TestGenerator} 调用结果：草稿或调用失败（含可选 usage）。
+ * 单次 {@link TestGenerator} 调用结果：草稿、补丁策略拒绝、或调用失败（含可选 usage）。
  */
 public sealed interface GenerationResult
-        permits GenerationResult.GeneratedDraft, GenerationResult.GenerationCallFailure {
+        permits GenerationResult.GeneratedDraft,
+                GenerationResult.DraftRejected,
+                GenerationResult.GenerationCallFailure {
 
     Optional<ModelUsage> usage();
 
@@ -34,6 +36,30 @@ public sealed interface GenerationResult
 
         public GeneratedDraft(CandidateDraft draft, Optional<ModelUsage> usage) {
             this(draft, usage, Optional.empty());
+        }
+    }
+
+    record DraftRejected(
+            PatchRejectionCategory category,
+            String reason,
+            Optional<ModelUsage> usage,
+            Optional<CompletionDiagnostics> completionDiagnostics)
+            implements GenerationResult {
+        public DraftRejected {
+            Objects.requireNonNull(category, "category");
+            Objects.requireNonNull(reason, "reason");
+            Objects.requireNonNull(usage, "usage");
+            Objects.requireNonNull(completionDiagnostics, "completionDiagnostics");
+            if (reason.isBlank()) {
+                throw new IllegalArgumentException("reason must not be blank");
+            }
+            if (reason.length() > GenerationCallFailure.MAX_SUMMARY_CHARS) {
+                reason = reason.substring(0, GenerationCallFailure.MAX_SUMMARY_CHARS);
+            }
+        }
+
+        public DraftRejected(PatchRejectionCategory category, String reason) {
+            this(category, reason, Optional.empty(), Optional.empty());
         }
     }
 

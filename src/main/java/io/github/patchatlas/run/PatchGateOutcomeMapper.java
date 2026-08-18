@@ -21,12 +21,18 @@ final class PatchGateOutcomeMapper {
     private PatchGateOutcomeMapper() {}
 
     /** 将 Outcome 适配为统一编排决策（Correctable → Retry，Terminal → Fail）。
-     * Retry 的 draft 由调用方提供（gate 拒绝时保留当前 draft 以便修正）。 */
+     * Retry 的 draft 由调用方提供（gate 拒绝时保留当前 draft 以便修正；推导失败时传空）。 */
     public static CandidateGenerationCoordinator.AttemptDecision toDecision(
             Outcome outcome, CandidateDraft draft) {
+        return toDecision(outcome, Optional.of(draft));
+    }
+
+    public static CandidateGenerationCoordinator.AttemptDecision toDecision(
+            Outcome outcome, Optional<CandidateDraft> draft) {
+        Objects.requireNonNull(draft, "draft");
         return switch (outcome) {
             case Outcome.Correctable c -> new CandidateGenerationCoordinator.AttemptDecision.Retry(
-                    Optional.of(draft), c.feedback());
+                    draft, c.feedback());
             case Outcome.Terminal t -> new CandidateGenerationCoordinator.AttemptDecision.Fail(t.failure());
         };
     }

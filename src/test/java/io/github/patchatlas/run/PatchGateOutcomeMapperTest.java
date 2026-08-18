@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.agent.PatchRejectionCategory;
+import java.util.Optional;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -40,5 +41,16 @@ class PatchGateOutcomeMapperTest {
         var terminal = (PatchGateOutcomeMapper.Outcome.Terminal) outcome;
         assertThat(terminal.failure().stage()).isEqualTo(FailureStage.WORKSPACE);
         assertThat(terminal.failure().category()).isEqualTo(FailureCategory.WORKSPACE_UNSAFE);
+    }
+
+    @org.junit.jupiter.api.Test
+    void correctableWithoutDraftRetriesEmpty() {
+        PatchGateOutcomeMapper.Outcome outcome =
+                PatchGateOutcomeMapper.map(PatchRejectionCategory.TARGET_TEST_NOT_DERIVABLE, "2 tests");
+        var decision = PatchGateOutcomeMapper.toDecision(outcome, Optional.empty());
+        assertThat(decision).isInstanceOf(CandidateGenerationCoordinator.AttemptDecision.Retry.class);
+        var retry = (CandidateGenerationCoordinator.AttemptDecision.Retry) decision;
+        assertThat(retry.draft()).isEmpty();
+        assertThat(retry.feedback().category()).isEqualTo(GenerationFeedbackCategory.PATCH_POLICY_REJECTED);
     }
 }
