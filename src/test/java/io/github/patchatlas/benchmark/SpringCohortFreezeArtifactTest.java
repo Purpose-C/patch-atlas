@@ -57,6 +57,10 @@ class SpringCohortFreezeArtifactTest {
                 assertThat(stage.path("result").stringValue()).isEqualTo("PASSED"));
         assertThat(audit.toPrettyString()).doesNotContain("diff --git");
         assertThat(probe.path("caseId").stringValue()).doesNotContain("spring-cloud-openfeign");
+        String readme = Files.readString(Path.of("benchmark-cases/spring-v1/README.md"));
+        assertThat(readme).contains("描述性统计（未进入过滤器）");
+        assertThat(readme).contains("org.springframework.boot");
+        assertThat(readme).contains("不**据此增删成员");
     }
 
     private static long countCode(JsonNode audit, String code) {

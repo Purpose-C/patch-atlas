@@ -21,3 +21,13 @@
 - `ISSUE_UNAVAILABLE`（10）：GitBug-Java 命中里没有可用的非 PR Issue 正文。
 - `METADATA_INVALID`（82）：Multi-SWE-bench Java 与 SWE-PolyBench Java 记录没有合并提交 SHA，无法判定 Fixed Revision 的第一父提交等于 Buggy Revision。不得用补丁回放冒充该闸门。
 - 动态探测 `st-tu-dresden-salespoint-85a764f892aa`：checkout、父提交、触发测试、预热与离线 replay 全部通过，记为 `ELIGIBLE`。它不能单独构成冻结队列。
+
+## 描述性统计（未进入过滤器）
+
+只对动态合格的那 1 例记录，**不**据此增删成员。
+
+| 例 | 模块数 | Spring 依赖 `groupId` | DI 注解 | 事件注解 | AOP 注解 | 修复涉及文件数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `st-tu-dresden-salespoint-85a764f892aa` | 1 | `org.springframework.boot`、`org.springframework.experimental` | 有（54 个源文件） | 有（2 个源文件） | 无 | 2 |
+
+注解按 buggy revision 源文件中的简单名统计：`Autowired` / `Inject` / `Component` / `Service` / `Repository` / `Controller` / `RestController` / `Bean` / `Configuration` / `Qualifier` 计为 DI；`EventListener` / `TransactionalEventListener` / `ApplicationListener` 计为事件；`Aspect` / `Around` / `Before` / `After*` / `Pointcut` 计为 AOP。
