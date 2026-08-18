@@ -215,7 +215,40 @@ class FormalBenchmarkRunnerTest {
         assertThat(ops.calibrationLaunches.get()).isZero();
         assertThat(ops.agentLaunches.get()).isZero();
         assertThat(ops.verifyCalls.get()).isEqualTo(1);
+        assertThat(ops.threeArmVerifyCalls.get()).isZero();
         assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
+    }
+
+    @Test
+    void verifyThreeArmReadsEighteenRunsAndDoesNotLaunch() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        seedThreeArm(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true).execute("verify-three-arm", validCohort());
+
+        assertThat(ops.calibrationLaunches.get()).isZero();
+        assertThat(ops.agentLaunches.get()).isZero();
+        assertThat(ops.agentArmLaunches.get()).isZero();
+        assertThat(ops.verifyCalls.get()).isZero();
+        assertThat(ops.threeArmVerifyCalls.get()).isEqualTo(1);
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
+        Path output = ((FormalBenchmarkRunner.Outcome.Verified) outcome).output();
+        assertThat(output.toString()).contains("batch5-three-arm");
+        assertThat(output.toString()).doesNotContain("task018");
+    }
+
+    @Test
+    void verifyThreeArmFailsWhenAnArmRunIsMissing() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        seedCompletedCohort(store);
+
+        assertThatThrownBy(() -> runner(readyPreflight(), store, ops, true)
+                        .execute("verify-three-arm", validCohort()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("missing");
+        assertThat(ops.threeArmVerifyCalls.get()).isZero();
     }
 
     @Test
@@ -358,6 +391,21 @@ class FormalBenchmarkRunnerTest {
                 () -> "sk-test");
     }
 
+    private static void seedThreeArm(ScriptedStore store) {
+        Cohort cohort = validCohort();
+        for (ContextOrigin origin : ThreeArmEvidenceExporter.ARMS) {
+            for (CohortCase item : cohort.cases()) {
+                store.create(
+                        item.caseId(),
+                        RunPurpose.AGENT_BENCHMARK,
+                        TestPatchProvenance.AGENT_GENERATED,
+                        RunState.COMPLETED,
+                        1,
+                        origin);
+            }
+        }
+    }
+
     private static void seedCompletedCohort(ScriptedStore store) {
         Cohort cohort = validCohort();
         for (CohortCase item : cohort.cases()) {
@@ -455,6 +503,7 @@ class FormalBenchmarkRunnerTest {
         private final AtomicInteger agentLaunches = new AtomicInteger();
         private final AtomicInteger agentArmLaunches = new AtomicInteger();
         private final AtomicInteger verifyCalls = new AtomicInteger();
+        private final AtomicInteger threeArmVerifyCalls = new AtomicInteger();
         private final List<String> launchedCalibrationCaseIds = new ArrayList<>();
         private final List<ContextOrigin> diagnosticOrigins = new ArrayList<>();
         private final List<ContextOrigin> agentOrigins = new ArrayList<>();
@@ -515,6 +564,12 @@ class FormalBenchmarkRunnerTest {
         public Path exportEvidence(Cohort cohort, List<RunDetailView> details) {
             verifyCalls.incrementAndGet();
             return Path.of("results.json");
+        }
+
+        @Override
+        public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) {
+            threeArmVerifyCalls.incrementAndGet();
+            return Path.of("batch5-three-arm/results.json");
         }
     }
 

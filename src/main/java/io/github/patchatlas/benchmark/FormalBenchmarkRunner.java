@@ -76,6 +76,8 @@ public final class FormalBenchmarkRunner {
         }
 
         Path exportEvidence(Cohort cohort, List<RunDetailView> details) throws IOException;
+
+        Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) throws IOException;
     }
 
     @FunctionalInterface
@@ -107,6 +109,9 @@ public final class FormalBenchmarkRunner {
         }
         if (BenchmarkActions.VERIFY.equals(parsed)) {
             return verify(cohort);
+        }
+        if (BenchmarkActions.VERIFY_THREE_ARM.equals(parsed)) {
+            return verifyThreeArm(cohort);
         }
         if (parsed.startsWith("dry-run")) {
             return dryRun(BenchmarkActions.locatingOrigin(parsed));
@@ -173,6 +178,32 @@ public final class FormalBenchmarkRunner {
             details.add(terminal.orElseThrow());
         }
         return new Outcome.Finished(details);
+    }
+
+    private Outcome verifyThreeArm(Cohort cohort) {
+        List<ThreeArmRun> runs = new ArrayList<>(18);
+        for (ContextOrigin origin : ThreeArmEvidenceExporter.ARMS) {
+            for (CohortCase cohortCase : cohort.cases()) {
+                RunDetailView detail = store.findRunByCase(
+                                cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "missing " + origin + " run for case " + cohortCase.caseId()));
+                if (!detail.state().isTerminal()) {
+                    throw new IllegalStateException(
+                            origin + " run for case " + cohortCase.caseId() + " is not terminal");
+                }
+                if (detail.purpose() != RunPurpose.AGENT_BENCHMARK) {
+                    throw new IllegalStateException(
+                            "three-arm verify requires AGENT_BENCHMARK, got " + detail.purpose());
+                }
+                runs.add(new ThreeArmRun(origin, detail));
+            }
+        }
+        try {
+            return new Outcome.Verified(operations.exportThreeArmEvidence(cohort, runs));
+        } catch (IOException ex) {
+            throw new IllegalStateException("three-arm evidence export failed", ex);
+        }
     }
 
     private Outcome verify(Cohort cohort) {

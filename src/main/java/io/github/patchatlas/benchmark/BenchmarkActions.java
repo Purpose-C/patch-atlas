@@ -14,6 +14,8 @@ import java.util.Set;
  * {@code dry-run-text} / {@code dry-run-graph} 用同一诊断案例分别走文本工具与图工具定位。
  * {@code arm-heuristic} / {@code arm-text} / {@code arm-graph} 对冻结队列全部六例以
  * {@code AGENT_BENCHMARK} 启动，彼此只差定位来源。
+ * {@code verify-three-arm} 从 PostgreSQL 读取 18 次终态 Run，把证据写到
+ * {@code benchmark-cases/batch5-three-arm/}，不写 {@code task018}。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
  */
 public final class BenchmarkActions {
@@ -27,6 +29,7 @@ public final class BenchmarkActions {
     public static final String AGENT_5 = "agent-5";
     public static final String AGENT_6 = "agent-6";
     public static final String VERIFY = "verify";
+    public static final String VERIFY_THREE_ARM = "verify-three-arm";
     public static final String DRY_RUN = "dry-run";
     public static final String DRY_RUN_TEXT = "dry-run-text";
     public static final String DRY_RUN_GRAPH = "dry-run-graph";
@@ -44,6 +47,7 @@ public final class BenchmarkActions {
             AGENT_5,
             AGENT_6,
             VERIFY,
+            VERIFY_THREE_ARM,
             DRY_RUN,
             DRY_RUN_TEXT,
             DRY_RUN_GRAPH,
@@ -91,7 +95,10 @@ public final class BenchmarkActions {
      */
     public static boolean isFormalRun(String action) {
         String parsed = parseAction(action);
-        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed) && !parsed.startsWith("dry-run");
+        return !FREEZE.equals(parsed)
+                && !VERIFY.equals(parsed)
+                && !VERIFY_THREE_ARM.equals(parsed)
+                && !parsed.startsWith("dry-run");
     }
 
     /** 干跑与三臂动作所选择的定位来源；其余动作没有该因子。 */

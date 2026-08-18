@@ -12,6 +12,9 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.OracleMetadata;
 import io.github.patchatlas.benchmark.GitBugJavaMetadataReader.CaseMetadata;
 import io.github.patchatlas.benchmark.KnownTriggerResolver.ResolvedKnownTrigger;
 import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
+import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.ArmCaseFact;
+import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.FirstRoundRejectionLog;
+import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.LocatingCost;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FormalReplayCoordinator;
@@ -247,6 +250,86 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
                 artifactsRoot,
                 coverage);
         return artifactsRoot.resolve("results.json");
+    }
+
+    @Override
+    public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) throws IOException {
+        Objects.requireNonNull(cohort, "cohort");
+        Objects.requireNonNull(runs, "runs");
+        if (runs.size() != 18) {
+            throw new IllegalArgumentException("expected 18 three-arm runs, got " + runs.size());
+        }
+        Path outputDir = artifactsRoot.resolveSibling("batch5-three-arm");
+        List<ArmCaseFact> facts = new ArrayList<>(18);
+        for (ThreeArmRun run : runs) {
+            CohortCase cohortCase = requireCohortCase(cohort, run.detail().caseId());
+            Score coverage = coverageFromRunSnapshots(cohortCase, run.detail());
+            LocatingCost locating = ThreeArmLocatingCosts.from(
+                    run.origin(),
+                    run.detail().locatingUsage(),
+                    runStore.loadLocatingTrace(run.detail().runId()));
+            facts.add(toArmFact(cohortCase, run, coverage, locating));
+        }
+        new ThreeArmEvidenceExporter(artifacts).export(
+                cohort,
+                outputDir.resolve("protocol.json"),
+                outputDir.resolve("preregistered-criteria.json"),
+                facts,
+                artifacts.readJson(outputDir.resolve("generation-rejections.json"), FirstRoundRejectionLog.class),
+                outputDir);
+        return outputDir.resolve("results.json");
+    }
+
+    static Set<String> selectedPathsFromSnapshots(List<SourceSnapshot> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            return Set.of();
+        }
+        return snapshots.stream()
+                .map(SourceSnapshot::relativePath)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Score coverageFromRunSnapshots(CohortCase cohortCase, RunDetailView detail) throws IOException {
+        Set<String> selected = selectedPathsFromSnapshots(
+                runStore.loadGenerationInput(detail.runId()).sourceSnapshots());
+        if (detail.mode() == VerificationMode.LIVE) {
+            return coverageEvaluator.score(detail.state(), detail.mode(), null, selected);
+        }
+        Path workspace = checkoutBuggy(cohortCase, detail.input().buggyRevision());
+        RepairGroundTruthExtractor.Result truth = groundTruthExtractor.extract(
+                workspace,
+                detail.input().buggyRevision(),
+                detail.input().fixedRevision(),
+                cohortCase.modulePath());
+        return coverageEvaluator.score(detail.state(), detail.mode(), truth, selected);
+    }
+
+    private static ArmCaseFact toArmFact(
+            CohortCase cohortCase, ThreeArmRun run, Score coverage, LocatingCost locating) {
+        RunDetailView detail = run.detail();
+        return new ArmCaseFact(
+                cohortCase.position(),
+                cohortCase.caseId(),
+                run.origin(),
+                detail.runId(),
+                detail.state(),
+                detail.verdict(),
+                detail.failure().map(failure -> failure.category().name()),
+                detail.generation().attemptCount(),
+                detail.generation().modelProvider() == null ? "" : detail.generation().modelProvider(),
+                detail.generation().modelName() == null ? "" : detail.generation().modelName(),
+                detail.generation().inputTokens(),
+                detail.generation().outputTokens(),
+                detail.generation().totalTokens(),
+                coverage,
+                locating);
+    }
+
+    private static CohortCase requireCohortCase(Cohort cohort, String caseId) {
+        return cohort.cases().stream()
+                .filter(item -> item.caseId().equals(caseId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("cohort missing case " + caseId));
     }
 
     private Score coverageFor(CohortCase cohortCase, RunDetailView detail) throws IOException {

@@ -20,6 +20,7 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.parseAction("agent-5")).isEqualTo("agent-5");
         assertThat(BenchmarkActions.parseAction("agent-6")).isEqualTo("agent-6");
         assertThat(BenchmarkActions.parseAction("verify")).isEqualTo("verify");
+        assertThat(BenchmarkActions.parseAction("verify-three-arm")).isEqualTo("verify-three-arm");
         assertThat(BenchmarkActions.parseAction("dry-run")).isEqualTo("dry-run");
         assertThat(BenchmarkActions.parseAction("dry-run-text")).isEqualTo("dry-run-text");
         assertThat(BenchmarkActions.parseAction("dry-run-graph")).isEqualTo("dry-run-graph");
@@ -96,6 +97,7 @@ class BenchmarkActionsTest {
     void isFormalRunExcludesFreezeAndVerify() {
         assertThat(BenchmarkActions.isFormalRun("freeze")).isFalse();
         assertThat(BenchmarkActions.isFormalRun("verify")).isFalse();
+        assertThat(BenchmarkActions.isFormalRun("verify-three-arm")).isFalse();
     }
 
     @Test
@@ -125,6 +127,9 @@ class BenchmarkActionsTest {
     @Test
     void locatingOriginRejectsActionsWithoutLocatingFactor() {
         assertThatThrownBy(() -> BenchmarkActions.locatingOrigin("calibrate"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("has no locating origin");
+        assertThatThrownBy(() -> BenchmarkActions.locatingOrigin("verify-three-arm"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("has no locating origin");
     }

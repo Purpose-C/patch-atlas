@@ -118,6 +118,67 @@ class BenchmarkArtifactReaderTest {
     }
 
     @Test
+    void readThreeArmFirstRoundRejectionsCountsHunkMismatchWithoutPaths() throws IOException {
+        ThreeArmEvidenceExporter.FirstRoundRejectionLog log = new BenchmarkArtifacts().readJson(
+                Path.of("benchmark-cases/batch5-three-arm/generation-rejections.json"),
+                ThreeArmEvidenceExporter.FirstRoundRejectionLog.class);
+
+        assertThat(log.arms()).extracting(ThreeArmEvidenceExporter.ArmRejections::origin)
+                .containsExactly("HEURISTIC", "TEXT_TOOLS", "GRAPH_TOOLS");
+        int firstRound = 0;
+        int hunk = 0;
+        for (ThreeArmEvidenceExporter.ArmRejections arm : log.arms()) {
+            assertThat(arm.cases()).hasSize(6);
+            for (ThreeArmEvidenceExporter.CaseFirstRound item : arm.cases()) {
+                if (item.firstRound() == null) {
+                    continue;
+                }
+                firstRound++;
+                if (ThreeArmEvidenceExporter.isHunkCountMismatch(item.firstRound().feedbackSummary())) {
+                    hunk++;
+                }
+            }
+        }
+        assertThat(firstRound).isEqualTo(16);
+        assertThat(hunk).isEqualTo(10);
+        assertThat(hunk * 3).isGreaterThan(firstRound);
+        String raw = Files.readString(Path.of("benchmark-cases/batch5-three-arm/generation-rejections.json"));
+        assertThat(raw).doesNotContain("/Users/").doesNotContain("/home/");
+    }
+
+    @Test
+    void threeArmEvidenceReportOpensWithLimitationsAndOmitsRankingClaims() throws IOException {
+        String md = Files.readString(Path.of("benchmark-cases/batch5-three-arm/evidence-report.md"));
+        int limitations = md.indexOf("## Known limitations");
+        int heuristic = md.indexOf("## Arm HEURISTIC");
+        int paired = md.indexOf("## Paired localization coverage");
+        assertThat(limitations).isGreaterThanOrEqualTo(0);
+        assertThat(limitations).isLessThan(heuristic);
+        assertThat(md.indexOf("不得用于臂间比较")).isBetween(limitations, heuristic);
+        assertThat(md).contains("VALID_REPRODUCTION 0 / 6");
+        assertThat(md).contains("Denominator: every AGENT_BENCHMARK run on this arm");
+        assertThat(md).contains("| # | Case | anyHit | recall | precision | selectedCount |");
+        assertThat(md).contains("10 / 16 first-round rejections");
+        assertThat(md).contains("expand count: 0");
+        assertThat(md).contains("另开工作把 hunk 计数改为从正文重算");
+        assertThat(md).contains("不得据此断言图没有信息量");
+        assertThat(md.substring(paired)).doesNotContain("VALID_REPRODUCTION");
+        assertThat(md)
+                .doesNotContain("综合得分")
+                .doesNotContain("图更好")
+                .doesNotContain("文本更好")
+                .doesNotContain("更好")
+                .doesNotContain("更差")
+                .doesNotContain("/Users/")
+                .doesNotContain("Task 0");
+        assertThat(Files.readString(Path.of("benchmark-cases/batch5-three-arm/results.json")))
+                .contains("\"validReproductions\" : 0")
+                .contains("\"runCount\" : 6")
+                .doesNotContain("overallScore")
+                .doesNotContain("composite");
+    }
+
+    @Test
     void readPreregisteredCriteriaFailsWhenFileMissing() {
         assertThatThrownBy(() -> new BenchmarkArtifacts()
                         .readPreregisteredCriteria(

@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 
 /**
- * Explicit {@code -Dgroups=model} entry for calibrate / calibrate-N / agent-N / verify.
+ * Explicit {@code -Dgroups=model} entry for calibrate / calibrate-N / agent-N / verify /
+ * verify-three-arm.
  * Missing shared prerequisites fail the test; they are not skipped.
  */
 @Tag("model")

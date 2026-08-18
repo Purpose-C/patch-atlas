@@ -11,6 +11,7 @@ import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.OpenAiChatModelFactory;
 import io.github.patchatlas.agent.PatchGate;
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.agent.SpringAiTestGenerator;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadata;
@@ -78,6 +79,11 @@ class ThreeArmControlVariablesTest {
         assertThat(FrozenBenchmarkOperations.snapshotsForOrigin(ContextOrigin.HEURISTIC)).isEmpty();
         assertThat(FrozenBenchmarkOperations.snapshotsForOrigin(ContextOrigin.TEXT_TOOLS)).isEmpty();
         assertThat(FrozenBenchmarkOperations.snapshotsForOrigin(ContextOrigin.GRAPH_TOOLS)).isEmpty();
+        assertThat(FrozenBenchmarkOperations.selectedPathsFromSnapshots(List.of())).isEmpty();
+        assertThat(FrozenBenchmarkOperations.selectedPathsFromSnapshots(null)).isEmpty();
+        assertThat(FrozenBenchmarkOperations.selectedPathsFromSnapshots(
+                        List.of(new SourceSnapshot("src/A.java", "class A {}"))))
+                .containsExactly("src/A.java");
         assertThatThrownBy(() -> FrozenBenchmarkOperations.snapshotsForOrigin(ContextOrigin.PINNED))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("pinned");
