@@ -7,6 +7,7 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.ArmCaseFact;
+import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.ArmExport;
 import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.ArmRejections;
 import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.CaseFirstRound;
 import io.github.patchatlas.benchmark.ThreeArmEvidenceExporter.FirstRound;
@@ -89,6 +90,57 @@ class ThreeArmEvidenceExporterTest {
         assertThat(json).contains("\"selectedCount\"");
         assertThat(json).contains("\"validReproductions\"");
         assertThat(json).contains("\"runCount\" : 6");
+    }
+
+    @Test
+    void coverageMeansSkipNotApplicableAndDoNotDivideBySix() throws Exception {
+        List<ArmCaseFact> facts = new ArrayList<>(facts(0));
+        facts.set(0, withCoverage(facts.get(0), new Score.NotApplicable()));
+
+        ThreeArmEvidenceExporter.ResultsExport export = new ThreeArmEvidenceExporter()
+                .export(COHORT, PROTOCOL, CRITERIA, facts, rejections(true), tempDir);
+        ArmExport heuristic = export.arms().getFirst();
+
+        assertThat(heuristic.meanRecall()).isEqualTo(0.2);
+        assertThat(heuristic.meanSelectedCount()).isEqualTo(9.6);
+        assertThat(heuristic.meanPrecision()).isEqualTo(0.5);
+        assertThat(heuristic.runCount()).isEqualTo(6);
+    }
+
+    @Test
+    void precisionMeanDropsEmptySelectionButRecallKeepsTheZero() throws Exception {
+        ThreeArmEvidenceExporter.ResultsExport export = new ThreeArmEvidenceExporter()
+                .export(COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+        ArmExport heuristic = export.arms().getFirst();
+
+        assertThat(heuristic.meanRecall()).isEqualTo(1.25 / 6.0);
+        assertThat(heuristic.meanPrecision()).isEqualTo(0.5);
+        assertThat(heuristic.meanSelectedCount()).isEqualTo(10.0);
+        assertThat(heuristic.runCount()).isEqualTo(6);
+    }
+
+    @Test
+    void generationTokenMedianExcludesRunsThatNeverGenerated() throws Exception {
+        ThreeArmEvidenceExporter.ResultsExport export = new ThreeArmEvidenceExporter()
+                .export(COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+        ArmExport heuristic = export.arms().getFirst();
+
+        assertThat(heuristic.generationTokenMedian()).isEqualTo(3300.0);
+        assertThat(heuristic.runsNeverReachedGeneration()).isEqualTo(1);
+        assertThat(heuristic.generationTokenSampleCount()).isEqualTo(5);
+    }
+
+    @Test
+    void reproductionDenominatorKeepsRunsThatNeverReachedGeneration() throws Exception {
+        ThreeArmEvidenceExporter.ResultsExport export = new ThreeArmEvidenceExporter()
+                .export(COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+        ArmExport heuristic = export.arms().getFirst();
+
+        assertThat(heuristic.cases().get(4).generationAttemptCount()).isZero();
+        assertThat(heuristic.runCount()).isEqualTo(6);
+        assertThat(heuristic.validReproductions()).isZero();
+        assertThat(Files.readString(tempDir.resolve("evidence-report.md")))
+                .contains("VALID_REPRODUCTION 0 / 6");
     }
 
     @Test
@@ -249,6 +301,25 @@ class ThreeArmEvidenceExporterTest {
                     : new FirstRound("STRUCTURED_OUTPUT_INVALID", "hunk new count mismatch");
             default -> throw new IllegalArgumentException(origin);
         };
+    }
+
+    private static ArmCaseFact withCoverage(ArmCaseFact fact, Score coverage) {
+        return new ArmCaseFact(
+                fact.cohortPosition(),
+                fact.caseId(),
+                fact.origin(),
+                fact.runId(),
+                fact.state(),
+                fact.verdict(),
+                fact.failureCategory(),
+                fact.generationAttemptCount(),
+                fact.modelProvider(),
+                fact.modelName(),
+                fact.inputTokens(),
+                fact.outputTokens(),
+                fact.totalTokens(),
+                coverage,
+                fact.locating());
     }
 
     private static Cohort sampleCohort() {

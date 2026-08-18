@@ -127,7 +127,7 @@ public final class ThreeArmEvidenceExporter {
         }
     }
 
-    public record CoverageExport(boolean anyHit, double recall, double precision, int selectedCount) {}
+    public record CoverageExport(boolean anyHit, double recall, Double precision, int selectedCount) {}
 
     public record CaseExport(
             int position,
@@ -157,6 +157,10 @@ public final class ThreeArmEvidenceExporter {
             double meanPrecision,
             double meanSelectedCount,
             double generationTokenMedian,
+            int generationTokenSampleCount,
+            int runsNeverReachedGeneration,
+            int coverageSampleCount,
+            int precisionSampleCount,
             Double locatingToolCallP50,
             Double locatingToolCallP95,
             int expandCount,
@@ -345,6 +349,9 @@ public final class ThreeArmEvidenceExporter {
         double recallSum = 0;
         double precisionSum = 0;
         double selectedSum = 0;
+        int coverageN = 0;
+        int precisionN = 0;
+        int neverGenerated = 0;
         List<Long> tokens = new ArrayList<>(6);
         List<Long> toolCalls = new ArrayList<>(6);
         List<Long> builds = new ArrayList<>(6);
@@ -361,11 +368,19 @@ public final class ThreeArmEvidenceExporter {
                 anyHit++;
             }
             if (coverage != null) {
+                coverageN++;
                 recallSum += coverage.recall();
-                precisionSum += coverage.precision();
                 selectedSum += coverage.selectedCount();
+                if (coverage.precision() != null) {
+                    precisionN++;
+                    precisionSum += coverage.precision();
+                }
             }
-            tokens.add(fact.totalTokens());
+            if (fact.generationAttemptCount() > 0) {
+                tokens.add(fact.totalTokens());
+            } else {
+                neverGenerated++;
+            }
             toolCalls.add((long) fact.locating().toolCallCount());
             expand += fact.locating().expandCount();
             if (fact.locating().graphBuildDurationMs().isPresent()) {
@@ -403,10 +418,14 @@ public final class ThreeArmEvidenceExporter {
                 reproductions,
                 6,
                 anyHit,
-                recallSum / 6.0,
-                precisionSum / 6.0,
-                selectedSum / 6.0,
-                percentile(tokens, 0.5),
+                coverageN == 0 ? 0.0 : recallSum / coverageN,
+                precisionN == 0 ? 0.0 : precisionSum / precisionN,
+                coverageN == 0 ? 0.0 : selectedSum / coverageN,
+                tokens.isEmpty() ? 0.0 : percentile(tokens, 0.5),
+                tokens.size(),
+                neverGenerated,
+                coverageN,
+                precisionN,
                 tools ? percentile(toolCalls, 0.5) : null,
                 tools ? percentile(toolCalls, 0.95) : null,
                 expand,
@@ -421,7 +440,7 @@ public final class ThreeArmEvidenceExporter {
             case Score.Measured measured -> new CoverageExport(
                     measured.anyHit(),
                     measured.recall(),
-                    measured.precision().orElse(0.0),
+                    measured.precision().isPresent() ? measured.precision().getAsDouble() : null,
                     measured.selectedCount());
         };
     }
