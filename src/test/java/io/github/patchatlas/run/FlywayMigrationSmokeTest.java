@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(16);
+        assertThat(first.migrationsExecuted).isEqualTo(17);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -460,6 +460,83 @@ class FlywayMigrationSmokeTest {
             assertThatThrownBy(() -> statement.execute(
                             "UPDATE verification_run SET failure_stage = 'GENERATION' WHERE id = '"
                                     + missing
+                                    + "'"))
+                    .hasMessageContaining("verification_run_failure_pair_chk");
+        }
+    }
+
+    @Test
+    void v17AllowsGraphToolsFindExpandAndProtocolError() throws Exception {
+        migrate();
+        UUID runId = UUID.randomUUID();
+        UUID failed = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version, context_origin
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'QUEUED', 0, 'GRAPH_TOOLS'
+                    )
+                    """
+                            .formatted(runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 0, 'FIND', 'OK', 'query', 'find', '{}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 1, 'EXPAND', 'OK', 'entity', 'expand', '{}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 2, 'SEARCH', 'OK', '.', 'search', '{}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      failure_stage, failure_category, failure_summary, completed_at
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'FAILED', 1,
+                      'LOCATING', 'LOCATING_TOOL_PROTOCOL_ERROR', 'graph build failed',
+                      CURRENT_TIMESTAMP
+                    )
+                    """
+                            .formatted(failed));
+            assertThatThrownBy(() -> statement.execute(
+                            """
+                            INSERT INTO locating_trace (
+                              id, run_id, seq, step_kind, outcome, subject, reason, detail
+                            ) VALUES (
+                              '%s', '%s', 3, 'HALLUCINATED', 'ERROR', 'x', 'x', '{}'::jsonb
+                            )
+                            """
+                                    .formatted(UUID.randomUUID(), runId)))
+                    .hasMessageContaining("locating_trace_kind_chk");
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE verification_run SET failure_category = 'GENERATION_FAILURE' WHERE id = '"
+                                    + failed
                                     + "'"))
                     .hasMessageContaining("verification_run_failure_pair_chk");
         }

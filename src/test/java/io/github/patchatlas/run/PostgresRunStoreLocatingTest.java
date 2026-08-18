@@ -495,6 +495,42 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
+    void graphToolsOriginAndFindExpandKindsCanBePersisted() throws Exception {
+        RunSubmission graph = new RunSubmission(
+                VerificationMode.LIVE,
+                "origin-g",
+                "https://github.com/ex/repo.git",
+                null,
+                null,
+                "t",
+                "b",
+                BUG,
+                null,
+                "",
+                null,
+                io.github.patchatlas.sandbox.MavenNetworkMode.OFFLINE,
+                List.of(),
+                ContextOrigin.GRAPH_TOOLS);
+        UUID id = store.submitDiagnostic(graph);
+        assertThat(store.loadContextOrigin(id)).contains(ContextOrigin.GRAPH_TOOLS);
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(locating));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(0, LocatingStepKind.FIND, "weekend", "find", "{}"));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(1, LocatingStepKind.EXPAND, "type:A", "expand", "{}"));
+        store.commitContext(
+                ClaimHandle.from(locating),
+                ContextOrigin.GRAPH_TOOLS,
+                List.of(new SourceSnapshot("src/A.java", "class A {}")));
+        assertThat(readOrigin(id)).isEqualTo("GRAPH_TOOLS");
+        assertThat(store.loadLocatingTrace(id)).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.FIND, LocatingStepKind.EXPAND);
+    }
+
+    @Test
     void clippedOversizeDetailSatisfiesTraceCheck() throws Exception {
         Path workspace = Files.createDirectories(temp.resolve("clip-ws"));
         Files.writeString(workspace.resolve("hit.txt"), "xxxxx");

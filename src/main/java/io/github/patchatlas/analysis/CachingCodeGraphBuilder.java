@@ -94,6 +94,11 @@ public final class CachingCodeGraphBuilder implements CodeGraphBuilder {
         return graph;
     }
 
+    public boolean hasCachedGraph(String revision) {
+        Objects.requireNonNull(revision, "revision");
+        return Files.isRegularFile(cacheRoot.resolve(key(revision)).resolve("graph.json"));
+    }
+
     private String key(String revision) {
         String material = repositoryUrl + '\0' + revision + '\0' + parserVersion + '\0' + schemaVersion;
         try {

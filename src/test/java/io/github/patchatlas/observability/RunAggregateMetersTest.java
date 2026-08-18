@@ -176,7 +176,8 @@ class RunAggregateMetersTest {
                         FailureCategory.REPLAY_SYSTEM_ERROR,
                         FailureCategory.RECOVERY_EXHAUSTED,
                         FailureCategory.LOCATING_NO_CONTEXT,
-                        FailureCategory.LOCATING_NOT_CONFIGURED);
+                        FailureCategory.LOCATING_NOT_CONFIGURED,
+                        FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR);
         assertThat(RecordedUsageStatus.values())
                 .containsExactly(
                         RecordedUsageStatus.TRACKING_UNAVAILABLE,
@@ -192,7 +193,7 @@ class RunAggregateMetersTest {
                 }
             }
         }
-        assertThat(legalPairs).isEqualTo(14);
+        assertThat(legalPairs).isEqualTo(15);
         assertThat(expectedFailedTags()).hasSize(VerificationMode.values().length * legalPairs);
     }
 

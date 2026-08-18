@@ -84,6 +84,7 @@ class Issue2TestRuntimeTest {
         Issue2TestRuntime withoutModel =
                 Issue2TestRuntime.create(generator, root, sandbox, LocalGitFixture.fetcher(root));
         assertThat(withoutModel.locatingCoordinator().hasTextTools()).isFalse();
+        assertThat(withoutModel.locatingCoordinator().hasGraphTools()).isFalse();
 
         org.springframework.ai.chat.model.ChatModel chatModel =
                 io.github.patchatlas.agent.OpenAiChatModelFactory.create(
@@ -97,6 +98,7 @@ class Issue2TestRuntimeTest {
                 null,
                 chatModel);
         assertThat(withModel.locatingCoordinator().hasTextTools()).isTrue();
+        assertThat(withModel.locatingCoordinator().hasGraphTools()).isTrue();
     }
 
     @Test

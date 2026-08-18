@@ -16,6 +16,15 @@ public final class LocatingPrompt {
             - submit: submit selected repository-relative paths and stop locating
             """;
 
+    public static final String GRAPH_TOOL_SECTION =
+            """
+            Tools:
+            - find: find entities by name or file content
+            - expand: expand graph neighbors of an entity; does not return source
+            - read: read a file slice
+            - submit: submit selected repository-relative paths and stop locating
+            """;
+
     private LocatingPrompt() {}
 
     public static String skeleton(String toolSection) {
@@ -35,5 +44,9 @@ public final class LocatingPrompt {
 
     public static String textTools() {
         return skeleton(TEXT_TOOL_SECTION);
+    }
+
+    public static String graphTools() {
+        return skeleton(GRAPH_TOOL_SECTION);
     }
 }

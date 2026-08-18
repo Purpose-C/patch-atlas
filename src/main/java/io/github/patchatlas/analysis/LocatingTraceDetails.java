@@ -89,8 +89,26 @@ final class LocatingTraceDetails {
                 node.put("bytes", utf8Size(bodyNode.get("lines")));
                 putTruncated(node, bodyNode);
             }
+            case GraphDiscoveryTools.FIND -> {
+                putText(node, "query", text(argNode, "query"));
+                node.put("hits", size(bodyNode, "entities"));
+                putTruncated(node, bodyNode);
+            }
+            case GraphDiscoveryTools.EXPAND -> {
+                putText(node, "entity", text(argNode, "entity"));
+                node.put("neighbors", size(bodyNode, "neighbors"));
+                putExpandEdges(node, bodyNode);
+                putTruncated(node, bodyNode);
+            }
             default -> node.put("tool", name);
         }
+        return clip(node);
+    }
+
+    static String graphBuild(long durationMs, boolean cacheHit) {
+        ObjectNode node = JsonMapper.shared().createObjectNode();
+        node.put("durationMs", durationMs);
+        node.put("cacheHit", cacheHit);
         return clip(node);
     }
 
@@ -153,6 +171,31 @@ final class LocatingTraceDetails {
             return "";
         }
         return ABSOLUTE_PATH.matcher(text).replaceAll("[path]");
+    }
+
+    private static void putExpandEdges(ObjectNode node, JsonNode body) {
+        JsonNode neighbors = body.get("neighbors");
+        if (neighbors == null || !neighbors.isArray()) {
+            return;
+        }
+        var kinds = JsonMapper.shared().createArrayNode();
+        var confidences = JsonMapper.shared().createArrayNode();
+        for (JsonNode neighbor : neighbors) {
+            JsonNode kind = neighbor.get("edgeKind");
+            if (kind != null && kind.isString()) {
+                kinds.add(kind.asString());
+            }
+            JsonNode confidence = neighbor.get("confidence");
+            if (confidence != null && confidence.isString()) {
+                confidences.add(confidence.asString());
+            }
+        }
+        if (!kinds.isEmpty()) {
+            node.set("edgeKinds", kinds);
+        }
+        if (!confidences.isEmpty()) {
+            node.set("confidences", confidences);
+        }
     }
 
     private static void putText(ObjectNode node, String field, String value) {

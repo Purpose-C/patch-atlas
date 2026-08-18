@@ -5,7 +5,9 @@ import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.analysis.BuggyOnlyGeneratorContextBuilder;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
+import io.github.patchatlas.analysis.ChatClientGraphToolsLocator;
 import io.github.patchatlas.analysis.ChatClientTextToolsLocator;
+import io.github.patchatlas.analysis.JavaParserCodeGraphBuilder;
 import io.github.patchatlas.analysis.LocalizationBudget;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.SideReplayRunner;
@@ -173,12 +175,21 @@ public final class Issue2TestRuntime {
                         OpenAiChatModelFactory.locatingChatOptions(
                                 locatingModel.getDefaultOptions().getModel()),
                         locatingBudget);
+        LocatingCoordinator.GraphToolsLoop graphTools = locatingModel == null
+                ? null
+                : new ChatClientGraphToolsLocator(
+                        locatingModel,
+                        OpenAiChatModelFactory.locatingChatOptions(
+                                locatingModel.getDefaultOptions().getModel()),
+                        locatingBudget,
+                        new JavaParserCodeGraphBuilder());
         return new Issue2TestRuntime(
                 new LocatingCoordinator(
                         workspaces,
                         new BuggyRepositoryReader(),
                         new BuggyOnlyGeneratorContextBuilder(),
-                        textTools),
+                        textTools,
+                        graphTools),
                 new CandidateGenerationCoordinator(generator, gate, workspaces, warmup, sideReplay),
                 new FormalReplayCoordinator(gate, workspaces, warmup, replayer));
     }

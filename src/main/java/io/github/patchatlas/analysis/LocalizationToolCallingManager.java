@@ -46,6 +46,9 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
 
     private final AtomicInteger executeCalls = new AtomicInteger();
     private final LocalizationTools tools;
+    private final WorkspaceTools workspace;
+    private final DiscoveryTools discovery;
+    private final ContextOrigin origin;
     private final LocatingRunSession session;
     private final LocalizationBudget budget;
     private final Clock clock;
@@ -58,6 +61,9 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
 
     public LocalizationToolCallingManager() {
         this.tools = null;
+        this.workspace = null;
+        this.discovery = null;
+        this.origin = ContextOrigin.TEXT_TOOLS;
         this.session = null;
         this.budget = null;
         this.clock = Clock.systemUTC();
@@ -74,32 +80,74 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             LocalizationBudget budget,
             Clock clock) {
         this.tools = Objects.requireNonNull(tools, "tools");
+        this.workspace = null;
+        this.discovery = null;
+        this.origin = ContextOrigin.TEXT_TOOLS;
         this.session = Objects.requireNonNull(session, "session");
         this.budget = Objects.requireNonNull(budget, "budget");
         this.clock = Objects.requireNonNull(clock, "clock");
         session.beginTrace();
     }
 
+    public LocalizationToolCallingManager(
+            WorkspaceTools workspace,
+            DiscoveryTools discovery,
+            ContextOrigin origin,
+            LocatingRunSession session,
+            LocalizationBudget budget,
+            Clock clock) {
+        this.tools = null;
+        this.workspace = Objects.requireNonNull(workspace, "workspace");
+        this.discovery = Objects.requireNonNull(discovery, "discovery");
+        this.origin = Objects.requireNonNull(origin, "origin");
+        this.session = Objects.requireNonNull(session, "session");
+        this.budget = Objects.requireNonNull(budget, "budget");
+        this.clock = Objects.requireNonNull(clock, "clock");
+        session.beginTrace();
+    }
+
+    public LocalizationToolCallingManager(
+            WorkspaceTools workspace,
+            DiscoveryTools discovery,
+            ContextOrigin origin,
+            LocatingRunSession session,
+            LocalizationBudget budget) {
+        this(workspace, discovery, origin, session, budget, Clock.systemUTC());
+    }
+
     @Override
     public List<ToolDefinition> resolveToolDefinitions(ToolCallingChatOptions options) {
         Objects.requireNonNull(options, "options");
-        if (tools == null) {
+        if (session == null) {
             return List.of(pingDefinition());
+        }
+        if (discovery != null) {
+            List<ToolDefinition> definitions = new ArrayList<>(discovery.definitions());
+            definitions.addAll(workspaceToolDefinitions());
+            return List.copyOf(definitions);
         }
         return locatingToolDefinitions();
     }
 
     /** 发给模型的定位工具 schema；ChatClient 回调必须用同一份，不能另写空 schema。 */
     public static List<ToolDefinition> locatingToolDefinitions() {
-        return List.of(
+        List<ToolDefinition> definitions = new ArrayList<>();
+        definitions.add(
                 definition(
                         SEARCH,
                         "Search files",
-                        "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\"},\"pathGlob\":{\"type\":\"string\"}},\"required\":[\"pattern\"]}"),
+                        "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\"},\"pathGlob\":{\"type\":\"string\"}},\"required\":[\"pattern\"]}"));
+        definitions.add(
                 definition(
                         LIST,
                         "List a directory",
-                        "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}"),
+                        "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}"));
+        definitions.addAll(workspaceToolDefinitions());
+        return List.copyOf(definitions);
+    }
+
+    public static List<ToolDefinition> workspaceToolDefinitions() {
+        return List.of(
                 definition(
                         READ,
                         "Read a file",
@@ -119,7 +167,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         AssistantMessage assistant = response.getResult().getOutput();
         history.add(assistant);
         List<AssistantMessage.ToolCall> calls = requireBoundedToolCalls(assistant);
-        if (tools == null) {
+        if (session == null) {
             List<ToolResponseMessage.ToolResponse> spike = new ArrayList<>();
             for (AssistantMessage.ToolCall call : calls) {
                 spike.add(responseOf(call.id(), SPIKE_TOOL, "{\"ok\":true}"));
@@ -241,14 +289,37 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     "locating produced no readable context")));
         }
         return new LocatingCoordinator.Result.ContextCommitted(
-                session.commitContext(ContextOrigin.TEXT_TOOLS, snapshots));
+                session.commitContext(origin, snapshots));
     }
 
     static ToolDefinition pingDefinition() {
         return definition(SPIKE_TOOL, "spike tool", "{\"type\":\"object\",\"properties\":{}}");
     }
 
+    void recordGraphBuild(long durationMs, boolean cacheHit) {
+        session.appendTrace(LocatingTraceStep.of(
+                seq++,
+                LocatingStepKind.SELECTION,
+                "graph",
+                "GRAPH_BUILD",
+                LocatingTraceDetails.graphBuild(durationMs, cacheHit)));
+    }
+
     private String dispatch(String name, String args) {
+        if (workspace != null) {
+            if (READ.equals(name)) {
+                JsonNode node = args == null || args.isBlank()
+                        ? JsonMapper.shared().createObjectNode()
+                        : JsonMapper.shared().readTree(args);
+                String path = text(node, "path");
+                Integer start = intOrNull(node, "startLine");
+                Integer span = intOrNull(node, "span");
+                LocalizationTools.FileSlice slice = workspace.read(path, start, span);
+                readContents.put(slice.path(), String.join("\n", slice.lines()));
+                return JsonMapper.shared().writeValueAsString(slice);
+            }
+            return discovery.invoke(name, args);
+        }
         JsonNode node = args == null || args.isBlank()
                 ? JsonMapper.shared().createObjectNode()
                 : JsonMapper.shared().readTree(args);
@@ -274,7 +345,9 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     private CallResult executeSubmit(AssistantMessage.ToolCall call, String args) {
         LocalizationTools.SubmitDecision decision;
         try {
-            decision = tools.validateSubmit(parsePaths(args));
+            decision = workspace != null
+                    ? workspace.validateSubmit(parsePaths(args))
+                    : tools.validateSubmit(parsePaths(args));
         } catch (RuntimeException ex) {
             decision = LocalizationTools.SubmitDecision.reject("paths must be an array of strings");
         }
@@ -400,18 +473,39 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
         return value == null || value.isNull() ? null : value.asString();
     }
 
-    private static LocatingStepKind kindOf(String name) {
+    private LocatingStepKind kindOf(String name) {
+        if (discovery != null) {
+            boolean declared = READ.equals(name) || SUBMIT.equals(name);
+            if (!declared) {
+                for (ToolDefinition definition : discovery.definitions()) {
+                    if (definition.name().equals(name)) {
+                        declared = true;
+                        break;
+                    }
+                }
+            }
+            if (!declared) {
+                return LocatingStepKind.UNKNOWN_TOOL;
+            }
+        }
         return switch (name) {
             case SEARCH -> LocatingStepKind.SEARCH;
             case LIST -> LocatingStepKind.LIST;
             case READ -> LocatingStepKind.READ;
             case SUBMIT -> LocatingStepKind.SUBMIT;
+            case GraphDiscoveryTools.FIND -> LocatingStepKind.FIND;
+            case GraphDiscoveryTools.EXPAND -> LocatingStepKind.EXPAND;
             default -> LocatingStepKind.UNKNOWN_TOOL;
         };
     }
 
     private static String subjectOf(String name, String args) {
-        if (!SEARCH.equals(name) && !LIST.equals(name) && !READ.equals(name) && !SUBMIT.equals(name)) {
+        if (!SEARCH.equals(name)
+                && !LIST.equals(name)
+                && !READ.equals(name)
+                && !SUBMIT.equals(name)
+                && !GraphDiscoveryTools.FIND.equals(name)
+                && !GraphDiscoveryTools.EXPAND.equals(name)) {
             return name == null || name.isBlank() ? "." : name;
         }
         try {
@@ -422,6 +516,14 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                     return paths.get(0).asString();
                 }
                 return ".";
+            }
+            if (GraphDiscoveryTools.FIND.equals(name)) {
+                String query = text(node, "query");
+                return query == null || query.isBlank() ? "." : query;
+            }
+            if (GraphDiscoveryTools.EXPAND.equals(name)) {
+                String entity = text(node, "entity");
+                return entity == null || entity.isBlank() ? "." : entity;
             }
             String path = text(node, "path");
             if (path != null && !path.isBlank()) {

@@ -91,6 +91,21 @@ class TerminalRunRulesTest {
     }
 
     @Test
+    void locatingToolProtocolErrorIsDistinctFromZeroHit() {
+        RunFailure protocol = new RunFailure(
+                FailureStage.LOCATING,
+                FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR,
+                "graph build failed");
+        assertThat(RunFailure.legalPair(FailureStage.LOCATING, FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR))
+                .isTrue();
+        assertThat(RunFailure.legalPair(FailureStage.LOCATING, FailureCategory.LOCATING_NO_CONTEXT))
+                .isTrue();
+        assertThat(RunFailure.legalPair(FailureStage.GENERATION, FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR))
+                .isFalse();
+        assertThatCode(() -> TerminalRunRules.requireFailed(null, protocol)).doesNotThrowAnyException();
+    }
+
+    @Test
     void recoveryExhaustedIsFailedWithRecoveryStage() {
         RunFailure failure = new RunFailure(
                 FailureStage.RECOVERY, FailureCategory.RECOVERY_EXHAUSTED, "max recoveries reached");

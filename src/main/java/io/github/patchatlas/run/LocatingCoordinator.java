@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * 定位阶段编排：PINNED 透传、HEURISTIC 现场选择，或文本工具循环。
+ * 定位阶段编排：PINNED 透传、HEURISTIC 现场选择，或文本/图工具循环。
  *
  * <p>不持有 Store；写入只经 {@link LocatingRunSession}。
  */
@@ -32,16 +32,22 @@ public final class LocatingCoordinator {
         Result run(ClaimedRun claimed, GenerationInput input, LocatingRunSession session, Path workspace);
     }
 
+    @FunctionalInterface
+    public interface GraphToolsLoop {
+        Result run(ClaimedRun claimed, GenerationInput input, LocatingRunSession session, Path workspace);
+    }
+
     private final CandidateWorkspaceFactory workspaces;
     private final BuggyRepositoryReader repositoryReader;
     private final BuggyOnlyGeneratorContextBuilder contextBuilder;
     private final TextToolsLoop textTools;
+    private final GraphToolsLoop graphTools;
 
     public LocatingCoordinator(
             CandidateWorkspaceFactory workspaces,
             BuggyRepositoryReader repositoryReader,
             BuggyOnlyGeneratorContextBuilder contextBuilder) {
-        this(workspaces, repositoryReader, contextBuilder, null);
+        this(workspaces, repositoryReader, contextBuilder, null, null);
     }
 
     public LocatingCoordinator(
@@ -49,10 +55,20 @@ public final class LocatingCoordinator {
             BuggyRepositoryReader repositoryReader,
             BuggyOnlyGeneratorContextBuilder contextBuilder,
             TextToolsLoop textTools) {
+        this(workspaces, repositoryReader, contextBuilder, textTools, null);
+    }
+
+    public LocatingCoordinator(
+            CandidateWorkspaceFactory workspaces,
+            BuggyRepositoryReader repositoryReader,
+            BuggyOnlyGeneratorContextBuilder contextBuilder,
+            TextToolsLoop textTools,
+            GraphToolsLoop graphTools) {
         this.workspaces = Objects.requireNonNull(workspaces, "workspaces");
         this.repositoryReader = Objects.requireNonNull(repositoryReader, "repositoryReader");
         this.contextBuilder = Objects.requireNonNull(contextBuilder, "contextBuilder");
         this.textTools = textTools;
+        this.graphTools = graphTools;
     }
 
     boolean hasTextTools() {
@@ -61,6 +77,14 @@ public final class LocatingCoordinator {
 
     TextToolsLoop textToolsLoop() {
         return textTools;
+    }
+
+    boolean hasGraphTools() {
+        return graphTools != null;
+    }
+
+    GraphToolsLoop graphToolsLoop() {
+        return graphTools;
     }
 
     public Result run(
@@ -85,6 +109,9 @@ public final class LocatingCoordinator {
             }
             if (requestedOrigin == ContextOrigin.TEXT_TOOLS) {
                 return textTools(claimed, input, session);
+            }
+            if (requestedOrigin == ContextOrigin.GRAPH_TOOLS) {
+                return graphTools(claimed, input, session);
             }
             return heuristic(claimed, input, session);
         } catch (StaleClaimException stale) {
@@ -113,6 +140,19 @@ public final class LocatingCoordinator {
         }
         try (CandidateWorkspaceFactory.WorkspaceSession workspace = workspaces.open(claimed, input)) {
             return textTools.run(claimed, input, session, workspace.workspace());
+        }
+    }
+
+    private Result graphTools(ClaimedRun claimed, GenerationInput input, LocatingRunSession session)
+            throws Exception {
+        if (graphTools == null) {
+            return new Result.RunFailed(session.fail(new RunFailure(
+                    FailureStage.LOCATING,
+                    FailureCategory.LOCATING_NOT_CONFIGURED,
+                    "graph tools locating is not configured")));
+        }
+        try (CandidateWorkspaceFactory.WorkspaceSession workspace = workspaces.open(claimed, input)) {
+            return graphTools.run(claimed, input, session, workspace.workspace());
         }
     }
 
