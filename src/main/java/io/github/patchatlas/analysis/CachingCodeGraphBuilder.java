@@ -95,7 +95,7 @@ public final class CachingCodeGraphBuilder implements CodeGraphBuilder {
     }
 
     private String key(String revision) {
-        String material = repositoryUrl + revision + parserVersion + schemaVersion;
+        String material = repositoryUrl + '\0' + revision + '\0' + parserVersion + '\0' + schemaVersion;
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(material.getBytes(StandardCharsets.UTF_8));

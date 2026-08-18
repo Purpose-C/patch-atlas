@@ -9,8 +9,11 @@ import io.github.patchatlas.analysis.CodeGraph.Node;
 import io.github.patchatlas.analysis.CodeGraph.NodeKind;
 import io.github.patchatlas.analysis.CodeGraph.SourceLocation;
 import io.github.patchatlas.analysis.CodeGraph.UnresolvedKind;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -128,6 +131,47 @@ class CachingCodeGraphBuilderTest {
     }
 
     @Test
+    void collidingConcatenationsProduceDistinctCacheKeys() throws Exception {
+        Path cache = graphCache();
+        CountingBuilder firstInner = new CountingBuilder(sample());
+        CountingBuilder secondInner = new CountingBuilder(sample());
+        new CachingCodeGraphBuilder(firstInner, cache, "a", "p", 1)
+                .build(temp.resolve("ws"), "bc");
+        new CachingCodeGraphBuilder(secondInner, cache, "ab", "p", 1)
+                .build(temp.resolve("ws"), "c");
+
+        try (Stream<Path> entries = Files.list(cache)) {
+            List<Path> dirs = entries.filter(Files::isDirectory).toList();
+            assertThat(dirs).hasSize(2);
+        }
+        assertThat(firstInner.calls.get()).isEqualTo(1);
+        assertThat(secondInner.calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void delimiterChangeRebuildsWithoutBumpingSchemaVersion() throws Exception {
+        Path cache = graphCache();
+        Path stale = cache.resolve(undelimitedKey(REPO, REVISION, PARSER, 1));
+        Files.createDirectories(stale);
+        Files.writeString(
+                stale.resolve("graph.json"),
+                "{\"revision\":\"stale\",\"nodes\":[],\"edges\":[]}",
+                StandardCharsets.UTF_8);
+        CountingBuilder inner = new CountingBuilder(sample());
+
+        CodeGraph built = caching(inner, cache, PARSER, 1).build(temp.resolve("ws"), REVISION);
+
+        assertThat(built.revision()).isEqualTo(REVISION);
+        assertThat(inner.calls.get()).isEqualTo(1);
+        assertThat(CodeGraph.SCHEMA_VERSION).isEqualTo(1);
+        try (Stream<Path> entries = Files.list(cache)) {
+            assertThat(entries.filter(Files::isDirectory).map(path -> path.getFileName().toString()))
+                    .contains(undelimitedKey(REPO, REVISION, PARSER, 1))
+                    .hasSize(2);
+        }
+    }
+
+    @Test
     void schemaVersionBumpDoesNotReuseCache() {
         Path cache = graphCache();
         CountingBuilder inner = new CountingBuilder(sample());
@@ -217,6 +261,18 @@ class CachingCodeGraphBuilderTest {
                 "A.java",
                 new SourceLocation("A.java", 1));
         return new CodeGraph(REVISION, List.of(file), List.of());
+    }
+
+    private static String undelimitedKey(
+            String repositoryUrl, String revision, String parserVersion, int schemaVersion) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest((repositoryUrl + revision + parserVersion + schemaVersion)
+                            .getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private static final class CountingBuilder implements CodeGraphBuilder {
