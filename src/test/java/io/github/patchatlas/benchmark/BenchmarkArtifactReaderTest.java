@@ -84,6 +84,82 @@ class BenchmarkArtifactReaderTest {
     }
 
     @Test
+    void readThreeArmProtocolFreezesModelIdentityAndKnownLimitations() throws IOException {
+        BenchmarkArtifacts.ProtocolMetadata protocol = new BenchmarkArtifacts()
+                .readProtocol(Path.of("benchmark-cases/batch5-three-arm/protocol.json"));
+
+        assertThat(protocol.provider()).isEqualTo("ollama");
+        assertThat(protocol.model()).isEqualTo("glm-5.2");
+        assertThat(protocol.endpoint()).isEqualTo("https://ollama.com/v1");
+        assertThat(protocol.limitations())
+                .anySatisfy(item -> assertThat(item).contains("expand").contains("find").contains("search"))
+                .anySatisfy(item -> assertThat(item).contains("jsoup#2002").contains("whatsapp#100").contains("文本臂"))
+                .anySatisfy(item -> assertThat(item).contains("6 个二元").contains("不得用于臂间比较"));
+        assertThat(protocol.failureHandling()).contains("Patch Gate 的策略性拒绝可修正");
+        assertThat(protocol.failureHandling()).contains("在任何正式模型调用之前确定");
+    }
+
+    @Test
+    void readThreeArmPreregisteredCriteriaFreezesTwoJudgements() throws IOException {
+        BenchmarkArtifacts.PreregisteredCriteria table = new BenchmarkArtifacts()
+                .readPreregisteredCriteria(
+                        Path.of("benchmark-cases/batch5-three-arm/preregistered-criteria.json"));
+
+        assertThat(table.criteria()).extracting(BenchmarkArtifacts.PreregisteredCriterion::id)
+                .containsExactly("hunk-count-mismatch", "graph-expand-unused");
+        BenchmarkArtifacts.PreregisteredCriterion hunk = table.criteria().get(0);
+        assertThat(hunk.observation()).contains("count mismatch").contains("三分之一");
+        assertThat(hunk.ifHolds()).contains("从正文重算").contains("finish_reason").contains("length");
+        assertThat(hunk.ifDoesNotHold()).contains("维持现状");
+        BenchmarkArtifacts.PreregisteredCriterion expand = table.criteria().get(1);
+        assertThat(expand.observation()).contains("expand").contains("0");
+        assertThat(expand.ifHolds()).contains("不提供").contains("不得据此断言");
+        assertThat(expand.ifDoesNotHold()).doesNotContain("更好").doesNotContain("更差");
+    }
+
+    @Test
+    void readPreregisteredCriteriaFailsWhenFileMissing() {
+        assertThatThrownBy(() -> new BenchmarkArtifacts()
+                        .readPreregisteredCriteria(
+                                Path.of("benchmark-cases/batch5-three-arm/nonexistent.json")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("preregistered criteria file missing");
+    }
+
+    @Test
+    void readPreregisteredCriteriaRejectsEmptyList() throws IOException {
+        Path path = tempDir.resolve("preregistered-criteria.json");
+        Files.writeString(path, """
+                { "criteria": [] }
+                """);
+
+        assertThatThrownBy(() -> new BenchmarkArtifacts().readPreregisteredCriteria(path))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("preregistered criteria must not be empty");
+    }
+
+    @Test
+    void readPreregisteredCriteriaRejectsBlankObservation() throws IOException {
+        Path path = tempDir.resolve("preregistered-criteria.json");
+        Files.writeString(path, """
+                {
+                  "criteria": [
+                    {
+                      "id": "hunk-count-mismatch",
+                      "observation": " ",
+                      "ifHolds": "from body",
+                      "ifDoesNotHold": "keep"
+                    }
+                  ]
+                }
+                """);
+
+        assertThatThrownBy(() -> new BenchmarkArtifacts().readPreregisteredCriteria(path))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("observation");
+    }
+
+    @Test
     void readCohortFromDiskSucceedsForValidFile() throws IOException {
         BenchmarkArtifacts artifacts = new BenchmarkArtifacts();
         Path cohortPath = tempDir.resolve("cohort.json");

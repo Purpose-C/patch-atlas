@@ -1,0 +1,16 @@
+{
+  "criteria" : [
+    {
+      "id" : "hunk-count-mismatch",
+      "observation" : "hunk old/new count mismatch 合计占首轮拒绝超过三分之一",
+      "ifHolds" : "另开工作把 hunk 计数改为从正文重算，并以 finish_reason 等于 length 作为截断的独立判据。",
+      "ifDoesNotHold" : "维持现状，不改补丁解析器的 hunk 计数规则。"
+    },
+    {
+      "id" : "graph-expand-unused",
+      "observation" : "图臂 expand 使用次数仍为 0",
+      "ifHolds" : "确认本队列不提供沿边遍历机会；不得据此断言图没有信息量。",
+      "ifDoesNotHold" : "报告 expand 的实际使用次数；该观测只说明本队列出现了沿边调用，不改变复现率不得用于臂间比较的局限。"
+    }
+  ]
+}

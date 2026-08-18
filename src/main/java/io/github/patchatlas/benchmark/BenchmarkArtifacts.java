@@ -154,6 +154,26 @@ public final class BenchmarkArtifacts {
         }
     }
 
+    /** 开跑前冻结的预注册判据：观测到则执行预先声明的结论，跑完不得改写。 */
+    public record PreregisteredCriterion(
+            String id, String observation, String ifHolds, String ifDoesNotHold) {
+        public PreregisteredCriterion {
+            requireText(id, "id");
+            requireText(observation, "observation");
+            requireText(ifHolds, "ifHolds");
+            requireText(ifDoesNotHold, "ifDoesNotHold");
+        }
+    }
+
+    public record PreregisteredCriteria(List<PreregisteredCriterion> criteria) {
+        public PreregisteredCriteria {
+            criteria = List.copyOf(Objects.requireNonNull(criteria, "criteria"));
+            if (criteria.isEmpty()) {
+                throw new IllegalArgumentException("preregistered criteria must not be empty");
+            }
+        }
+    }
+
     public record StaticExclusion(String caseId, String code) {
         public StaticExclusion {
             requireText(caseId, "caseId");
@@ -304,6 +324,19 @@ public final class BenchmarkArtifacts {
         }
         try {
             return mapper.readValue(path.toFile(), ProtocolMetadata.class);
+        } catch (RuntimeException ex) {
+            throw unwrapIllegalArgument(ex);
+        }
+    }
+
+    /** 读取并校验预注册判据表；缺失时抛异常，不静默省略。 */
+    public PreregisteredCriteria readPreregisteredCriteria(Path path) throws IOException {
+        Objects.requireNonNull(path, "path");
+        if (!Files.exists(path)) {
+            throw new IllegalStateException("preregistered criteria file missing: " + path);
+        }
+        try {
+            return mapper.readValue(path.toFile(), PreregisteredCriteria.class);
         } catch (RuntimeException ex) {
             throw unwrapIllegalArgument(ex);
         }
