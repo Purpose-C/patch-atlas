@@ -7,6 +7,7 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.CaseResult;
 import io.github.patchatlas.benchmark.BenchmarkEvidenceExporter.ResultsExport;
+import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
@@ -257,6 +258,46 @@ class BenchmarkEvidenceExporterTest {
         assertThat(md).contains("strictness choice, not a safety property");
         assertThat(md).contains("失败发生在输出契约层");
         assertThat(md).contains("Failed Candidate Drafts are not persisted");
+    }
+
+    @Test
+    void exportsLocalizationCoverageNumbersAndNotApplicable() throws IOException {
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agent(4, "case-4", ReplayVerdict.VALID_REPRODUCTION, false),
+                agent(5, "case-5", ReplayVerdict.NOT_REPRODUCED, false),
+                agent(6, "case-6", null, true));
+        List<Score> coverage = List.of(
+                new Score.Measured(true, 1.0, 0.5, 2),
+                new Score.NotApplicable(),
+                new Score.Measured(false, 0.0, 0.0, 1),
+                new Score.Measured(true, 1.0 / 3.0, 0.5, 2),
+                new Score.NotApplicable(),
+                new Score.NotApplicable());
+
+        ResultsExport export = new BenchmarkEvidenceExporter()
+                .export(COHORT, results, protocolPath, tempDir, coverage);
+
+        assertThat(export.cases().get(0).localizationCoverage())
+                .isEqualTo(new BenchmarkEvidenceExporter.LocalizationCoverageExport(true, 1.0, 0.5, 2));
+        assertThat(export.cases().get(1).localizationCoverage()).isNull();
+        assertThat(export.cases().get(2).localizationCoverage().anyHit()).isFalse();
+        assertThat(export.cases().get(2).localizationCoverage().recall()).isEqualTo(0.0);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("Issue Localization Coverage");
+        assertThat(md).contains("anyHit");
+        assertThat(md).contains("recall");
+        assertThat(md).contains("precision");
+        assertThat(md).contains("selectedCount");
+        assertThat(md).contains("| true | 1.0000 | 0.5000 | 2 |");
+        assertThat(md).contains("| N/A | N/A | N/A | N/A |");
+        assertThat(md).contains("| false | 0.0000 | 0.0000 | 1 |");
+        String json = Files.readString(tempDir.resolve("results.json"));
+        assertThat(json).contains("\"anyHit\"");
+        assertThat(json).contains("\"localizationCoverage\" : null");
     }
 
     @Test

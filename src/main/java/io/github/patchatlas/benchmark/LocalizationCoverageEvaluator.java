@@ -2,6 +2,7 @@ package io.github.patchatlas.benchmark;
 
 import io.github.patchatlas.benchmark.RepairGroundTruthExtractor.Result;
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.RunState;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -31,7 +32,16 @@ public final class LocalizationCoverageEvaluator {
         record NotApplicable() implements Score {}
     }
 
-    public Score score(VerificationMode mode, Result groundTruth, Set<String> selected) {
+    public Score score(RunState state, VerificationMode mode, Result groundTruth, Set<String> selected) {
+        Objects.requireNonNull(state, "state");
+        if (!state.isTerminal()) {
+            throw new IllegalStateException(
+                    "localization coverage is only evaluated after a run reaches a terminal state");
+        }
+        return scoreAfterTerminal(mode, groundTruth, selected);
+    }
+
+    private Score scoreAfterTerminal(VerificationMode mode, Result groundTruth, Set<String> selected) {
         Objects.requireNonNull(mode, "mode");
         Objects.requireNonNull(selected, "selected");
         if (selected.size() > MAX_SELECTED) {

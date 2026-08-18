@@ -2,6 +2,7 @@ package io.github.patchatlas.benchmark;
 
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
+import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.replay.ReplayVerdict;
 import io.github.patchatlas.run.LocatingUsage;
 import io.github.patchatlas.run.RunPurpose;
@@ -14,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -169,7 +171,8 @@ public final class BenchmarkEvidenceExporter {
             String targetTestClass,
             String targetTestMethod,
             Instant createdAt,
-            Instant completedAt) {
+            Instant completedAt,
+            LocalizationCoverageExport localizationCoverage) {
 
         public CaseResultExport {
             Objects.requireNonNull(caseId, "caseId");
@@ -179,6 +182,10 @@ public final class BenchmarkEvidenceExporter {
             Objects.requireNonNull(state, "state");
         }
     }
+
+    /** 文件级定位覆盖率；不适用时整个对象为 null，不得写成 0。 */
+    public record LocalizationCoverageExport(
+            boolean anyHit, double recall, double precision, int selectedCount) {}
 
     private final BenchmarkArtifacts artifacts;
 
@@ -200,12 +207,25 @@ public final class BenchmarkEvidenceExporter {
      */
     public ResultsExport export(Cohort cohort, List<CaseResult> results, Path protocolPath, Path outputDir)
             throws IOException {
+        return export(cohort, results, protocolPath, outputDir, null);
+    }
+
+    public ResultsExport export(
+            Cohort cohort,
+            List<CaseResult> results,
+            Path protocolPath,
+            Path outputDir,
+            List<Score> coverageScores)
+            throws IOException {
         Objects.requireNonNull(cohort, "cohort");
         Objects.requireNonNull(results, "results");
         Objects.requireNonNull(protocolPath, "protocolPath");
         Objects.requireNonNull(outputDir, "outputDir");
         if (results.size() != 6) {
             throw new IllegalArgumentException("expected 6 case results, got " + results.size());
+        }
+        if (coverageScores != null && coverageScores.size() != 6) {
+            throw new IllegalArgumentException("expected 6 coverage scores, got " + coverageScores.size());
         }
 
         BenchmarkArtifacts.ProtocolMetadata protocol = artifacts.readProtocol(protocolPath);
@@ -278,7 +298,10 @@ public final class BenchmarkEvidenceExporter {
                 agentFailures++;
             }
 
-            exports.add(toExport(cohortCase, result));
+            exports.add(toExport(
+                    cohortCase,
+                    result,
+                    coverageScores == null ? null : coverageScores.get(i)));
         }
 
         ResultsExport export = new ResultsExport(
@@ -296,7 +319,7 @@ public final class BenchmarkEvidenceExporter {
 
         artifacts.write(outputDir.resolve("results.json"), export);
         GenerationRejectionLog rejections = readRejections(protocolPath.getParent(), results);
-        writeMarkdownReport(outputDir, cohort, export, results, rejections);
+        writeMarkdownReport(outputDir, cohort, export, results, rejections, coverageScores);
         return export;
     }
 
@@ -352,7 +375,7 @@ public final class BenchmarkEvidenceExporter {
         return log;
     }
 
-    private static CaseResultExport toExport(CohortCase cohortCase, CaseResult result) {
+    private static CaseResultExport toExport(CohortCase cohortCase, CaseResult result, Score coverage) {
         return new CaseResultExport(
                 cohortCase.position(),
                 cohortCase.role().name(),
@@ -376,7 +399,17 @@ public final class BenchmarkEvidenceExporter {
                 result.targetTestClass().orElse(null),
                 result.targetTestMethod().orElse(null),
                 result.createdAt(),
-                result.completedAt());
+                result.completedAt(),
+                toCoverageExport(coverage));
+    }
+
+    private static LocalizationCoverageExport toCoverageExport(Score coverage) {
+        return switch (coverage) {
+            case null -> null;
+            case Score.NotApplicable ignored -> null;
+            case Score.Measured measured -> new LocalizationCoverageExport(
+                    measured.anyHit(), measured.recall(), measured.precision(), measured.selectedCount());
+        };
     }
 
     private void writeMarkdownReport(
@@ -384,7 +417,8 @@ public final class BenchmarkEvidenceExporter {
             Cohort cohort,
             ResultsExport export,
             List<CaseResult> results,
-            GenerationRejectionLog rejections)
+            GenerationRejectionLog rejections,
+            List<Score> coverageScores)
             throws IOException {
         StringBuilder md = new StringBuilder();
         md.append("# Benchmark Evidence Report\n\n");
@@ -434,6 +468,23 @@ public final class BenchmarkEvidenceExporter {
             md.append(" | ").append(cr.locatingUsage().reportLabel()).append(" |\n");
         }
         md.append('\n');
+
+        if (coverageScores != null) {
+            md.append("## Issue Localization Coverage\n\n");
+            md.append("File-level coverage of human repair paths. ");
+            md.append("anyHit, recall, precision and selectedCount are reported together. ");
+            md.append("Live runs and empty ground truth are N/A, not zero.\n\n");
+            md.append("| # | Case | anyHit | recall | precision | selectedCount |\n");
+            md.append("| --- | --- | --- | --- | --- | --- |\n");
+            for (int i = 0; i < 6; i++) {
+                CohortCase cc = cohort.cases().get(i);
+                md.append("| ").append(cc.position());
+                md.append(" | `").append(cc.caseId()).append("`");
+                md.append(" | ").append(coverageCell(coverageScores.get(i)));
+                md.append(" |\n");
+            }
+            md.append('\n');
+        }
 
         md.append("## Estimated Model Cost\n\n");
         md.append("Estimated Model Cost is unavailable. Provider `")
@@ -500,5 +551,19 @@ public final class BenchmarkEvidenceExporter {
         }
 
         Files.writeString(outputDir.resolve("evidence-report.md"), md.toString(), StandardCharsets.UTF_8);
+    }
+
+    private static String coverageCell(Score score) {
+        return switch (score) {
+            case Score.NotApplicable ignored -> "N/A | N/A | N/A | N/A";
+            case Score.Measured measured -> measured.anyHit()
+                    + " | " + formatRatio(measured.recall())
+                    + " | " + formatRatio(measured.precision())
+                    + " | " + measured.selectedCount();
+        };
+    }
+
+    private static String formatRatio(double value) {
+        return String.format(Locale.ROOT, "%.4f", value);
     }
 }

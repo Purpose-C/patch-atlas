@@ -83,17 +83,20 @@ class FormalBenchmarkHarnessTest {
         Issue2TestWorker worker = runtime.worker(
                 runStore, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT);
         FormalBenchmarkRunner.Store store = new PostgresBenchmarkStore(runStore);
+        BenchmarkGitWorkspace git = new BenchmarkGitWorkspace(
+                projectRoot.resolve(".patch-atlas-cache/task018"));
         FrozenBenchmarkOperations operations = new FrozenBenchmarkOperations(
                 artifactsRoot,
                 artifacts,
                 new CalibrationOracleReader(),
                 new GeneratorContextMaterializer(
-                        new BenchmarkGitWorkspace(projectRoot.resolve(".patch-atlas-cache/task018")),
+                        git,
                         new BuggyRepositoryReader()),
                 new KnownTriggerResolver(),
                 runStore,
                 runtime.replayCoordinator(),
                 new BenchmarkEvidenceExporter(),
+                git,
                 metadata,
                 OWNER,
                 Issue2TestWorker.DEFAULT_LEASE);

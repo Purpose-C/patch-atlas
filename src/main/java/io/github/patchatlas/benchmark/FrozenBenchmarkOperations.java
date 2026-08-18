@@ -11,6 +11,7 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.GeneratorContextMetadat
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.OracleMetadata;
 import io.github.patchatlas.benchmark.GitBugJavaMetadataReader.CaseMetadata;
 import io.github.patchatlas.benchmark.KnownTriggerResolver.ResolvedKnownTrigger;
+import io.github.patchatlas.benchmark.LocalizationCoverageEvaluator.Score;
 import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.FormalReplayCoordinator;
@@ -20,15 +21,20 @@ import io.github.patchatlas.run.LeaseHeartbeatReplayRunSession;
 import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.run.ReplayRunSession;
+import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,6 +53,9 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
     private final PostgresRunStore runStore;
     private final FormalReplayCoordinator replayCoordinator;
     private final BenchmarkEvidenceExporter exporter;
+    private final BenchmarkGitWorkspace git;
+    private final RepairGroundTruthExtractor groundTruthExtractor = new RepairGroundTruthExtractor();
+    private final LocalizationCoverageEvaluator coverageEvaluator = new LocalizationCoverageEvaluator();
     private final Map<String, CaseMetadata> metadataById;
     private final String owner;
     private final Duration leaseDuration;
@@ -60,6 +69,7 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
             PostgresRunStore runStore,
             FormalReplayCoordinator replayCoordinator,
             BenchmarkEvidenceExporter exporter,
+            BenchmarkGitWorkspace git,
             List<CaseMetadata> metadata,
             String owner,
             Duration leaseDuration) {
@@ -71,6 +81,7 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
         this.runStore = Objects.requireNonNull(runStore, "runStore");
         this.replayCoordinator = Objects.requireNonNull(replayCoordinator, "replayCoordinator");
         this.exporter = Objects.requireNonNull(exporter, "exporter");
+        this.git = Objects.requireNonNull(git, "git");
         this.metadataById = Objects.requireNonNull(metadata, "metadata").stream()
                 .collect(Collectors.toUnmodifiableMap(
                         item -> item.generatorData().caseId(), Function.identity()));
@@ -193,14 +204,58 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
     }
 
     @Override
-    public Path exportEvidence(Cohort cohort, List<io.github.patchatlas.run.RunDetailView> details)
+    public Path exportEvidence(Cohort cohort, List<RunDetailView> details)
             throws IOException {
+        List<Score> coverage = new ArrayList<>(details.size());
+        for (int i = 0; i < details.size(); i++) {
+            coverage.add(coverageFor(cohort.cases().get(i), details.get(i)));
+        }
         exporter.export(
                 cohort,
                 BenchmarkRunReader.toCaseResults(cohort, details),
                 artifactsRoot.resolve("protocol.json"),
-                artifactsRoot);
+                artifactsRoot,
+                coverage);
         return artifactsRoot.resolve("results.json");
+    }
+
+    private Score coverageFor(CohortCase cohortCase, RunDetailView detail) throws IOException {
+        Set<String> selected = selectedPaths(detail.runId(), cohortCase);
+        if (detail.mode() == VerificationMode.LIVE) {
+            return coverageEvaluator.score(detail.state(), detail.mode(), null, selected);
+        }
+        Path workspace = checkoutBuggy(cohortCase, detail.input().buggyRevision());
+        RepairGroundTruthExtractor.Result truth = groundTruthExtractor.extract(
+                workspace,
+                detail.input().buggyRevision(),
+                detail.input().fixedRevision(),
+                cohortCase.modulePath());
+        return coverageEvaluator.score(detail.state(), detail.mode(), truth, selected);
+    }
+
+    private Path checkoutBuggy(CohortCase cohortCase, String buggyRevision) throws IOException {
+        BenchmarkGitWorkspace.CheckoutResult checkout =
+                git.checkout(cohortCase.repositoryUrl(), buggyRevision, cohortCase.caseId() + "-coverage");
+        if (!(checkout instanceof BenchmarkGitWorkspace.CheckoutResult.Success success)) {
+            throw new IOException("checkout failed for coverage: " + cohortCase.caseId());
+        }
+        return success.workspace();
+    }
+
+    private Set<String> selectedPaths(UUID runId, CohortCase cohortCase) throws IOException {
+        List<SourceSnapshot> snapshots = runStore.loadGenerationInput(runId).sourceSnapshots();
+        if (!snapshots.isEmpty()) {
+            return snapshots.stream()
+                    .map(SourceSnapshot::relativePath)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+        Path contextFile = caseDirectory(cohortCase).resolve("generator-context.json");
+        if (!Files.isRegularFile(contextFile)) {
+            return Set.of();
+        }
+        return artifacts.readGeneratorContext(contextFile).sources().stream()
+                .map(BenchmarkArtifacts.SourceReference::path)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Path caseDirectory(CohortCase cohortCase) {
