@@ -44,7 +44,7 @@ public final class LeaseHeartbeatGenerationRunSession implements GenerationRunSe
 
     @Override
     public ClaimedRun recordModelUsage(ModelUsage usage, CompletionDiagnostics diagnostics) {
-        ClaimedRun claimed = heartbeat.recordModelUsage(usage);
+        ClaimedRun claimed = heartbeat.recordModelUsage(usage, diagnostics);
         RunEvents.generationUsageRecorded(
                 claimed.runId(),
                 usage.inputTokens(),

@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationRequest;
 import io.github.patchatlas.agent.ModelUsage;
@@ -754,8 +755,16 @@ public final class PostgresRunStore {
     }
 
     public ClaimedRun recordModelUsage(ClaimHandle handle, io.github.patchatlas.agent.ModelUsage usage) {
+        return recordModelUsage(handle, usage, CompletionDiagnostics.unknown());
+    }
+
+    public ClaimedRun recordModelUsage(
+            ClaimHandle handle,
+            io.github.patchatlas.agent.ModelUsage usage,
+            CompletionDiagnostics diagnostics) {
         Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(usage, "usage");
+        Objects.requireNonNull(diagnostics, "diagnostics");
         if (handle.state() != RunState.GENERATING) {
             throw new IllegalArgumentException("recordModelUsage requires GENERATING");
         }
@@ -771,6 +780,7 @@ public final class PostgresRunStore {
                                        WHEN model_usage_record_count IS NULL THEN NULL
                                        ELSE model_usage_record_count + 1
                                    END,
+                                   model_finish_reason = :finishReason,
                                    version = :version,
                                    updated_at = CURRENT_TIMESTAMP
                              WHERE id = :id
@@ -781,6 +791,7 @@ public final class PostgresRunStore {
                     .param("inTok", usage.inputTokens())
                     .param("outTok", usage.outputTokens())
                     .param("totTok", usage.totalTokens())
+                    .param("finishReason", diagnostics.finishReason())
                     .param("version", newVersion)
                     .param("id", handle.runId())
                     .param("token", handle.leaseToken())

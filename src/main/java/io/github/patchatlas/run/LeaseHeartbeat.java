@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.ModelUsage;
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.ReplayResult;
@@ -133,8 +134,12 @@ public final class LeaseHeartbeat implements AutoCloseable {
         }
     }
 
-    public ClaimedRun recordModelUsage(io.github.patchatlas.agent.ModelUsage usage) {
-        return runTransition(h -> store.recordModelUsage(h, usage));
+    public ClaimedRun recordModelUsage(ModelUsage usage) {
+        return recordModelUsage(usage, CompletionDiagnostics.unknown());
+    }
+
+    public ClaimedRun recordModelUsage(ModelUsage usage, CompletionDiagnostics diagnostics) {
+        return runTransition(h -> store.recordModelUsage(h, usage, diagnostics));
     }
 
     public RunDetails fail(RunFailure failure) {

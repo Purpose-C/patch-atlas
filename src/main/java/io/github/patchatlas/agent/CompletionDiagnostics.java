@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 /**
  * 单次模型 completion 的诊断字段：finish_reason 与 completion 明细。
  *
- * <p>只用于结构化日志，不是账本事实；取值必须是短安全 token，取不到则为 {@code unknown}。
+ * <p>finish_reason 是判定输入：是否按截断拒绝、是否允许按正文重算 hunk 计数，都读这一字段。
+ * 取值必须是短安全 token；取不到则为 {@code unknown} 字面量，入库时同样不得用 NULL 假装没发生。
  */
 public record CompletionDiagnostics(String finishReason, String reasoningTokens, String textTokens) {
 
