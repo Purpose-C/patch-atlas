@@ -9,17 +9,17 @@ import org.springframework.ai.openai.OpenAiChatModel;
 class OpenAiChatModelFactoryTest {
 
     @Test
-    void candidateDraftSchemaConstrainsExactlyThreeStringFields() {
+    void candidateDraftSchemaConstrainsExactlyOnePatchField() {
         String schema = OpenAiChatModelFactory.CANDIDATE_DRAFT_JSON_SCHEMA;
         assertThat(schema).contains("\"type\": \"object\"");
-        assertThat(schema).contains("\"patchText\"");
-        assertThat(schema).contains("\"targetClass\"");
-        assertThat(schema).contains("\"targetMethod\"");
+        assertThat(schema).contains("\"patch\"");
+        assertThat(schema).doesNotContain("\"targetClass\"");
+        assertThat(schema).doesNotContain("\"targetMethod\"");
+        assertThat(schema).doesNotContain("\"patchText\"");
         assertThat(schema).contains("\"required\"");
         assertThat(schema).contains("\"additionalProperties\": false");
-        // 恰好三字段：无第四 property 名
         assertThat(schema.lines().filter(l -> l.contains("\"type\": \"string\"")).count())
-                .isEqualTo(3);
+                .isEqualTo(1);
     }
 
     @Test

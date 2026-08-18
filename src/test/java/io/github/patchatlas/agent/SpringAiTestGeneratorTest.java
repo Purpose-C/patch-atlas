@@ -28,20 +28,19 @@ import org.springframework.ai.chat.model.Generation;
 
 class SpringAiTestGeneratorTest {
 
+    private static final String VALID_ENVELOPE =
+            CandidateDraftParserTest.envelope(FakeTestGeneratorTest.minimalCreatePatch());
+
     @Test
     void parsesStrictJsonDraftFromChatModel() {
-        String json =
-                """
-                {"patchText":"diff --git a/x b/x\\n+line\\n","targetClass":"c.T","targetMethod":"m"}
-                """;
-        ChatModel model = prompt -> response(json, 10, 20, 30);
+        ChatModel model = prompt -> response(VALID_ENVELOPE, 10, 20, 30);
         SpringAiTestGenerator generator =
                 new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
 
         GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));
         assertThat(result).isInstanceOf(GenerationResult.GeneratedDraft.class);
         var draft = (GenerationResult.GeneratedDraft) result;
-        assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("c.T", "m"));
+        assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("fixtures.NewTest", "works"));
         assertThat(draft.usage()).contains(new ModelUsage(10, 20, 30));
     }
 
@@ -77,8 +76,7 @@ class SpringAiTestGeneratorTest {
         StringBuilder captured = new StringBuilder();
         ChatModel model = prompt -> {
             captured.append(prompt.getContents());
-            return response(
-                    "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 0, 0, 0);
+            return response(VALID_ENVELOPE, 0, 0, 0);
         };
         SpringAiTestGenerator generator =
                 new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
@@ -98,8 +96,7 @@ class SpringAiTestGeneratorTest {
             if (calls.incrementAndGet() <= 3) {
                 throw rateLimit();
             }
-            return response(
-                    "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 1, 1, 2);
+            return response(VALID_ENVELOPE, 1, 1, 2);
         };
         SpringAiTestGenerator generator = new SpringAiTestGenerator(
                 GeneratorIdentity.openai("gpt-test"),
@@ -171,8 +168,7 @@ class SpringAiTestGeneratorTest {
             if (calls.incrementAndGet() == 1) {
                 throw new OpenAIIoException("timeout");
             }
-            return response(
-                    "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 1, 1, 2);
+            return response(VALID_ENVELOPE, 1, 1, 2);
         };
         SpringAiTestGenerator generator =
                 new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
@@ -292,7 +288,18 @@ class SpringAiTestGeneratorTest {
 
     @Test
     void recordsFinishReasonAndCompletionDetailsInUsageLog() {
-        String body = "{\"patchText\":\"SENTINEL-MODEL-BODY\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}";
+        String body = CandidateDraftParserTest.envelope(TargetTestDeriverTest.createPatch(
+                "src/test/java/fixtures/NewTest.java",
+                """
+                package fixtures;
+
+                import org.junit.jupiter.api.Test;
+
+                class NewTest {
+                  @Test
+                  void works() { /* SENTINEL-MODEL-BODY */ }
+                }
+                """));
         ChatModel model = prompt -> responseWithDiagnostics(body, "length", 10, 182, 192, 101L);
         SpringAiTestGenerator generator =
                 new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
@@ -333,8 +340,7 @@ class SpringAiTestGeneratorTest {
 
     @Test
     void missingFinishReasonAndDetailsRecordUnknownWithoutThrowing() {
-        ChatModel model = prompt -> response(
-                "{\"patchText\":\"p\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}", 10, 20, 30);
+        ChatModel model = prompt -> response(VALID_ENVELOPE, 10, 20, 30);
         SpringAiTestGenerator generator =
                 new SpringAiTestGenerator(GeneratorIdentity.openai("gpt-test"), model);
         GenerationResult result = generator.generate(GenerationRequest.first(sampleInput(), 1));

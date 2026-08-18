@@ -46,11 +46,9 @@ public final class OpenAiChatModelFactory {
             {
               "type": "object",
               "properties": {
-                "patchText": { "type": "string" },
-                "targetClass": { "type": "string" },
-                "targetMethod": { "type": "string" }
+                "patch": { "type": "string" }
               },
-              "required": ["patchText", "targetClass", "targetMethod"],
+              "required": ["patch"],
               "additionalProperties": false
             }
             """

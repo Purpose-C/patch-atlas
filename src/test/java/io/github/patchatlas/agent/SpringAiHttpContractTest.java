@@ -24,7 +24,7 @@ class SpringAiHttpContractTest {
 
     private static final String COMPLETIONS = ".*/chat/completions";
     private static final String VALID_DRAFT =
-            "{\"patchText\":\"diff --git a/x b/x\\n+line\\n\",\"targetClass\":\"c.T\",\"targetMethod\":\"m\"}";
+            CandidateDraftParserTest.envelope(FakeTestGeneratorTest.minimalCreatePatch());
 
     @RegisterExtension
     static final WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -39,7 +39,7 @@ class SpringAiHttpContractTest {
 
         assertThat(call.result()).isInstanceOf(GenerationResult.GeneratedDraft.class);
         var draft = (GenerationResult.GeneratedDraft) call.result();
-        assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("c.T", "m"));
+        assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("fixtures.NewTest", "works"));
         assertThat(draft.usage()).contains(new ModelUsage(10, 20, 30));
         assertThat(call.requests()).isEqualTo(1);
     }

@@ -156,12 +156,11 @@ class OpenAiModelSmokeTest {
                 """
                 Bug: lastChar(String s) returns s.charAt(s.length() - 2) instead of the last character.
                 Write ONE JUnit 5 regression test under src/test/java only.
-                Return JSON only with keys patchText, targetClass, targetMethod.
-                targetClass must be fixtures.StringUtilsTest.
-                targetMethod is a new method name you invent (not lastCharReturnsFinalCharacter).
+                Return JSON only with key patch (a unified diff).
+                The patch must add exactly one @Test method.
+                Put the test in src/test/java/fixtures/StringUtilsTest.java.
                 The test must assertEquals the correct last character (e.g. 'c' for "abc"),
                 so it FAILS on buggy and PASSES when lastChar is fixed.
-                patchText is a unified diff modifying only src/test/java/fixtures/StringUtilsTest.java.
                 No markdown fences, no commentary.
                 """,
                 List.of(

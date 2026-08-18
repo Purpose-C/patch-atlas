@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
- * 未提交的候选草稿：严格三字段 envelope 解析后的领域类型。
+ * 未提交的候选草稿：单字段补丁经推导得到 {@link TargetTest} 后的领域类型。
  *
  * <p>仍须完整通过 Patch Gate 才能成为 Candidate Test Patch。
  */

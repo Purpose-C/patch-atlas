@@ -149,6 +149,12 @@ public final class SpringAiTestGenerator implements TestGenerator {
                             sanitizeBounded(invalid.reason(), "structured output invalid"),
                             usage,
                             diagnostics);
+            case CandidateDraftParser.ParseResult.Rejected rejected ->
+                    new GenerationResult.GenerationCallFailure(
+                            CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
+                            sanitizeBounded(rejected.reason(), "structured output invalid"),
+                            usage,
+                            diagnostics);
         };
     }
 
@@ -452,7 +458,8 @@ public final class SpringAiTestGenerator implements TestGenerator {
     static String buildSystemPrompt() {
         return """
                 You generate a single Java regression test patch as JSON only.
-                Return exactly one JSON object with keys patchText, targetClass, targetMethod.
+                Return exactly one JSON object with key patch (a unified diff).
+                The patch must add exactly one JUnit 5 @Test method.
                 No markdown fences, no commentary.
                 Only add or modify files under src/test/java.
                 """;
