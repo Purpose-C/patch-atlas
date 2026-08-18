@@ -108,4 +108,25 @@ class LocalizationCoverageEvaluatorTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("terminal");
     }
+
+    @Test
+    void moreThanTwelveSelectedPathsAreRejected() {
+        Result truth = new Result.Applicable(Set.of("src/main/java/a/A.java"));
+        Set<String> selected = Set.of(
+                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m");
+        assertThatThrownBy(() -> evaluator.score(
+                        RunState.COMPLETED, VerificationMode.HISTORICAL, truth, selected))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("12");
+    }
+
+    @Test
+    void measuredScoreRejectsOutOfRangeValues() {
+        assertThatThrownBy(() -> new Score.Measured(true, 1.0, 1.0, 13))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("selectedCount");
+        assertThatThrownBy(() -> new Score.Measured(true, 1.1, 0.0, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recall");
+    }
 }

@@ -336,10 +336,6 @@ public final class BenchmarkEvidenceExporter {
             Objects.requireNonNull(feedbackCategory, "feedbackCategory");
             Objects.requireNonNull(feedbackSummary, "feedbackSummary");
         }
-
-        public GenerationRejection(int attemptOrdinal, String feedbackCategory, String feedbackSummary) {
-            this(attemptOrdinal, feedbackCategory, feedbackSummary, null);
-        }
     }
 
     public record CaseRejections(String caseId, List<GenerationRejection> rejections) {

@@ -1,11 +1,13 @@
 package io.github.patchatlas.benchmark;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.benchmark.RepairGroundTruthExtractor.Result;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,56 @@ class RepairGroundTruthExtractorTest {
         assertThat(result).isInstanceOf(Result.Applicable.class);
         assertThat(((Result.Applicable) result).paths())
                 .containsExactly("core/src/main/java/p/Core.java");
+    }
+
+    @Test
+    void emptyProductionSetCannotBeApplicable() {
+        assertThatThrownBy(() -> new Result.Applicable(Set.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("NotApplicable");
+    }
+
+    @Test
+    void invalidRevisionFormatIsRejected() {
+        assertThatThrownBy(() -> new RepairGroundTruthExtractor()
+                        .extract(tempDir, "not-a-sha", "0123456789abcdef0123456789abcdef01234567", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("buggyRevision");
+    }
+
+    @Test
+    void missingRevisionFailsClosed() throws Exception {
+        Repo repo = initRepo();
+        String missing = "0123456789abcdef0123456789abcdef01234567";
+        assertThatThrownBy(() -> new RepairGroundTruthExtractor()
+                        .extract(repo.dir(), repo.buggy(), missing, ""))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot diff");
+    }
+
+    @Test
+    void addedProductionFileIsIncludedAndDevNullIsIgnored() throws Exception {
+        Repo repo = initRepo();
+        write(repo.dir(), "src/main/java/Bar.java", "class Bar {}");
+        String fixed = commit(repo.git(), "add-bar");
+
+        Result result = new RepairGroundTruthExtractor()
+                .extract(repo.dir(), repo.buggy(), fixed, "");
+
+        assertThat(result).isInstanceOf(Result.Applicable.class);
+        assertThat(((Result.Applicable) result).paths()).contains("src/main/java/Bar.java");
+    }
+
+    @Test
+    void nonGitDirectoryFailsClosed() {
+        assertThatThrownBy(() -> new RepairGroundTruthExtractor()
+                        .extract(
+                                tempDir,
+                                "0123456789abcdef0123456789abcdef01234567",
+                                "89abcdef0123456789abcdef0123456789abcdef",
+                                ""))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot diff");
     }
 
     private Repo initRepo() throws Exception {

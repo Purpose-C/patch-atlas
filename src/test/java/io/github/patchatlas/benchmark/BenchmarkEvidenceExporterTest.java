@@ -430,6 +430,94 @@ class BenchmarkEvidenceExporterTest {
         assertThat(json).contains("\"modelName\" : \"agnes-2.5-flash\"");
     }
 
+    @Test
+    void rejectsWrongCoverageScoreCount() {
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agent(4, "case-4", ReplayVerdict.VALID_REPRODUCTION, false),
+                agent(5, "case-5", ReplayVerdict.NOT_REPRODUCED, false),
+                agent(6, "case-6", null, true));
+
+        assertThatThrownBy(() -> new BenchmarkEvidenceExporter()
+                        .export(COHORT, results, protocolPath, tempDir, List.of(new Score.NotApplicable())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("coverage scores");
+    }
+
+    @Test
+    void rejectsCohortPositionMismatch() {
+        List<CaseResult> results = List.of(
+                calibration(2, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agent(4, "case-4", ReplayVerdict.VALID_REPRODUCTION, false),
+                agent(5, "case-5", ReplayVerdict.NOT_REPRODUCED, false),
+                agent(6, "case-6", null, true));
+
+        assertThatThrownBy(() -> new BenchmarkEvidenceExporter().export(COHORT, results, protocolPath, tempDir))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cohort position mismatch");
+    }
+
+    @Test
+    void generationRejectionRejectsNonPositiveOrdinal() {
+        assertThatThrownBy(() -> new GenerationRejection(0, "PATCH_POLICY_REJECTED", "x", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("attemptOrdinal");
+    }
+
+    @Test
+    void rejectsInvalidCohortPosition() {
+        assertThatThrownBy(() -> calibration(0, "case-1", ReplayVerdict.VALID_REPRODUCTION))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cohortPosition");
+    }
+
+    @Test
+    void rejectionCountMismatchFailsExport() throws IOException {
+        Files.writeString(tempDir.resolve("generation-rejections.json"), """
+                {
+                  "cases": [
+                    {
+                      "caseId": "case-4",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"}
+                      ]
+                    },
+                    {
+                      "caseId": "case-5",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"},
+                        {"attemptOrdinal": 2, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"},
+                        {"attemptOrdinal": 3, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "hunk new count mismatch"}
+                      ]
+                    },
+                    {
+                      "caseId": "case-6",
+                      "rejections": [
+                        {"attemptOrdinal": 1, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 2, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"},
+                        {"attemptOrdinal": 3, "feedbackCategory": "PATCH_POLICY_REJECTED", "feedbackSummary": "trailing non-patch text"}
+                      ]
+                    }
+                  ]
+                }
+                """);
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agentFailedNoCandidate(4, "case-4"),
+                agentFailedNoCandidate(5, "case-5"),
+                agentFailedNoCandidate(6, "case-6"));
+
+        assertThatThrownBy(() -> new BenchmarkEvidenceExporter().export(COHORT, results, protocolPath, tempDir))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("generation rejection count mismatch");
+    }
+
     private static Cohort sampleCohort() {
         List<CohortCase> cases = List.of(
                 caseAt(1, "case-1", BenchmarkArtifacts.Role.CALIBRATION),
