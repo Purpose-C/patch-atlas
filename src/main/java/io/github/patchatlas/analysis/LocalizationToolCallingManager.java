@@ -267,7 +267,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
                 readContents.put(slice.path(), String.join("\n", slice.lines()));
                 yield JsonMapper.shared().writeValueAsString(slice);
             }
-            default -> throw new IllegalArgumentException("unknown tool");
+            default -> throw new IllegalArgumentException("unknown tool: " + name);
         };
     }
 
@@ -406,11 +406,14 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
             case LIST -> LocatingStepKind.LIST;
             case READ -> LocatingStepKind.READ;
             case SUBMIT -> LocatingStepKind.SUBMIT;
-            default -> LocatingStepKind.SEARCH;
+            default -> LocatingStepKind.UNKNOWN_TOOL;
         };
     }
 
     private static String subjectOf(String name, String args) {
+        if (!SEARCH.equals(name) && !LIST.equals(name) && !READ.equals(name) && !SUBMIT.equals(name)) {
+            return name == null || name.isBlank() ? "." : name;
+        }
         try {
             JsonNode node = JsonMapper.shared().readTree(args == null ? "{}" : args);
             if (SUBMIT.equals(name)) {

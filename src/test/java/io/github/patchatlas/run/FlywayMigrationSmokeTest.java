@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(14);
+        assertThat(first.migrationsExecuted).isEqualTo(15);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -365,6 +365,55 @@ class FlywayMigrationSmokeTest {
                             """
                                     .formatted(runId)))
                     .hasMessageContaining("verification_run_model_identity_chk");
+        }
+    }
+
+    @Test
+    void v15AllowsUnknownToolKindAndKeepsSearch() throws Exception {
+        migrate();
+        UUID runId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'QUEUED', 0
+                    )
+                    """
+                            .formatted(runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 0, 'SEARCH', 'OK', '.', 'search', '{}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 1, 'UNKNOWN_TOOL', 'ERROR', 'grep', 'grep',
+                      '{"message":"unknown tool: grep"}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            assertThatThrownBy(() -> statement.execute(
+                            """
+                            INSERT INTO locating_trace (
+                              id, run_id, seq, step_kind, outcome, subject, reason, detail
+                            ) VALUES (
+                              '%s', '%s', 2, 'HALLUCINATED', 'ERROR', 'x', 'x', '{}'::jsonb
+                            )
+                            """
+                                    .formatted(UUID.randomUUID(), runId)))
+                    .hasMessageContaining("locating_trace_kind_chk");
         }
     }
 

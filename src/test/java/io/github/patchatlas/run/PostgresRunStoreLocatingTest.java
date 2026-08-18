@@ -472,6 +472,29 @@ class PostgresRunStoreLocatingTest {
     }
 
     @Test
+    void unknownToolKindCanBePersistedAlongsideSearch() throws Exception {
+        UUID id = store.submit(live("unknown-tool"));
+        ClaimedRun locating = store.claimNext("owner", Duration.ofMinutes(5)).orElseThrow();
+        store.beginLocatingTrace(ClaimHandle.from(locating));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(0, LocatingStepKind.SEARCH, ".", "search", "{}"));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(
+                        1,
+                        LocatingStepKind.UNKNOWN_TOOL,
+                        LocatingTraceOutcome.ERROR,
+                        "grep",
+                        "grep",
+                        "{\"message\":\"unknown tool: grep\"}"));
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(id);
+        assertThat(traces).extracting(LocatingTraceStep::kind)
+                .containsExactly(LocatingStepKind.SEARCH, LocatingStepKind.UNKNOWN_TOOL);
+        assertThat(traces.get(1).reason()).isEqualTo("grep");
+    }
+
+    @Test
     void clippedOversizeDetailSatisfiesTraceCheck() throws Exception {
         Path workspace = Files.createDirectories(temp.resolve("clip-ws"));
         Files.writeString(workspace.resolve("hit.txt"), "xxxxx");

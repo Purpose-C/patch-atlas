@@ -170,6 +170,25 @@ class LocalizationToolCallingManagerTest {
     }
 
     @Test
+    void unknownToolNameIsTracedAsUnknownToolNotSearch() throws Exception {
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = manager(session, 25);
+
+        ToolExecutionResult result =
+                manager.executeToolCalls(prompt(), toolCall("c1", "grep", "{\"pattern\":\"Foo\"}"));
+
+        assertThat(session.traces()).hasSize(1);
+        LocatingTraceStep step = session.traces().getFirst();
+        assertThat(step.kind()).isEqualTo(LocatingStepKind.UNKNOWN_TOOL);
+        assertThat(step.kind()).isNotEqualTo(LocatingStepKind.SEARCH);
+        assertThat(step.outcome()).isEqualTo(LocatingTraceOutcome.ERROR);
+        assertThat(step.reason()).isEqualTo("grep");
+        assertThat(step.subject()).isEqualTo("grep");
+        assertThat(step.detailJson()).contains("grep");
+        assertThat(lastToolResponse(result).getResponses().getFirst().responseData()).contains("unknown tool");
+    }
+
+    @Test
     void successfulSubmitInBatchStillFinishesRemainingCallsThenTerminates() throws Exception {
         InMemoryLocatingRunSession session = newSession();
         LocalizationToolCallingManager manager = manager(session, 25);
