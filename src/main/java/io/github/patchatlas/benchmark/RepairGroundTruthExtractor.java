@@ -17,9 +17,11 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 
 /**
- * 从 buggy..fixed 的文件 diff 提取人类修复地面真值：排除测试源，空集标不适用。
+ * 从 buggy..fixed 的文件 diff 提取人类修复地面真值：排除测试源，且只保留 {@code .java}。
  *
  * <p>测试根判定与 {@code PatchGate} 相同：{@code src/test/...}（含模块前缀）。
+ * {@code .java} 过滤与 {@code BuggyRepositoryReader} 相同：定位读不到 CHANGELOG / README，
+ * 把它们算进分母是与被测能力无关的噪音。
  */
 public final class RepairGroundTruthExtractor {
 
@@ -68,7 +70,7 @@ public final class RepairGroundTruthExtractor {
 
         Set<String> production = new TreeSet<>();
         for (String path : changed) {
-            if (!isTestSourcePath(path, modulePath)) {
+            if (!isTestSourcePath(path, modulePath) && isJavaSourcePath(path)) {
                 production.add(path);
             }
         }
@@ -88,6 +90,11 @@ public final class RepairGroundTruthExtractor {
             return true;
         }
         return path.startsWith("src/test/") || path.contains("/src/test/");
+    }
+
+    /** 与 {@code BuggyRepositoryReader} 相同：只认 {@code .java} 后缀。 */
+    static boolean isJavaSourcePath(String path) {
+        return path.endsWith(".java");
     }
 
     private static void addPath(Set<String> paths, String path) {

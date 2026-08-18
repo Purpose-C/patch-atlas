@@ -64,6 +64,22 @@ class RepairGroundTruthExtractorTest {
     }
 
     @Test
+    void javaAndChangelogRepairKeepsOnlyJava() throws Exception {
+        Repo repo = initRepo();
+        write(repo.dir(), "src/main/java/Foo.java", "class Foo { int n; }");
+        write(repo.dir(), "CHANGES", "fixed lastChar off-by-one");
+        String fixed = commit(repo.git(), "java-and-changes");
+
+        Result result = new RepairGroundTruthExtractor()
+                .extract(repo.dir(), repo.buggy(), fixed, "");
+
+        assertThat(result).isInstanceOf(Result.Applicable.class);
+        assertThat(((Result.Applicable) result).paths())
+                .containsExactly("src/main/java/Foo.java")
+                .doesNotContain("CHANGES");
+    }
+
+    @Test
     void emptyProductionSetCannotBeApplicable() {
         assertThatThrownBy(() -> new Result.Applicable(Set.of()))
                 .isInstanceOf(IllegalArgumentException.class)
