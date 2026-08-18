@@ -369,6 +369,69 @@ class BenchmarkEvidenceExporterTest {
     }
 
     @Test
+    void truncationRejectionCategoryIsDistinctFromMalformedInRejectionLog() throws IOException {
+        Files.writeString(tempDir.resolve("generation-rejections.json"), """
+                {
+                  "cases": [
+                    {
+                      "caseId": "case-4",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_POLICY_REJECTED",
+                          "feedbackSummary": "响应被截断",
+                          "rejectionCategory": "RESPONSE_TRUNCATED"
+                        }
+                      ]
+                    },
+                    {
+                      "caseId": "case-5",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_POLICY_REJECTED",
+                          "feedbackSummary": "hunk new count mismatch",
+                          "rejectionCategory": "MALFORMED_OR_OVERSIZED_PATCH"
+                        }
+                      ]
+                    },
+                    {
+                      "caseId": "case-6",
+                      "rejections": [
+                        {
+                          "attemptOrdinal": 1,
+                          "feedbackCategory": "PATCH_POLICY_REJECTED",
+                          "feedbackSummary": "trailing non-patch text",
+                          "rejectionCategory": "MALFORMED_OR_OVERSIZED_PATCH"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        List<CaseResult> results = List.of(
+                calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(2, "case-2", ReplayVerdict.VALID_REPRODUCTION),
+                calibration(3, "case-3", ReplayVerdict.VALID_REPRODUCTION),
+                agentFailedNoCandidate(4, "case-4", 1),
+                agentFailedNoCandidate(5, "case-5", 1),
+                agentFailedNoCandidate(6, "case-6", 1));
+
+        new BenchmarkEvidenceExporter().export(COHORT, results, protocolPath, tempDir);
+
+        GenerationRejectionLog log = new BenchmarkArtifacts().readJson(
+                tempDir.resolve("generation-rejections.json"),
+                GenerationRejectionLog.class);
+        assertThat(log.cases().get(0).rejections().get(0).rejectionCategory())
+                .isEqualTo(PatchRejectionCategory.RESPONSE_TRUNCATED);
+        assertThat(log.cases().get(1).rejections().get(0).rejectionCategory())
+                .isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        assertThat(md).contains("| RESPONSE_TRUNCATED | 1 |");
+        assertThat(md).contains("| MALFORMED_OR_OVERSIZED_PATCH | 2 |");
+    }
+
+    @Test
     void exportsLocalizationCoverageNumbersAndNotApplicable() throws IOException {
         List<CaseResult> results = List.of(
                 calibration(1, "case-1", ReplayVerdict.VALID_REPRODUCTION),

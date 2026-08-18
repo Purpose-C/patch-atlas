@@ -36,7 +36,8 @@ final class PatchGateOutcomeMapper {
         String safe = reason == null || reason.isBlank() ? category.name() : reason;
         return switch (category) {
             case MALFORMED_OR_OVERSIZED_PATCH, FILE_OR_LINE_LIMIT_EXCEEDED, TARGET_NOT_CHANGED_BY_PATCH,
-                 TARGET_TEST_NOT_DERIVABLE, UNSUPPORTED_CHANGE_TYPE, UNSAFE_OR_OUT_OF_SCOPE_PATH ->
+                 TARGET_TEST_NOT_DERIVABLE, UNSUPPORTED_CHANGE_TYPE, UNSAFE_OR_OUT_OF_SCOPE_PATH,
+                 RESPONSE_TRUNCATED ->
                     new Outcome.Correctable(
                             new GenerationFeedback(GenerationFeedbackCategory.PATCH_POLICY_REJECTED, safe));
             case APPLICATION_FAILURE -> new Outcome.Correctable(

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.CallFailureCategory;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationFeedbackCategory;
 import io.github.patchatlas.agent.GenerationInput;
@@ -65,6 +66,19 @@ class CandidateGenerationCoordinatorTest {
             +class Other {}
             """;
 
+    private static final String HUNK_COUNT_MISMATCH_PATCH =
+            """
+            diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
+            --- a/src/test/java/fixtures/OldTest.java
+            +++ b/src/test/java/fixtures/OldTest.java
+            @@ -6,2 +6,99 @@
+               @Test
+               void already() {}
+            +
+            +  @Test
+            +  void added() {}
+            """;
+
     @TempDir
     Path temp;
 
@@ -81,6 +95,44 @@ class CandidateGenerationCoordinatorTest {
         historicalFixture = LocalGitFixture.initHistoricalWithExistingTest(temp.resolve("git-hist"));
         input = generationInput(liveFixture.buggySha());
         materializeLog.clear();
+    }
+
+    @Test
+    void truncatedLengthRejectsCountMismatchBeforeParse() throws Exception {
+        FakeTestGenerator generator = truncatedDrafts(HUNK_COUNT_MISMATCH_PATCH);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, unusedSandbox());
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RunEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var result = coordinator.run(input, session);
+            assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+            assertThat(materializeLog).isEmpty();
+            List<ch.qos.logback.classic.spi.ILoggingEvent> rejected = rejectedEvents(appender);
+            assertThat(rejected).isNotEmpty();
+            assertThat(kv(rejected.getFirst()))
+                    .containsEntry("feedback_summary", "响应被截断")
+                    .doesNotContainEntry("feedback_summary", "hunk new count mismatch");
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void truncatedLengthRejectsSelfConsistentPatchBeforeParse() throws Exception {
+        FakeTestGenerator generator = truncatedDrafts(LocalGitFixture.MODIFY_EXISTING_PATCH);
+        CandidateGenerationCoordinator coordinator = coordinator(generator, unusedSandbox());
+        InMemoryGenerationRunSession session = newSession(VerificationMode.LIVE);
+
+        var result = coordinator.run(input, session);
+        assertThat(result).isInstanceOf(CandidateGenerationCoordinator.Result.RunFailed.class);
+        assertThat(materializeLog).isEmpty();
+        assertThat(session.generationAttemptCount()).isEqualTo(3);
     }
 
     @Test
@@ -569,14 +621,35 @@ class CandidateGenerationCoordinatorTest {
             materializeLog.add(dir);
             return dir;
         });
-        var gate = new PatchGate(workspaceRoot);
         var side = new SideReplayRunner(sandbox, workspaceRoot);
         return new CandidateGenerationCoordinator(
                 generator,
-                gate,
+                new PatchGate(workspaceRoot),
                 factory,
                 new DependencyWarmupRunner(warmupSucceeds(sandbox), workspaceRoot),
                 side);
+    }
+
+    private static FakeTestGenerator truncatedDrafts(String patch) {
+        GenerationResult draft = new GenerationResult.GeneratedDraft(
+                new CandidateDraft(patch, TARGET),
+                Optional.empty(),
+                Optional.of(CompletionDiagnostics.of("length", "0", "10")));
+        return FakeTestGenerator.of(draft, draft, draft);
+    }
+
+    private static ScriptedSandboxRunner unusedSandbox() {
+        return ScriptedSandboxRunner.always(ScriptedSandboxRunner.completed(1));
+    }
+
+    private static List<ch.qos.logback.classic.spi.ILoggingEvent> rejectedEvents(
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender) {
+        return appender.list.stream()
+                .filter(event -> event.getKeyValuePairs() != null
+                        && event.getKeyValuePairs().stream()
+                                .anyMatch(pair -> "event".equals(pair.key)
+                                        && "generation.attempt.rejected".equals(String.valueOf(pair.value))))
+                .toList();
     }
 
     private static SandboxRunner warmupSucceeds(ScriptedSandboxRunner evidenceRunner) {

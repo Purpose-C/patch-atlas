@@ -9,6 +9,7 @@ import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.GeneratorIdentity;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
+import io.github.patchatlas.agent.ResponseTruncationGuard;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.replay.SideExecutionResult;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
@@ -153,6 +154,13 @@ public final class CandidateGenerationCoordinator {
                     CallFailureMapper.map(failure.category(), failure.summary(), remaining));
         }
         CandidateDraft draft = ((GenerationResult.GeneratedDraft) call).draft();
+        CompletionDiagnostics diagnostics =
+                call.completionDiagnostics().orElseGet(CompletionDiagnostics::unknown);
+        if (ResponseTruncationGuard.truncated(diagnostics)) {
+            PatchPreparationResult.RejectedCandidate rejected = ResponseTruncationGuard.rejection();
+            return PatchGateOutcomeMapper.toDecision(
+                    PatchGateOutcomeMapper.map(rejected.category(), rejected.reason()), draft);
+        }
         return attemptInWorkspace(draft, claimAfterReserve, generationInput, executionPolicy, session);
     }
 
