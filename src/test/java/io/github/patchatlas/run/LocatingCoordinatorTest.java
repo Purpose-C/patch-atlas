@@ -196,6 +196,64 @@ class LocatingCoordinatorTest {
     }
 
     @Test
+    void locatingToolCallExceptionFailsAsProtocolErrorNotZeroHit() throws Exception {
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("git-proto"));
+        Path root = java.nio.file.Files.createDirectories(temp.resolve("ws-proto"));
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder(),
+                (run, generationInput, locatingSession, workspace) -> {
+                    throw new io.github.patchatlas.analysis.LocatingToolCallException(
+                            "parallel tool calls exceed limit: received 9 (max 8) [search]");
+                });
+
+        LocatingCoordinator.Result result = coordinator.run(
+                claimed,
+                inputFor(fixture.buggySha()),
+                session,
+                RunPurpose.STANDARD,
+                ContextOrigin.TEXT_TOOLS);
+
+        assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
+        RunFailure failure = ((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow();
+        assertThat(failure.stage()).isEqualTo(FailureStage.LOCATING);
+        assertThat(failure.category()).isEqualTo(FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR);
+        assertThat(failure.category()).isNotEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+        assertThat(failure.summary()).contains("exceed limit");
+        assertThat(session.origin()).isNull();
+    }
+
+    @Test
+    void textToolsLoopZeroHitStaysLocatingNoContext() throws Exception {
+        LocalGitFixture.Fixture fixture = LocalGitFixture.initWithExistingTest(temp.resolve("git-zero"));
+        Path root = java.nio.file.Files.createDirectories(temp.resolve("ws-zero"));
+        ClaimedRun claimed = locatingClaim();
+        InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
+        LocatingCoordinator coordinator = new LocatingCoordinator(
+                new TempCandidateWorkspaceFactory(root, LocalGitFixture.fetcher(fixture.originDir())),
+                new BuggyRepositoryReader(),
+                new BuggyOnlyGeneratorContextBuilder(),
+                (run, generationInput, locatingSession, workspace) -> new LocatingCoordinator.Result.RunFailed(
+                        locatingSession.fail(new RunFailure(
+                                FailureStage.LOCATING,
+                                FailureCategory.LOCATING_NO_CONTEXT,
+                                "locating produced no readable context"))));
+
+        LocatingCoordinator.Result result = coordinator.run(
+                claimed,
+                inputFor(fixture.buggySha()),
+                session,
+                RunPurpose.STANDARD,
+                ContextOrigin.TEXT_TOOLS);
+
+        assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().category())
+                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+    }
+
+    @Test
     void diagnosticPurposeEchoesWorkspaceErrorMessage() {
         ClaimedRun claimed = locatingClaim();
         InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
@@ -210,6 +268,21 @@ class LocatingCoordinatorTest {
 
         RunDetails details = ((LocatingCoordinator.Result.RunFailed) result).details();
         assertThat(details.failure().orElseThrow().summary()).contains("clone failed");
+    }
+
+    private static GenerationInput inputFor(String buggySha) {
+        return new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        buggySha,
+                        "",
+                        "21"),
+                "t",
+                "b",
+                List.of());
     }
 
     private static GenerationInput input(List<SourceSnapshot> snapshots) {

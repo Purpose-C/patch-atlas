@@ -118,7 +118,9 @@ public final class LocatingCoordinator {
             throw stale;
         } catch (LocatingToolCallException ex) {
             return new Result.RunFailed(session.fail(new RunFailure(
-                    FailureStage.LOCATING, FailureCategory.LOCATING_NO_CONTEXT, ex.getMessage())));
+                    FailureStage.LOCATING,
+                    FailureCategory.LOCATING_TOOL_PROTOCOL_ERROR,
+                    ex.getMessage())));
         } catch (Exception ex) {
             return new Result.RunFailed(session.fail(WorkspaceFailureSummarizer.failure(ex, purpose)));
         }
