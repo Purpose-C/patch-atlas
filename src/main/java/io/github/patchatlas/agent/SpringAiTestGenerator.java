@@ -488,8 +488,12 @@ public final class SpringAiTestGenerator implements TestGenerator {
     static String buildSystemPrompt() {
         return """
                 You generate a single Java regression test patch.
-                Call submit_draft with key patch set to a unified diff.
-                The patch must add exactly one JUnit 5 @Test method.
+                Call submit_draft with key patch set to a git unified diff.
+                The patch MUST begin with: diff --git a/<path> b/<path>
+                For a new file: new file mode 100644, then --- /dev/null, then +++ b/<path>.
+                For a modify: --- a/<path> then +++ b/<path>. Paths must agree.
+                Do not emit a plain diff -u that starts with --- without the git header.
+                Add exactly one JUnit 5 @Test method. Do not delete lines.
                 No markdown fences, no commentary.
                 Only add or modify files under src/test/java.
                 """;

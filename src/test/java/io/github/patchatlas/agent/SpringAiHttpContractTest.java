@@ -49,6 +49,7 @@ class SpringAiHttpContractTest {
         assertThat(request).contains("required");
         assertThat(request).doesNotContain("JSON_OBJECT");
         assertThat(request).doesNotContain("json_schema");
+        assertThat(request).contains("diff --git");
     }
 
     @Test

@@ -52,7 +52,7 @@ import org.springframework.ai.chat.model.ChatModel;
  * <ul>
  *   <li>{@code OPENAI_API_KEY}</li>
  *   <li>{@code PATCHATLAS_OPENAI_MODEL}</li>
- *   <li>可选 {@code PATCHATLAS_OPENAI_BASE_URL}（OpenAI 兼容端点；仍使用原生 JSON Schema）</li>
+ *   <li>可选 {@code PATCHATLAS_OPENAI_BASE_URL}（OpenAI 兼容端点；生成走 {@code submit_draft} 工具调用）</li>
  * </ul>
  * 链路：真实 Spring AI 生成 → Patch Gate → <strong>真实 Docker</strong> Buggy 预验证 →
  * 候选提交 → <strong>真实 Docker</strong> Historical Replay（Buggy fail → Fixed pass）。
@@ -156,12 +156,13 @@ class OpenAiModelSmokeTest {
                 """
                 Bug: lastChar(String s) returns s.charAt(s.length() - 2) instead of the last character.
                 Write ONE JUnit 5 regression test under src/test/java only.
-                Call submit_draft with key patch set to a unified diff.
+                Call submit_draft with key patch set to a git unified diff.
+                The patch MUST begin with diff --git a/<path> b/<path>.
                 The patch must add exactly one @Test method.
                 Put the test in src/test/java/fixtures/StringUtilsTest.java.
                 The test must assertEquals the correct last character (e.g. 'c' for "abc"),
                 so it FAILS on buggy and PASSES when lastChar is fixed.
-                No markdown fences, no commentary.
+                No markdown fences, no commentary, no deleted lines.
                 """,
                 List.of(
                         new SourceSnapshot(

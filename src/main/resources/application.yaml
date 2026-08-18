@@ -57,7 +57,7 @@ spring:
 # 生成器：默认 FAKE（CI）；OPENAI 需环境变量注入密钥与模型（绝不明文写 key）
 #   OPENAI_API_KEY
 #   PATCHATLAS_OPENAI_MODEL
-#   PATCHATLAS_OPENAI_BASE_URL（可选；仍强制原生 JSON Schema）
+#   PATCHATLAS_OPENAI_BASE_URL（可选；生成走 submit_draft 工具调用，不用 JSON_OBJECT）
 patchatlas:
   locating:
     max-tool-calls: 35
