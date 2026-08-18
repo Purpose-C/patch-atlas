@@ -1,0 +1,343 @@
+{
+  "runId" : "6282fe34-c635-44e0-a0fd-b4b18bef16b6",
+  "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "list",
+    "detail" : "{\"path\": \".\", \"entries\": 14, \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : "src",
+    "reason" : "list",
+    "detail" : "{\"path\": \"src\", \"entries\": 2, \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : "src/main",
+    "reason" : "list",
+    "detail" : "{\"path\": \"src/main\", \"entries\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 3,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 50, \"pattern\": \"enabled|root|empty|conflict|overlap\", \"pathGlob\": \"**/*.java\", \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 1, \"pattern\": \"conflict|same path|duplicate|overlapping\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 1, \"pattern\": \"overlapping|overlap|same path|conflict\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 6,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 50, \"pattern\": \"ConfigurationData\", \"pathGlob\": \"**/*.java\", \"truncated\": true}"
+  }, {
+    "seq" : 7,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata",
+    "reason" : "list",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata\", \"entries\": 5, \"truncated\": false}"
+  }, {
+    "seq" : 8,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataBuilder.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataBuilder.java\", \"bytes\": 8176, \"lines\": 194, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 9,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataImpl.java\", \"bytes\": 3653, \"lines\": 103, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 10,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/PropertyListBuilder.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata/PropertyListBuilder.java\", \"bytes\": 3432, \"lines\": 95, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 11,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/ConfigurationData.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata/ConfigurationData.java\", \"bytes\": 3192, \"lines\": 87, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 12,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource",
+    "reason" : "list",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource\", \"entries\": 8, \"truncated\": false}"
+  }, {
+    "seq" : 13,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/YamlFileResource.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/YamlFileResource.java\", \"bytes\": 7365, \"lines\": 189, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 14,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/PropertyPathTraverser.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/PropertyPathTraverser.java\", \"bytes\": 5616, \"lines\": 156, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 15,
+    "kind" : "LIST",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml",
+    "reason" : "list",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml\", \"entries\": 4, \"truncated\": false}"
+  }, {
+    "seq" : 16,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImpl.java\", \"bytes\": 3291, \"lines\": 89, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 17,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainer.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainer.java\", \"bytes\": 2013, \"lines\": 51, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 18,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImpl.java\", \"bytes\": 7772, \"lines\": 174, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 19,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*Test.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 6, \"pattern\": \"PropertyListBuilder\", \"pathGlob\": \"**/*Test.java\", \"truncated\": false}"
+  }, {
+    "seq" : 20,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/configurationdata/PropertyListBuilderTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/configurationdata/PropertyListBuilderTest.java\", \"bytes\": 4095, \"lines\": 108, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 21,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java\", \"bytes\": 1916, \"lines\": 50, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 22,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java\", \"bytes\": 9064, \"lines\": 200, \"startLine\": 50, \"truncated\": true}"
+  }, {
+    "seq" : 23,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java\", \"bytes\": 5794, \"lines\": 159, \"startLine\": 250, \"truncated\": false}"
+  }, {
+    "seq" : 24,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/MapNormalizer.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/MapNormalizer.java\", \"bytes\": 5222, \"lines\": 130, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 25,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/YamlFileReader.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/YamlFileReader.java\", \"bytes\": 8062, \"lines\": 253, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 26,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilder.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilder.java\", \"bytes\": 2654, \"lines\": 58, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 27,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 3, \"pattern\": \"class MapProperty\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 28,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/MapProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/MapProperty.java\", \"bytes\": 2538, \"lines\": 76, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 29,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/BeanProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/BeanProperty.java\", \"bytes\": 1682, \"lines\": 38, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 30,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/BaseProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/BaseProperty.java\", \"bytes\": 2607, \"lines\": 77, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 31,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/Property.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/Property.java\", \"bytes\": 3929, \"lines\": 86, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 32,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/CommentsConfiguration.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/configurationdata/CommentsConfiguration.java\", \"bytes\": 1667, \"lines\": 55, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 33,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"class PropertyInitializer\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 34,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/PropertyInitializer.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/PropertyInitializer.java\", \"bytes\": 12004, \"lines\": 313, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 35,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/OptionalProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/OptionalProperty.java\", \"bytes\": 2383, \"lines\": 68, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 36,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/StringProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/StringProperty.java\", \"bytes\": 458, \"lines\": 14, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 37,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/TypeBasedProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/TypeBasedProperty.java\", \"bytes\": 1433, \"lines\": 49, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 38,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/properties/BooleanProperty.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/properties/BooleanProperty.java\", \"bytes\": 464, \"lines\": 14, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 39,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "CHANGELOG.md",
+    "reason" : "read",
+    "detail" : "{\"path\": \"CHANGELOG.md\", \"bytes\": 4112, \"lines\": 50, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 40,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/properties/MapPropertyTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/properties/MapPropertyTest.java\", \"bytes\": 4563, \"lines\": 131, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 41,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/beanmapper/BeanMapOnRootLevelTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/beanmapper/BeanMapOnRootLevelTest.java\", \"bytes\": 6440, \"lines\": 195, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 42,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/SettingsManagerBuilder.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/SettingsManagerBuilder.java\", \"bytes\": 5170, \"lines\": 143, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 43,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/SettingsManagerImpl.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/SettingsManagerImpl.java\", \"bytes\": 3736, \"lines\": 108, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 44,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/ch/jalu/configme/TestUtils.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/ch/jalu/configme/TestUtils.java\", \"bytes\": 7490, \"lines\": 202, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 45,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/exception/ConfigMeException.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/ch/jalu/configme/exception/ConfigMeException.java\", \"bytes\": 494, \"lines\": 20, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 46,
+    "kind" : "BUDGET_WARNING",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "CALLS",
+    "detail" : "{\"used\": 46, \"maxCalls\": 60}"
+  }, {
+    "seq" : 47,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/ch/jalu/configme/configurationdata/PropertyListBuilder.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 12, \"accepted\": true, \"read_not_submitted\": 19, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "list path=. entries=14", "list path=src entries=2", "list path=src/main entries=1", "search hits=50 truncated=true", "search hits=1 truncated=false", "search hits=1 truncated=false", "search hits=50 truncated=true", "list path=src/main/java/ch/jalu/configme/configurationdata entries=5", "read path=src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataBuilder.java lines=194", "read path=src/main/java/ch/jalu/configme/configurationdata/ConfigurationDataImpl.java lines=103", "read path=src/main/java/ch/jalu/configme/configurationdata/PropertyListBuilder.java lines=95", "read path=src/main/java/ch/jalu/configme/configurationdata/ConfigurationData.java lines=87", "list path=src/main/java/ch/jalu/configme/resource entries=8", "read path=src/main/java/ch/jalu/configme/resource/YamlFileResource.java lines=189", "read path=src/main/java/ch/jalu/configme/resource/PropertyPathTraverser.java lines=156", "list path=src/main/java/ch/jalu/configme/resource/yaml entries=4", "read path=src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainerImpl.java lines=89", "read path=src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeContainer.java lines=51", "read path=src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilderImpl.java lines=174", "search hits=6 truncated=false", "read path=src/test/java/ch/jalu/configme/configurationdata/PropertyListBuilderTest.java lines=108", "read path=src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java lines=50", "read path=src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java lines=200", "read path=src/test/java/ch/jalu/configme/resource/YamlFileResourceTest.java lines=159", "read path=src/main/java/ch/jalu/configme/resource/MapNormalizer.java lines=130", "read path=src/main/java/ch/jalu/configme/resource/YamlFileReader.java lines=253", "read path=src/main/java/ch/jalu/configme/resource/yaml/SnakeYamlNodeBuilder.java lines=58", "search hits=3 truncated=false", "read path=src/main/java/ch/jalu/configme/properties/MapProperty.java lines=76", "read path=src/main/java/ch/jalu/configme/properties/BeanProperty.java lines=38", "read path=src/main/java/ch/jalu/configme/properties/BaseProperty.java lines=77", "read path=src/main/java/ch/jalu/configme/properties/Property.java lines=86", "read path=src/main/java/ch/jalu/configme/configurationdata/CommentsConfiguration.java lines=55", "search hits=2 truncated=false", "read path=src/main/java/ch/jalu/configme/properties/PropertyInitializer.java lines=313", "read path=src/main/java/ch/jalu/configme/properties/OptionalProperty.java lines=68", "read path=src/main/java/ch/jalu/configme/properties/StringProperty.java lines=14", "read path=src/main/java/ch/jalu/configme/properties/TypeBasedProperty.java lines=49", "read path=src/main/java/ch/jalu/configme/properties/BooleanProperty.java lines=14", "read path=CHANGELOG.md lines=50", "read path=src/test/java/ch/jalu/configme/properties/MapPropertyTest.java lines=131", "read path=src/test/java/ch/jalu/configme/beanmapper/BeanMapOnRootLevelTest.java lines=195", "read path=src/main/java/ch/jalu/configme/SettingsManagerBuilder.java lines=143", "read path=src/main/java/ch/jalu/configme/SettingsManagerImpl.java lines=108", "read path=src/test/java/ch/jalu/configme/TestUtils.java lines=202", "read path=src/main/java/ch/jalu/configme/exception/ConfigMeException.java lines=20", "submit OK paths=12" ]
+}

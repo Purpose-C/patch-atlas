@@ -1,0 +1,56 @@
+{
+  "runId" : "64fa926d-740b-427e-b883-0685e7206170",
+  "caseId" : "jhy-jsoup-91b630f86b5c",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"class Attributes\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "**/*.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 5, \"pattern\": \"class Node\", \"pathGlob\": \"**/*.java\", \"truncated\": false}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Attributes.java\", \"bytes\": 13070, \"lines\": 400, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Node.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/nodes/Node.java\", \"bytes\": 13535, \"lines\": 400, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 4,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/nodes/AttributesTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/nodes/AttributesTest.java\", \"bytes\": 9942, \"lines\": 321, \"startLine\": 1, \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/nodes/NodeTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/nodes/NodeTest.java\", \"bytes\": 2006, \"lines\": 50, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/nodes/Attributes.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 4, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=2 truncated=false", "search hits=5 truncated=false", "read path=src/main/java/org/jsoup/nodes/Attributes.java lines=400", "read path=src/main/java/org/jsoup/nodes/Node.java lines=400", "read path=src/test/java/org/jsoup/nodes/AttributesTest.java lines=321", "read path=src/test/java/org/jsoup/nodes/NodeTest.java lines=50", "submit OK paths=4" ]
+}

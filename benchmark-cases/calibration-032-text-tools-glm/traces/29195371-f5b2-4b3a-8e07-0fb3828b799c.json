@@ -1,0 +1,70 @@
+{
+  "runId" : "29195371-f5b2-4b3a-8e07-0fb3828b799c",
+  "caseId" : "jhy-jsoup-9de27fa7cd82",
+  "steps" : [ {
+    "seq" : 0,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : ".",
+    "reason" : "search",
+    "detail" : "{\"hits\": 2, \"pattern\": \"fixHeaderEncoding\", \"truncated\": false}"
+  }, {
+    "seq" : 1,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1926, \"lines\": 60, \"startLine\": 440, \"truncated\": true}"
+  }, {
+    "seq" : 2,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 1217, \"lines\": 40, \"startLine\": 500, \"truncated\": true}"
+  }, {
+    "seq" : 3,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 48, \"pattern\": \"ISO_8859_1|UTF_8|import.*nio\\\\.charset\", \"truncated\": false}"
+  }, {
+    "seq" : 4,
+    "kind" : "SEARCH",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "search",
+    "detail" : "{\"hits\": 22, \"pattern\": \"addHeader|processResponseHeaders|getHeaderField\", \"truncated\": false}"
+  }, {
+    "seq" : 5,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 2281, \"lines\": 50, \"startLine\": 1120, \"truncated\": true}"
+  }, {
+    "seq" : 6,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/test/java/org/jsoup/helper/HttpConnectionTest.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/test/java/org/jsoup/helper/HttpConnectionTest.java\", \"bytes\": 1154, \"lines\": 30, \"startLine\": 300, \"truncated\": true}"
+  }, {
+    "seq" : 7,
+    "kind" : "READ",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "read",
+    "detail" : "{\"path\": \"src/main/java/org/jsoup/helper/HttpConnection.java\", \"bytes\": 2910, \"lines\": 75, \"startLine\": 1, \"truncated\": true}"
+  }, {
+    "seq" : 8,
+    "kind" : "SUBMIT",
+    "outcome" : "OK",
+    "subject" : "src/main/java/org/jsoup/helper/HttpConnection.java",
+    "reason" : "submit",
+    "detail" : "{\"paths\": 2, \"accepted\": true, \"read_not_submitted\": 0, \"submitted_not_read\": 0}"
+  } ],
+  "submitRejections" : [ ],
+  "toolNotes" : [ "search hits=2 truncated=false", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=60", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=40", "search hits=48 truncated=false", "search hits=22 truncated=false", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=50", "read path=src/test/java/org/jsoup/helper/HttpConnectionTest.java lines=30", "read path=src/main/java/org/jsoup/helper/HttpConnection.java lines=75", "submit OK paths=2" ]
+}
