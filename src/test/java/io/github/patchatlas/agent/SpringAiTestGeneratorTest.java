@@ -387,8 +387,13 @@ class SpringAiTestGeneratorTest {
 
     private static ChatResponse responseWithDiagnostics(
             String content, String finishReason, int in, int out, int total, Long reasoningTokens) {
+        AssistantMessage message = AssistantMessage.builder()
+                .content("")
+                .toolCalls(List.of(new AssistantMessage.ToolCall(
+                        "call_1", "function", SubmitDraftTool.NAME, content)))
+                .build();
         Generation generation = new Generation(
-                new AssistantMessage(content),
+                message,
                 ChatGenerationMetadata.builder().finishReason(finishReason).build());
         CompletionUsage.Builder nativeUsage = CompletionUsage.builder()
                 .promptTokens(in)
@@ -418,8 +423,13 @@ class SpringAiTestGeneratorTest {
         return RateLimitException.builder().headers(Headers.builder().build()).build();
     }
 
-    private static ChatResponse response(String content, int in, int out, int total) {
-        Generation generation = new Generation(new AssistantMessage(content));
+    private static ChatResponse response(String arguments, int in, int out, int total) {
+        AssistantMessage message = AssistantMessage.builder()
+                .content("")
+                .toolCalls(List.of(new AssistantMessage.ToolCall(
+                        "call_1", "function", SubmitDraftTool.NAME, arguments)))
+                .build();
+        Generation generation = new Generation(message);
         if (in == 0 && out == 0 && total == 0) {
             return new ChatResponse(List.of(generation));
         }

@@ -121,8 +121,23 @@ public final class SpringAiTestGenerator implements TestGenerator {
                     usage,
                     diagnostics);
         }
-        String content = extractContent(response);
-        if (content == null || content.isBlank()) {
+        SubmitDraftArguments extracted = extractSubmitDraftArguments(response);
+        if (extracted instanceof SubmitDraftArguments.Missing) {
+            return new GenerationResult.GenerationCallFailure(
+                    CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
+                    "model did not call submit_draft",
+                    usage,
+                    diagnostics);
+        }
+        if (extracted instanceof SubmitDraftArguments.Unexpected) {
+            return new GenerationResult.GenerationCallFailure(
+                    CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
+                    "expected exactly one submit_draft call",
+                    usage,
+                    diagnostics);
+        }
+        String content = ((SubmitDraftArguments.Present) extracted).json();
+        if (content.isBlank()) {
             return new GenerationResult.GenerationCallFailure(
                     CallFailureCategory.STRUCTURED_OUTPUT_INVALID,
                     "empty content",
@@ -337,16 +352,31 @@ public final class SpringAiTestGenerator implements TestGenerator {
         return s != null && !s.isBlank() && !"null".equalsIgnoreCase(s) && !"Optional.empty".equals(s);
     }
 
-    private static String extractContent(ChatResponse response) {
+    private static SubmitDraftArguments extractSubmitDraftArguments(ChatResponse response) {
         Generation generation = response.getResult();
-        if (generation == null) {
-            return null;
+        if (generation == null || generation.getOutput() == null) {
+            return new SubmitDraftArguments.Missing();
         }
-        AssistantMessage output = generation.getOutput();
-        if (output == null) {
-            return null;
+        List<AssistantMessage.ToolCall> calls = generation.getOutput().getToolCalls();
+        if (calls == null || calls.isEmpty()) {
+            return new SubmitDraftArguments.Missing();
         }
-        return output.getText();
+        if (calls.size() != 1 || !SubmitDraftTool.NAME.equals(calls.getFirst().name())) {
+            return new SubmitDraftArguments.Unexpected();
+        }
+        String arguments = calls.getFirst().arguments();
+        return new SubmitDraftArguments.Present(arguments == null ? "" : arguments);
+    }
+
+    private sealed interface SubmitDraftArguments
+            permits SubmitDraftArguments.Missing,
+                    SubmitDraftArguments.Unexpected,
+                    SubmitDraftArguments.Present {
+        record Missing() implements SubmitDraftArguments {}
+
+        record Unexpected() implements SubmitDraftArguments {}
+
+        record Present(String json) implements SubmitDraftArguments {}
     }
 
     private static Optional<ModelUsage> extractUsage(ChatResponse response) {
@@ -457,8 +487,8 @@ public final class SpringAiTestGenerator implements TestGenerator {
 
     static String buildSystemPrompt() {
         return """
-                You generate a single Java regression test patch as JSON only.
-                Return exactly one JSON object with key patch (a unified diff).
+                You generate a single Java regression test patch.
+                Call submit_draft with key patch set to a unified diff.
                 The patch must add exactly one JUnit 5 @Test method.
                 No markdown fences, no commentary.
                 Only add or modify files under src/test/java.

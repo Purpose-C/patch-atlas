@@ -42,6 +42,46 @@ class SpringAiHttpContractTest {
         assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("fixtures.NewTest", "works"));
         assertThat(draft.usage()).contains(new ModelUsage(10, 20, 30));
         assertThat(call.requests()).isEqualTo(1);
+        String request = wireMock.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+        assertThat(request).contains("\"tools\"");
+        assertThat(request).contains(SubmitDraftTool.NAME);
+        assertThat(request).contains("tool_choice");
+        assertThat(request).contains("required");
+        assertThat(request).doesNotContain("JSON_OBJECT");
+        assertThat(request).doesNotContain("json_schema");
+    }
+
+    @Test
+    void illegalToolArgumentsAreRejectedWithoutThrowing() {
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion("not-json", "stop"))));
+        assertThatCode(() -> {
+                    ObservedCall call = generate();
+                    assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
+                    assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary())
+                            .contains("not json");
+                    assertThat(call.requests()).isEqualTo(1);
+                })
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void textOnlyResponseDoesNotScrapePatchFromContent() {
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(textCompletion(VALID_DRAFT))));
+        ObservedCall call = generate();
+        assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
+        assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary())
+                .contains("submit_draft");
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GeneratedDraft.class);
+    }
+
+    @Test
+    void markdownFenceInPatchArgumentsIsRejectedWithoutStripping() {
+        String fenced = "{\"patch\":\"```diff\\nnot-a-patch```\"}";
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(fenced, "stop"))));
+        ObservedCall call = generate();
+        assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
+        assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary())
+                .contains("markdown fence");
     }
 
     @Test
@@ -239,18 +279,18 @@ class SpringAiHttpContractTest {
                 .willReturn(okJson(chatCompletion(VALID_DRAFT, "stop"))));
     }
 
-    private static String chatCompletion(String contentJson, String finishReason) {
-        return chatCompletion(contentJson, finishReason, 10, 20, 30, null);
+    private static String chatCompletion(String argumentsJson, String finishReason) {
+        return chatCompletion(argumentsJson, finishReason, 10, 20, 30, null);
     }
 
     private static String chatCompletion(
-            String contentJson,
+            String argumentsJson,
             String finishReason,
             int prompt,
             int completion,
             int total,
             Long reasoningTokens) {
-        String escaped = contentJson.replace("\\", "\\\\").replace("\"", "\\\"");
+        String escaped = argumentsJson.replace("\\", "\\\\").replace("\"", "\\\"");
         String details = reasoningTokens == null
                 ? ""
                 : """
@@ -258,6 +298,7 @@ class SpringAiHttpContractTest {
                         "completion_tokens_details": { "reasoning_tokens": %d }
                         """
                         .formatted(reasoningTokens);
+        String finish = "stop".equals(finishReason) ? "tool_calls" : finishReason;
         return """
                 {
                   "id": "chatcmpl-test",
@@ -267,7 +308,17 @@ class SpringAiHttpContractTest {
                   "choices": [
                     {
                       "index": 0,
-                      "message": { "role": "assistant", "content": "%s" },
+                      "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [
+                          {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": { "name": "submit_draft", "arguments": "%s" }
+                          }
+                        ]
+                      },
                       "finish_reason": "%s"
                     }
                   ],
@@ -279,10 +330,40 @@ class SpringAiHttpContractTest {
                   }
                 }
                 """
-                .formatted(escaped, finishReason, prompt, completion, total, details);
+                .formatted(escaped, finish, prompt, completion, total, details);
     }
 
-    private static String chatCompletionWithoutUsage(String contentJson) {
+    private static String chatCompletionWithoutUsage(String argumentsJson) {
+        String escaped = argumentsJson.replace("\\", "\\\\").replace("\"", "\\\"");
+        return """
+                {
+                  "id": "chatcmpl-test",
+                  "object": "chat.completion",
+                  "created": 1,
+                  "model": "gpt-test",
+                  "choices": [
+                    {
+                      "index": 0,
+                      "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [
+                          {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": { "name": "submit_draft", "arguments": "%s" }
+                          }
+                        ]
+                      },
+                      "finish_reason": "tool_calls"
+                    }
+                  ]
+                }
+                """
+                .formatted(escaped);
+    }
+
+    private static String textCompletion(String contentJson) {
         String escaped = contentJson.replace("\\", "\\\\").replace("\"", "\\\"");
         return """
                 {
@@ -296,7 +377,12 @@ class SpringAiHttpContractTest {
                       "message": { "role": "assistant", "content": "%s" },
                       "finish_reason": "stop"
                     }
-                  ]
+                  ],
+                  "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30
+                  }
                 }
                 """
                 .formatted(escaped);

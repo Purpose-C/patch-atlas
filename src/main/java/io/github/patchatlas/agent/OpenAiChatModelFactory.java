@@ -36,23 +36,9 @@ public final class OpenAiChatModelFactory {
     public static final int MAX_COMPLETION_TOKENS = 32768;
 
     /**
-     * Candidate Draft 的原生 JSON Schema（strict）。
-     *
-     * <p>Spring AI 固定 name=json_schema、strict=true；此处只提供 schema 本体。
-     * 供应商层约束不能替代 {@link CandidateDraftParser} 本地校验。
+     * Candidate Draft 工具参数 schema。供应商层约束不能替代 {@link CandidateDraftParser} 本地校验。
      */
-    static final String CANDIDATE_DRAFT_JSON_SCHEMA =
-            """
-            {
-              "type": "object",
-              "properties": {
-                "patch": { "type": "string" }
-              },
-              "required": ["patch"],
-              "additionalProperties": false
-            }
-            """
-                    .strip();
+    static final String CANDIDATE_DRAFT_JSON_SCHEMA = SubmitDraftTool.INPUT_SCHEMA;
 
     private OpenAiChatModelFactory() {}
 
@@ -61,7 +47,7 @@ public final class OpenAiChatModelFactory {
     }
 
     /**
-     * 仅使用原生 JSON Schema；兼容网关降级为 JSON_OBJECT 不在当前支持范围。
+     * 使用 {@code submit_draft} 工具调用作为结构化输出载体；不用 JSON_OBJECT 绕过校验。
      *
      * @param baseUrl OpenAI 或兼容端点根（可含 {@code /v1}）
      */
@@ -124,7 +110,7 @@ public final class OpenAiChatModelFactory {
                 .build();
     }
 
-    /** 定位循环专用：关闭并行、强制 TEXT，避免合并进 Candidate Draft 的 JSON Schema。 */
+    /** 定位循环专用：关闭并行、强制 TEXT，避免与生成阶段的工具声明混用。 */
     public static OpenAiChatOptions locatingChatOptions() {
         return locatingChatOptions(null);
     }
@@ -143,18 +129,19 @@ public final class OpenAiChatModelFactory {
     }
 
     static OpenAiChatOptions chatOptions(String modelName) {
-        OpenAiChatModel.ResponseFormat jsonSchema = OpenAiChatModel.ResponseFormat.builder()
-                .type(OpenAiChatModel.ResponseFormat.Type.JSON_SCHEMA)
-                .jsonSchema(CANDIDATE_DRAFT_JSON_SCHEMA)
+        OpenAiChatModel.ResponseFormat text = OpenAiChatModel.ResponseFormat.builder()
+                .type(OpenAiChatModel.ResponseFormat.Type.TEXT)
                 .build();
-
         return OpenAiChatOptions.builder()
                 .model(modelName)
                 .temperature(0.0)
                 .maxCompletionTokens(MAX_COMPLETION_TOKENS)
                 .timeout(TIMEOUT)
                 .maxRetries(0)
-                .responseFormat(jsonSchema)
+                .parallelToolCalls(false)
+                .toolChoice("required")
+                .toolCallbacks(SubmitDraftTool.stub())
+                .responseFormat(text)
                 .build();
     }
 

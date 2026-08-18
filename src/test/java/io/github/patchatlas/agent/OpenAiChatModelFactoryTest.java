@@ -23,13 +23,15 @@ class OpenAiChatModelFactoryTest {
     }
 
     @Test
-    void responseFormatBuilderAcceptsNativeJsonSchema() {
-        OpenAiChatModel.ResponseFormat format = OpenAiChatModel.ResponseFormat.builder()
-                .type(OpenAiChatModel.ResponseFormat.Type.JSON_SCHEMA)
-                .jsonSchema(OpenAiChatModelFactory.CANDIDATE_DRAFT_JSON_SCHEMA)
-                .build();
-        assertThat(format.getType()).isEqualTo(OpenAiChatModel.ResponseFormat.Type.JSON_SCHEMA);
-        assertThat(format.getJsonSchema()).isEqualTo(OpenAiChatModelFactory.CANDIDATE_DRAFT_JSON_SCHEMA);
+    void generationOptionsRequireSubmitDraftTool() {
+        var options = OpenAiChatModelFactory.chatOptions("gpt-test");
+        assertThat(options.getToolChoice()).isEqualTo("required");
+        assertThat(options.getToolCallbacks()).hasSize(1);
+        assertThat(options.getToolCallbacks().getFirst().getToolDefinition().name())
+                .isEqualTo(SubmitDraftTool.NAME);
+        assertThat(options.getResponseFormat().getType())
+                .isEqualTo(OpenAiChatModel.ResponseFormat.Type.TEXT);
+        assertThat(options.getParallelToolCalls()).isFalse();
     }
 
     @Test
