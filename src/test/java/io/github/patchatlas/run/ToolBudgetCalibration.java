@@ -872,7 +872,8 @@ final class ToolBudgetCalibration {
     static Optional<GraphBuild> graphBuild(List<LocatingTraceStep> traces) {
         Objects.requireNonNull(traces, "traces");
         for (LocatingTraceStep step : traces) {
-            if (step.kind() != LocatingStepKind.SELECTION || !"GRAPH_BUILD".equals(step.reason())) {
+            if (step.kind() != LocatingStepKind.GRAPH_BUILD
+                    && (step.kind() != LocatingStepKind.SELECTION || !"GRAPH_BUILD".equals(step.reason()))) {
                 continue;
             }
             JsonNode detail = JSON.readTree(step.detailJson() == null ? "{}" : step.detailJson());

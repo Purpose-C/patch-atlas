@@ -521,13 +521,21 @@ class PostgresRunStoreLocatingTest {
         store.appendLocatingTrace(
                 ClaimHandle.from(locating),
                 LocatingTraceStep.of(1, LocatingStepKind.EXPAND, "type:A", "expand", "{}"));
+        store.appendLocatingTrace(
+                ClaimHandle.from(locating),
+                LocatingTraceStep.of(
+                        2,
+                        LocatingStepKind.GRAPH_BUILD,
+                        "graph",
+                        "GRAPH_BUILD",
+                        "{\"durationMs\":12,\"cacheHit\":false}"));
         store.commitContext(
                 ClaimHandle.from(locating),
                 ContextOrigin.GRAPH_TOOLS,
                 List.of(new SourceSnapshot("src/A.java", "class A {}")));
         assertThat(readOrigin(id)).isEqualTo("GRAPH_TOOLS");
         assertThat(store.loadLocatingTrace(id)).extracting(LocatingTraceStep::kind)
-                .containsExactly(LocatingStepKind.FIND, LocatingStepKind.EXPAND);
+                .containsExactly(LocatingStepKind.FIND, LocatingStepKind.EXPAND, LocatingStepKind.GRAPH_BUILD);
     }
 
     @Test

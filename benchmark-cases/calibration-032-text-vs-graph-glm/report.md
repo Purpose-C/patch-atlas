@@ -96,6 +96,8 @@
 
 whatsapp#100 与 jsoup#2002 第 1 次命中，是因为采样前的单会话确认已写入同一缓存。其余四个修订各未命中一次，之后全命中。
 
+图臂 JSON 里这些建图事件当时写成了 `step_kind=SELECTION`（`reason=GRAPH_BUILD`）。后续轨迹改用独立的 `GRAPH_BUILD` 步骤种类；`calibration-032-graph-tools-glm/traces/` **不回溯修改**。
+
 ## 不在本对照里的问题
 
 生产定位预算仍是 35 次 / 9 分钟（按 `agnes-2.5-flash` 定的）。本对照不改那个常数。

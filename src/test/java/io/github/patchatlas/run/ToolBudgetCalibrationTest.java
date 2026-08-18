@@ -435,7 +435,7 @@ class ToolBudgetCalibrationTest {
     @Test
     void toolCallsCountFindAndExpandButNotGraphBuild() {
         LocatingTraceStep build = LocatingTraceStep.of(
-                0, LocatingStepKind.SELECTION, "graph", "GRAPH_BUILD", "{\"durationMs\":12,\"cacheHit\":false}");
+                0, LocatingStepKind.GRAPH_BUILD, "graph", "GRAPH_BUILD", "{\"durationMs\":12,\"cacheHit\":false}");
         LocatingTraceStep find = LocatingTraceStep.of(1, LocatingStepKind.FIND, ".", "find", "{}");
         LocatingTraceStep expand = LocatingTraceStep.of(2, LocatingStepKind.EXPAND, "e1", "expand", "{}");
         LocatingTraceStep read = LocatingTraceStep.of(3, LocatingStepKind.READ, "src/A.java", "read", "{}");

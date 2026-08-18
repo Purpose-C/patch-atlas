@@ -108,6 +108,29 @@ class GraphToolsLocatingTest {
     }
 
     @Test
+    void graphBuildIsRecordedAsGraphBuildKindNotSelection() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("build-kind"));
+        Files.writeString(workspace.resolve("A.java"), "class A {}");
+        InMemoryLocatingRunSession session = newSession();
+        LocalizationToolCallingManager manager = new LocalizationToolCallingManager(
+                new WorkspaceFileTools(workspace),
+                new GraphDiscoveryTools(new CodeGraph("rev", List.of(), List.of()), workspace),
+                ContextOrigin.GRAPH_TOOLS,
+                session,
+                new LocalizationBudget(),
+                Clock.fixed(T0, ZoneOffset.UTC));
+
+        manager.recordGraphBuild(12L, true);
+
+        LocatingTraceStep step = session.traces().getFirst();
+        assertThat(step.kind()).isEqualTo(LocatingStepKind.GRAPH_BUILD);
+        assertThat(step.kind()).isNotEqualTo(LocatingStepKind.SELECTION);
+        assertThat(step.subject()).isEqualTo("graph");
+        assertThat(step.reason()).isEqualTo("GRAPH_BUILD");
+        assertThat(step.detailJson()).contains("durationMs").contains("\"cacheHit\":true");
+    }
+
+    @Test
     void expandTraceDetailRecordsEdgeKindsAndConfidences() throws Exception {
         Path workspace = Files.createDirectories(temp.resolve("trace"));
         Files.writeString(workspace.resolve("Caller.java"), "class Caller {}");

@@ -71,6 +71,7 @@ class LocatingCoordinatorTest {
         assertThat(session.traces()).isNotEmpty();
         assertThat(session.traces())
                 .anyMatch(step -> step.kind() == LocatingStepKind.SELECTION);
+        assertThat(session.traces()).noneMatch(step -> step.kind() == LocatingStepKind.GRAPH_BUILD);
         assertThat(session.traces()).hasSize(
                 session.committedSnapshots().size()
                         + (int) session.traces().stream()

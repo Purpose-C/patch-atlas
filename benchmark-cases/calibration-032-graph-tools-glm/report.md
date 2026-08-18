@@ -111,6 +111,12 @@
 
 已执行工具（FIND/EXPAND/READ/SUBMIT）299 次，outcome=ERROR 的 7 次都是 submit 闸门拒绝。ToolError 率：**7 / 299 ≈ 2.3%**。FIND / EXPAND / READ 无 ERROR。
 
+## 轨迹标签
+
+本批 JSON 轨迹里，建图事件写成了 `step_kind=SELECTION` 且 `reason=GRAPH_BUILD`。`SELECTION` 的语义是启发式把文件选进上下文。后续轨迹改用独立的 `GRAPH_BUILD` 步骤种类；本目录已产出的 JSON **不回溯修改**。
+
+## 建图开销
+
 submit 被拒（同会话随后都再次提交并被接受）：
 
 - jsoup#2002 三次：`file exceeds 64 KiB`（`Element.java` / `ElementTest.java`）

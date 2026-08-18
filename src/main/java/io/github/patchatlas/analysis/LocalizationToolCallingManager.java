@@ -299,7 +299,7 @@ public final class LocalizationToolCallingManager implements ToolCallingManager 
     void recordGraphBuild(long durationMs, boolean cacheHit) {
         session.appendTrace(LocatingTraceStep.of(
                 seq++,
-                LocatingStepKind.SELECTION,
+                LocatingStepKind.GRAPH_BUILD,
                 "graph",
                 "GRAPH_BUILD",
                 LocatingTraceDetails.graphBuild(durationMs, cacheHit)));

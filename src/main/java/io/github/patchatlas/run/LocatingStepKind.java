@@ -10,6 +10,7 @@ public enum LocatingStepKind {
     SUBMIT,
     FIND,
     EXPAND,
+    GRAPH_BUILD,
     BUDGET_EXHAUSTED,
     BUDGET_WARNING,
     UNKNOWN_TOOL

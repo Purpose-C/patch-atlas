@@ -98,9 +98,11 @@ class ChatClientGraphToolsLocatorTest {
         assertThat(session.traces())
                 .noneMatch(step -> step.kind() == LocatingStepKind.BUDGET_EXHAUSTED);
         assertThat(session.traces())
-                .anyMatch(step -> "GRAPH_BUILD".equals(step.reason())
+                .anyMatch(step -> step.kind() == LocatingStepKind.GRAPH_BUILD
+                        && "GRAPH_BUILD".equals(step.reason())
                         && step.detailJson().contains("durationMs")
                         && step.detailJson().contains("\"cacheHit\":false"));
+        assertThat(session.traces()).noneMatch(step -> step.kind() == LocatingStepKind.SELECTION);
     }
 
     @Test
@@ -120,8 +122,10 @@ class ChatClientGraphToolsLocatorTest {
         assertThat(result).isInstanceOf(LocatingCoordinator.Result.ContextCommitted.class);
         assertThat(inner.calls.get()).isEqualTo(1);
         assertThat(second.traces())
-                .anyMatch(step -> "GRAPH_BUILD".equals(step.reason())
+                .anyMatch(step -> step.kind() == LocatingStepKind.GRAPH_BUILD
+                        && "GRAPH_BUILD".equals(step.reason())
                         && step.detailJson().contains("\"cacheHit\":true"));
+        assertThat(second.traces()).noneMatch(step -> step.kind() == LocatingStepKind.SELECTION);
     }
 
     private ChatClientGraphToolsLocator locator(LocalizationBudget budget, CodeGraphBuilder builder) {

@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(17);
+        assertThat(first.migrationsExecuted).isEqualTo(18);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -539,6 +539,55 @@ class FlywayMigrationSmokeTest {
                                     + failed
                                     + "'"))
                     .hasMessageContaining("verification_run_failure_pair_chk");
+        }
+    }
+
+    @Test
+    void v18AllowsGraphBuildKindAndKeepsSelection() throws Exception {
+        migrate();
+        UUID runId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'QUEUED', 0
+                    )
+                    """
+                            .formatted(runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 0, 'SELECTION', 'OK', 'src/A.java', 'HEURISTIC', '{}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            statement.execute(
+                    """
+                    INSERT INTO locating_trace (
+                      id, run_id, seq, step_kind, outcome, subject, reason, detail
+                    ) VALUES (
+                      '%s', '%s', 1, 'GRAPH_BUILD', 'OK', 'graph', 'GRAPH_BUILD',
+                      '{"durationMs":12,"cacheHit":true}'::jsonb
+                    )
+                    """
+                            .formatted(UUID.randomUUID(), runId));
+            assertThatThrownBy(() -> statement.execute(
+                            """
+                            INSERT INTO locating_trace (
+                              id, run_id, seq, step_kind, outcome, subject, reason, detail
+                            ) VALUES (
+                              '%s', '%s', 2, 'HALLUCINATED', 'ERROR', 'x', 'x', '{}'::jsonb
+                            )
+                            """
+                                    .formatted(UUID.randomUUID(), runId)))
+                    .hasMessageContaining("locating_trace_kind_chk");
         }
     }
 
