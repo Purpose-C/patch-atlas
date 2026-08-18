@@ -34,13 +34,13 @@ Other protocol limitations:
 | 2 | `jhy-jsoup-91b630f86b5c` | true | 1.0000 | 0.1111 | 9 |
 | 3 | `davidmoten-word-wrap-e59eedf0bac7` | true | 1.0000 | 0.3333 | 3 |
 | 4 | `jhy-jsoup-a96ebc95f9ad` | false | 0.0000 | 0.0000 | 12 |
-| 5 | `jhy-jsoup-9de27fa7cd82` | false | 0.0000 | 0.0000 | 0 |
+| 5 | `jhy-jsoup-9de27fa7cd82` | false | 0.0000 | N/A | 0 |
 | 6 | `AuthMe-ConfigMe-7bf10c513479` | false | 0.0000 | 0.0000 | 12 |
 
 - anyHit: 2 / 6
-- mean recall: 0.3333
-- mean precision: 0.0741
-- mean selectedCount: 8
+- mean recall: 0.3333 (n=6)
+- mean precision: 0.0889 (n=5)
+- mean selectedCount: 8 (n=6)
 
 ### Reproduction rate
 
@@ -49,7 +49,8 @@ Denominator: every AGENT_BENCHMARK run on this arm, including locating failure a
 
 ### Cost
 
-- generation token median: 39297.50
+- generation token median: 49070 (n=5)
+- runs that never reached generation: 1
 - locating model tokens: none
 - locating tool calls: —
 
@@ -67,9 +68,9 @@ Denominator: every AGENT_BENCHMARK run on this arm, including locating failure a
 | 6 | `AuthMe-ConfigMe-7bf10c513479` | true | 1.0000 | 0.0833 | 12 |
 
 - anyHit: 5 / 6
-- mean recall: 0.7500
-- mean precision: 0.3528
-- mean selectedCount: 4.67
+- mean recall: 0.7500 (n=6)
+- mean precision: 0.3528 (n=6)
+- mean selectedCount: 4.67 (n=6)
 
 ### Reproduction rate
 
@@ -78,7 +79,8 @@ Denominator: every AGENT_BENCHMARK run on this arm, including locating failure a
 
 ### Cost
 
-- generation token median: 42256
+- generation token median: 42256 (n=6)
+- runs that never reached generation: 0
 - locating model tokens: unknown
 - locating tool calls p50 / p95: 11 / 28.75
 
@@ -96,9 +98,9 @@ Denominator: every AGENT_BENCHMARK run on this arm, including locating failure a
 | 6 | `AuthMe-ConfigMe-7bf10c513479` | true | 1.0000 | 0.1111 | 9 |
 
 - anyHit: 5 / 6
-- mean recall: 0.7500
-- mean precision: 0.3519
-- mean selectedCount: 3.67
+- mean recall: 0.7500 (n=6)
+- mean precision: 0.3519 (n=6)
+- mean selectedCount: 3.67 (n=6)
 
 ### Reproduction rate
 
@@ -107,7 +109,8 @@ Denominator: every AGENT_BENCHMARK run on this arm, including locating failure a
 
 ### Cost
 
-- generation token median: 33214
+- generation token median: 33214 (n=6)
+- runs that never reached generation: 0
 - locating model tokens: unknown
 - locating tool calls p50 / p95: 14 / 26.25
 - expand count: 0
@@ -123,7 +126,7 @@ Same case, three locating origins. Numbers only; this table is not a ranking.
 | 2 | `jhy-jsoup-91b630f86b5c` | true / 1.0000 / 0.1111 / 9 | true / 1.0000 / 0.2000 / 5 | true / 1.0000 / 0.5000 / 2 |
 | 3 | `davidmoten-word-wrap-e59eedf0bac7` | true / 1.0000 / 0.3333 / 3 | true / 1.0000 / 1.0000 / 1 | true / 1.0000 / 0.5000 / 2 |
 | 4 | `jhy-jsoup-a96ebc95f9ad` | false / 0.0000 / 0.0000 / 12 | true / 1.0000 / 0.5000 / 2 | true / 1.0000 / 0.5000 / 2 |
-| 5 | `jhy-jsoup-9de27fa7cd82` | false / 0.0000 / 0.0000 / 0 | true / 0.5000 / 0.3333 / 3 | true / 0.5000 / 0.5000 / 2 |
+| 5 | `jhy-jsoup-9de27fa7cd82` | false / 0.0000 / N/A / 0 | true / 0.5000 / 0.3333 / 3 | true / 0.5000 / 0.5000 / 2 |
 | 6 | `AuthMe-ConfigMe-7bf10c513479` | false / 0.0000 / 0.0000 / 12 | true / 1.0000 / 0.0833 / 12 | true / 1.0000 / 0.1111 / 9 |
 
 ## Paired cost
@@ -211,4 +214,7 @@ Counts are first `generation.attempt.rejected` records (attempt_ordinal = 1). Ru
 - Stale diagnostic leases were marked failed so they would not be claimed ahead of this queue.
 - GRAPH_BUILD locating-trace kind was applied to the evaluation database before the graph arm.
 - No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.
+- 18 次 Run 中 17 次未进入 Docker Replay：16 次 GENERATION_EXHAUSTED、1 次 LOCATING_NO_CONTEXT；仅 GRAPH_TOOLS 案例 2 得到 INCONCLUSIVE。因此三臂 VALID_REPRODUCTION 0/6 表示绝大多数 Run 未被 Replay 测到，而不是 Replay 已执行但未复现。文本臂与图臂 anyHit 均为 5/6、mean recall 均为 0.7500；16 次有首轮拒绝的 Run 中 10 次反馈为 hunk 计数不匹配。三臂在本批的阻塞点都在生成阶段的补丁格式，不在定位。
+- 文本臂与图臂的逐例 recall 相同：0 / 1 / 1 / 1 / 0.5 / 1；anyHit 也相同。两臂命中的是同一批真值文件，差别只在多选了若干无关文件。
+- 图臂 mean selectedCount 为 3.67，文本臂为 4.67；mean precision 基本持平（图臂在案例 2、6 更紧，在案例 3 更松）。selectedCount 较低并不对应更高的 precision。
 

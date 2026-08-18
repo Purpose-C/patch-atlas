@@ -160,9 +160,19 @@ class BenchmarkArtifactReaderTest {
         assertThat(md).contains("| # | Case | anyHit | recall | precision | selectedCount |");
         assertThat(md).contains("10 / 16 first-round rejections");
         assertThat(md).contains("expand count: 0");
+        assertThat(md).contains("mean precision: 0.0889 (n=5)");
+        assertThat(md).contains("generation token median: 49070 (n=5)");
+        assertThat(md).contains("runs that never reached generation: 1");
+        assertThat(md).contains("| false | 0.0000 | N/A | 0 |");
+        assertThat(md).doesNotContain("| false | 0.0000 | 0.0000 | 0 |");
+        int notes = md.indexOf("## Evaluation notes");
+        assertThat(notes).isGreaterThan(heuristic);
+        assertThat(md.substring(notes)).contains("17 次未进入 Docker Replay");
+        assertThat(md.substring(notes)).contains("逐例 recall 相同");
+        assertThat(md.substring(0, notes)).doesNotContain("17 次未进入 Docker Replay");
         assertThat(md).contains("另开工作把 hunk 计数改为从正文重算");
         assertThat(md).contains("不得据此断言图没有信息量");
-        assertThat(md.substring(paired)).doesNotContain("VALID_REPRODUCTION");
+        assertThat(md.substring(paired, md.indexOf("## Evaluation notes"))).doesNotContain("VALID_REPRODUCTION");
         assertThat(md)
                 .doesNotContain("综合得分")
                 .doesNotContain("图更好")

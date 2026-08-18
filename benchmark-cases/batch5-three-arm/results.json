@@ -12,9 +12,13 @@
     "runCount" : 6,
     "anyHitCount" : 2,
     "meanRecall" : 0.3333333333333333,
-    "meanPrecision" : 0.07407407407407407,
+    "meanPrecision" : 0.08888888888888888,
     "meanSelectedCount" : 8.0,
-    "generationTokenMedian" : 39297.5,
+    "generationTokenMedian" : 49070.0,
+    "generationTokenSampleCount" : 5,
+    "runsNeverReachedGeneration" : 1,
+    "coverageSampleCount" : 6,
+    "precisionSampleCount" : 5,
     "locatingToolCallP50" : null,
     "locatingToolCallP95" : null,
     "expandCount" : 0,
@@ -127,7 +131,7 @@
       "localizationCoverage" : {
         "anyHit" : false,
         "recall" : 0.0,
-        "precision" : 0.0,
+        "precision" : null,
         "selectedCount" : 0
       },
       "locatingToolCallCount" : 0,
@@ -168,6 +172,10 @@
     "meanPrecision" : 0.3527777777777778,
     "meanSelectedCount" : 4.666666666666667,
     "generationTokenMedian" : 42256.0,
+    "generationTokenSampleCount" : 6,
+    "runsNeverReachedGeneration" : 0,
+    "coverageSampleCount" : 6,
+    "precisionSampleCount" : 6,
     "locatingToolCallP50" : 11.0,
     "locatingToolCallP95" : 28.75,
     "expandCount" : 0,
@@ -321,6 +329,10 @@
     "meanPrecision" : 0.35185185185185186,
     "meanSelectedCount" : 3.6666666666666665,
     "generationTokenMedian" : 33214.0,
+    "generationTokenSampleCount" : 6,
+    "runsNeverReachedGeneration" : 0,
+    "coverageSampleCount" : 6,
+    "precisionSampleCount" : 6,
     "locatingToolCallP50" : 14.0,
     "locatingToolCallP95" : 26.25,
     "expandCount" : 0,
@@ -479,5 +491,5 @@
     "measured" : "expand count: 0",
     "conclusion" : "确认本队列不提供沿边遍历机会；不得据此断言图没有信息量。"
   } ],
-  "pipelineNotes" : [ "No evaluation cell was rerun.", "Stale diagnostic leases were marked failed so they would not be claimed ahead of this queue.", "GRAPH_BUILD locating-trace kind was applied to the evaluation database before the graph arm.", "No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure." ]
+  "pipelineNotes" : [ "No evaluation cell was rerun.", "Stale diagnostic leases were marked failed so they would not be claimed ahead of this queue.", "GRAPH_BUILD locating-trace kind was applied to the evaluation database before the graph arm.", "No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.", "18 次 Run 中 17 次未进入 Docker Replay：16 次 GENERATION_EXHAUSTED、1 次 LOCATING_NO_CONTEXT；仅 GRAPH_TOOLS 案例 2 得到 INCONCLUSIVE。因此三臂 VALID_REPRODUCTION 0/6 表示绝大多数 Run 未被 Replay 测到，而不是 Replay 已执行但未复现。文本臂与图臂 anyHit 均为 5/6、mean recall 均为 0.7500；16 次有首轮拒绝的 Run 中 10 次反馈为 hunk 计数不匹配。三臂在本批的阻塞点都在生成阶段的补丁格式，不在定位。", "文本臂与图臂的逐例 recall 相同：0 / 1 / 1 / 1 / 0.5 / 1；anyHit 也相同。两臂命中的是同一批真值文件，差别只在多选了若干无关文件。", "图臂 mean selectedCount 为 3.67，文本臂为 4.67；mean precision 基本持平（图臂在案例 2、6 更紧，在案例 3 更松）。selectedCount 较低并不对应更高的 precision。" ]
 }

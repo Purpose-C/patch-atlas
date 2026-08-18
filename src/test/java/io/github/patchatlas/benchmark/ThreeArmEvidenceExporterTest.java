@@ -73,7 +73,7 @@ class ThreeArmEvidenceExporterTest {
         assertThat(md).doesNotContain("locating model tokens: 0");
         assertThat(md).contains("locating model tokens: none");
 
-        String paired = md.substring(pairedCoverage);
+        String paired = md.substring(pairedCoverage, md.indexOf("## Evaluation notes"));
         assertThat(paired).doesNotContain("VALID_REPRODUCTION");
         assertThat(md)
                 .doesNotContain("综合得分")
@@ -166,6 +166,43 @@ class ThreeArmEvidenceExporterTest {
         assertThat(md).contains("mean selectedCount: 10 (n=6)");
         assertThat(md).contains("generation token median: 3300 (n=5)");
         assertThat(md).contains("runs that never reached generation: 1");
+    }
+
+    @Test
+    void evaluationNotesAppendObservedFactsAfterLimitationsWithoutRanking() throws Exception {
+        new ThreeArmEvidenceExporter().export(
+                COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        int limitations = md.indexOf("## Known limitations");
+        int notes = md.indexOf("## Evaluation notes");
+        assertThat(limitations).isGreaterThanOrEqualTo(0);
+        assertThat(notes).isGreaterThan(limitations);
+        String eval = md.substring(notes);
+        assertThat(eval).contains("17 次未进入 Docker Replay");
+        assertThat(eval).contains("逐例 recall 相同");
+        assertThat(eval).contains("mean selectedCount 为 3.67");
+        assertThat(eval).contains("selectedCount 较低并不对应更高的 precision");
+        assertThat(md.substring(0, notes)).doesNotContain("17 次未进入 Docker Replay");
+        assertThat(md)
+                .doesNotContain("更优")
+                .doesNotContain("综合分")
+                .doesNotContain("更好")
+                .doesNotContain("更差");
+    }
+
+    @Test
+    void exportLeavesFrozenProtocolAndCriteriaBytesUnchanged() throws Exception {
+        byte[] protocol = Files.readAllBytes(PROTOCOL);
+        byte[] criteria = Files.readAllBytes(CRITERIA);
+
+        new ThreeArmEvidenceExporter().export(
+                COHORT, PROTOCOL, CRITERIA, facts(0), rejections(true), tempDir);
+
+        assertThat(Files.readAllBytes(PROTOCOL)).isEqualTo(protocol);
+        assertThat(Files.readAllBytes(CRITERIA)).isEqualTo(criteria);
+        assertThat(tempDir.resolve("protocol.json")).doesNotExist();
+        assertThat(tempDir.resolve("preregistered-criteria.json")).doesNotExist();
     }
 
     @Test

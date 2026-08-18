@@ -475,7 +475,10 @@ public final class ThreeArmEvidenceExporter {
                 "No evaluation cell was rerun.",
                 "Stale diagnostic leases were marked failed so they would not be claimed ahead of this queue.",
                 "GRAPH_BUILD locating-trace kind was applied to the evaluation database before the graph arm.",
-                "No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.");
+                "No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.",
+                "18 次 Run 中 17 次未进入 Docker Replay：16 次 GENERATION_EXHAUSTED、1 次 LOCATING_NO_CONTEXT；仅 GRAPH_TOOLS 案例 2 得到 INCONCLUSIVE。因此三臂 VALID_REPRODUCTION 0/6 表示绝大多数 Run 未被 Replay 测到，而不是 Replay 已执行但未复现。文本臂与图臂 anyHit 均为 5/6、mean recall 均为 0.7500；16 次有首轮拒绝的 Run 中 10 次反馈为 hunk 计数不匹配。三臂在本批的阻塞点都在生成阶段的补丁格式，不在定位。",
+                "文本臂与图臂的逐例 recall 相同：0 / 1 / 1 / 1 / 0.5 / 1；anyHit 也相同。两臂命中的是同一批真值文件，差别只在多选了若干无关文件。",
+                "图臂 mean selectedCount 为 3.67，文本臂为 4.67；mean precision 基本持平（图臂在案例 2、6 更紧，在案例 3 更松）。selectedCount 较低并不对应更高的 precision。");
     }
 
     private static String markdown(
