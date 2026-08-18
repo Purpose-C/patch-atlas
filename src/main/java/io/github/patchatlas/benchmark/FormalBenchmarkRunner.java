@@ -57,6 +57,8 @@ public final class FormalBenchmarkRunner {
     public interface Store {
         Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose);
 
+        Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose, ContextOrigin origin);
+
         Optional<RunDetailView> findRunDetail(UUID runId);
     }
 
@@ -64,6 +66,8 @@ public final class FormalBenchmarkRunner {
         UUID launchCalibration(CohortCase cohortCase);
 
         UUID launchAgent(CohortCase cohortCase);
+
+        UUID launchAgent(CohortCase cohortCase, ContextOrigin origin);
 
         UUID launchDiagnostic(ContextOrigin origin);
 
@@ -104,8 +108,8 @@ public final class FormalBenchmarkRunner {
         if (BenchmarkActions.VERIFY.equals(parsed)) {
             return verify(cohort);
         }
-        if (BenchmarkActions.DRY_RUN.equals(parsed)) {
-            return dryRun();
+        if (parsed.startsWith("dry-run")) {
+            return dryRun(BenchmarkActions.locatingOrigin(parsed));
         }
 
         Result checked = preflight.check(cohort);
@@ -125,6 +129,8 @@ public final class FormalBenchmarkRunner {
                 int position = BenchmarkActions.agentPosition(parsed);
                 yield runPositions(cohort, position, position, RunPurpose.AGENT_BENCHMARK);
             }
+            case BenchmarkActions.ARM_HEURISTIC, BenchmarkActions.ARM_TEXT, BenchmarkActions.ARM_GRAPH ->
+                    runArm(cohort, BenchmarkActions.locatingOrigin(parsed));
             default -> throw new IllegalArgumentException("unsupported formal action " + parsed);
         };
     }
@@ -144,6 +150,23 @@ public final class FormalBenchmarkRunner {
                 runId = operations.launchAgent(cohortCase);
             }
             Optional<RunDetailView> terminal = waiter.awaitTerminal(runId, budget);
+            if (terminal.isEmpty()) {
+                return new Outcome.TimedOut(runId, RESUME_MESSAGE);
+            }
+            details.add(terminal.orElseThrow());
+        }
+        return new Outcome.Finished(details);
+    }
+
+    private Outcome runArm(Cohort cohort, ContextOrigin origin) {
+        List<RunDetailView> details = new ArrayList<>();
+        for (CohortCase cohortCase : cohort.cases()) {
+            Optional<RunDetailView> existing =
+                    store.findRunByCase(cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin);
+            UUID runId = existing.isPresent()
+                    ? existing.orElseThrow().runId()
+                    : operations.launchAgent(cohortCase, origin);
+            Optional<RunDetailView> terminal = waiter.awaitTerminal(runId, AGENT_WAIT);
             if (terminal.isEmpty()) {
                 return new Outcome.TimedOut(runId, RESUME_MESSAGE);
             }
@@ -174,8 +197,8 @@ public final class FormalBenchmarkRunner {
         }
     }
 
-    private Outcome dryRun() {
-        UUID runId = operations.launchDiagnostic();
+    private Outcome dryRun(ContextOrigin origin) {
+        UUID runId = operations.launchDiagnostic(origin);
         Optional<RunDetailView> terminal = waiter.awaitTerminal(runId, AGENT_WAIT);
         if (terminal.isEmpty()) {
             return new Outcome.TimedOut(runId, RESUME_MESSAGE);

@@ -1,5 +1,6 @@
 package io.github.patchatlas.benchmark;
 
+import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.Issue2TestWorker;
 import io.github.patchatlas.run.PostgresRunStore;
 import io.github.patchatlas.run.RunDetailView;
@@ -20,6 +21,11 @@ final class PostgresBenchmarkStore implements FormalBenchmarkRunner.Store {
     @Override
     public Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose) {
         return store.findRunByCase(caseId, purpose);
+    }
+
+    @Override
+    public Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose, ContextOrigin origin) {
+        return store.findRunByCase(caseId, purpose, origin);
     }
 
     @Override

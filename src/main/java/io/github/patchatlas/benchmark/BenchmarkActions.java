@@ -1,5 +1,6 @@
 package io.github.patchatlas.benchmark;
 
+import io.github.patchatlas.run.ContextOrigin;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
@@ -10,6 +11,9 @@ import java.util.Set;
  * <p>协议九个：{@code freeze / calibrate / calibrate-1 / calibrate-2 / calibrate-3 /
  * agent-4 / agent-5 / agent-6 / verify}。单例 {@code calibrate-N} 让第一例充当金丝雀。
  * {@code dry-run} 仍是 DIAGNOSTIC 入口，不进入正式分母。
+ * {@code dry-run-text} / {@code dry-run-graph} 用同一诊断案例分别走文本工具与图工具定位。
+ * {@code arm-heuristic} / {@code arm-text} / {@code arm-graph} 对冻结队列全部六例以
+ * {@code AGENT_BENCHMARK} 启动，彼此只差定位来源。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
  */
 public final class BenchmarkActions {
@@ -24,6 +28,11 @@ public final class BenchmarkActions {
     public static final String AGENT_6 = "agent-6";
     public static final String VERIFY = "verify";
     public static final String DRY_RUN = "dry-run";
+    public static final String DRY_RUN_TEXT = "dry-run-text";
+    public static final String DRY_RUN_GRAPH = "dry-run-graph";
+    public static final String ARM_HEURISTIC = "arm-heuristic";
+    public static final String ARM_TEXT = "arm-text";
+    public static final String ARM_GRAPH = "arm-graph";
 
     private static final Set<String> CLOSED_ACTIONS = Set.of(
             FREEZE,
@@ -35,7 +44,12 @@ public final class BenchmarkActions {
             AGENT_5,
             AGENT_6,
             VERIFY,
-            DRY_RUN);
+            DRY_RUN,
+            DRY_RUN_TEXT,
+            DRY_RUN_GRAPH,
+            ARM_HEURISTIC,
+            ARM_TEXT,
+            ARM_GRAPH);
 
     private BenchmarkActions() {}
 
@@ -71,9 +85,22 @@ public final class BenchmarkActions {
         };
     }
 
-    /** 校验动作是否为正式运行（calibrate / calibrate-N / agent-N），需要真实模型和 Docker。 */
+    /**
+     * 校验动作是否为正式运行（calibrate / calibrate-N / agent-N / arm-*），
+     * 需要真实模型和 Docker。诊断干跑不在此列。
+     */
     public static boolean isFormalRun(String action) {
         String parsed = parseAction(action);
-        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed) && !DRY_RUN.equals(parsed);
+        return !FREEZE.equals(parsed) && !VERIFY.equals(parsed) && !parsed.startsWith("dry-run");
+    }
+
+    /** 干跑与三臂动作所选择的定位来源；其余动作没有该因子。 */
+    public static ContextOrigin locatingOrigin(String action) {
+        return switch (parseAction(action)) {
+            case DRY_RUN, ARM_HEURISTIC -> ContextOrigin.HEURISTIC;
+            case DRY_RUN_TEXT, ARM_TEXT -> ContextOrigin.TEXT_TOOLS;
+            case DRY_RUN_GRAPH, ARM_GRAPH -> ContextOrigin.GRAPH_TOOLS;
+            default -> throw new IllegalArgumentException(action + " has no locating origin");
+        };
     }
 }

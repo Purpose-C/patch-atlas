@@ -406,6 +406,51 @@ public final class PostgresRunStore {
         return completeDetail(header.orElseThrow());
     }
 
+    /**
+     * 只读查找同一 caseId + Run Purpose + 定位来源的正式 Run；三臂评测用，避免臂间撞车。
+     */
+    public Optional<RunDetailView> findRunByCase(
+            String caseId, RunPurpose purpose, ContextOrigin origin) {
+        Objects.requireNonNull(caseId, "caseId");
+        Objects.requireNonNull(purpose, "purpose");
+        Objects.requireNonNull(origin, "origin");
+        if (caseId.isBlank()) {
+            throw new IllegalArgumentException("caseId must not be blank");
+        }
+        Optional<RunDetailView> header = jdbc.sql(
+                        """
+                        SELECT r.id, r.mode, r.run_purpose, r.state, r.case_id,
+                               r.repository_url, r.issue_url, r.issue_title, r.issue_body,
+                               r.buggy_revision, r.fixed_revision, r.module_path,
+                               r.java_version, r.network_mode,
+                               r.generation_attempt_count, r.model_provider, r.model_name,
+                               r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
+                               r.model_usage_record_count,
+                               r.locating_model_calls, r.locating_usage_record_count,
+                               r.locating_input_tokens, r.locating_output_tokens, r.locating_total_tokens,
+                               r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
+                               r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
+                          FROM verification_run r
+                          LEFT JOIN candidate_test_patch c ON c.run_id = r.id
+                         WHERE r.case_id = :caseId
+                           AND r.run_purpose = :purpose
+                           AND r.context_origin = :origin
+                         ORDER BY r.created_at ASC, r.id ASC
+                         LIMIT 1
+                        """)
+                .param("caseId", caseId)
+                .param("purpose", purpose.name())
+                .param("origin", origin.name())
+                .query((rs, rowNum) -> mapDetailHeader(rs))
+                .optional();
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        return completeDetail(header.orElseThrow());
+    }
+
     private Optional<RunDetailView> completeDetail(RunDetailView base) {
         List<RunAttemptView> attempts =
                 loadAttemptViews(base.runId(), base.candidate().map(c -> c.targetTest()));

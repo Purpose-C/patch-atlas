@@ -313,6 +313,27 @@ class PostgresRunStoreApiSeamTest {
         assertThat(store.findRunByCase("missing-case", RunPurpose.AGENT_BENCHMARK)).isEmpty();
     }
 
+    @Test
+    void findRunByCaseWithOriginKeepsArmsApart() {
+        UUID heuristicId = store.submitAgentBenchmark(liveSubmission("arm-case"));
+        UUID textId = store.submitAgentBenchmark(liveSubmission("arm-case", ContextOrigin.TEXT_TOOLS));
+        UUID graphId = store.submitAgentBenchmark(liveSubmission("arm-case", ContextOrigin.GRAPH_TOOLS));
+
+        assertThat(store.findRunByCase("arm-case", RunPurpose.AGENT_BENCHMARK, ContextOrigin.HEURISTIC)
+                        .orElseThrow()
+                        .runId())
+                .isEqualTo(heuristicId);
+        assertThat(store.findRunByCase("arm-case", RunPurpose.AGENT_BENCHMARK, ContextOrigin.TEXT_TOOLS)
+                        .orElseThrow()
+                        .runId())
+                .isEqualTo(textId);
+        assertThat(store.findRunByCase("arm-case", RunPurpose.AGENT_BENCHMARK, ContextOrigin.GRAPH_TOOLS)
+                        .orElseThrow()
+                        .runId())
+                .isEqualTo(graphId);
+        assertThat(heuristicId).isNotEqualTo(textId).isNotEqualTo(graphId);
+    }
+
     private ClaimedRun claimAndGenerate(String caseId) {
         RunSubmission s = liveSubmission(caseId);
         store.submitIdempotent(
@@ -353,6 +374,10 @@ class PostgresRunStoreApiSeamTest {
     }
 
     private static RunSubmission liveSubmission(String caseId) {
+        return liveSubmission(caseId, ContextOrigin.HEURISTIC);
+    }
+
+    private static RunSubmission liveSubmission(String caseId, ContextOrigin origin) {
         return new RunSubmission(
                 VerificationMode.LIVE,
                 caseId,
@@ -366,7 +391,8 @@ class PostgresRunStoreApiSeamTest {
                 "",
                 "21",
                 MavenNetworkMode.OFFLINE,
-                List.of(new SourceSnapshot("src/A.java", "class A {}")));
+                List.of(new SourceSnapshot("src/A.java", "class A {}")),
+                origin);
     }
 
     private static RunSubmission historicalSubmission(String caseId) {

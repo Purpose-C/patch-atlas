@@ -6,6 +6,7 @@ import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.benchmark.BenchmarkPreflight.Result;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
@@ -221,7 +222,103 @@ class FormalBenchmarkRunnerTest {
     void dryRunLaunchesDiagnosticAndDoesNotCheckPreflight() {
         ScriptedStore store = new ScriptedStore();
         CountingOps ops = new CountingOps(store);
-        BenchmarkPreflight failing = new BenchmarkPreflight(
+
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true).execute("dry-run", validCohort());
+
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        var finished = (FormalBenchmarkRunner.Outcome.Finished) outcome;
+        assertThat(finished.details()).hasSize(1);
+        assertThat(finished.details().getFirst().purpose()).isEqualTo(RunPurpose.DIAGNOSTIC);
+        assertThat(finished.details().getFirst().caseId()).isEqualTo("scof-1326-diagnostic");
+        assertThat(ops.diagnosticOrigins).containsExactly(ContextOrigin.HEURISTIC);
+    }
+
+    @Test
+    void dryRunTextLaunchesTextToolsDiagnosticWithoutPreflight() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true).execute("dry-run-text", validCohort());
+
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(ops.diagnosticOrigins)
+                .containsExactly(ContextOrigin.TEXT_TOOLS);
+        assertThat(ops.agentArmLaunches.get()).isZero();
+    }
+
+    @Test
+    void dryRunGraphLaunchesGraphToolsDiagnosticWithoutPreflight() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true).execute("dry-run-graph", validCohort());
+
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(ops.diagnosticOrigins)
+                .containsExactly(ContextOrigin.GRAPH_TOOLS);
+    }
+
+    @Test
+    void armHeuristicLaunchesAllSixCasesAsAgentBenchmark() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(readyPreflight(), store, ops, true).execute("arm-heuristic", validCohort());
+
+        assertThat(ops.calibrationLaunches.get()).isZero();
+        assertThat(ops.agentLaunches.get()).isZero();
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(6);
+        assertThat(ops.agentOrigins).containsOnly(ContextOrigin.HEURISTIC);
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        var finished = (FormalBenchmarkRunner.Outcome.Finished) outcome;
+        assertThat(finished.details()).hasSize(6);
+        assertThat(finished.details())
+                .allMatch(detail -> detail.purpose() == RunPurpose.AGENT_BENCHMARK);
+        assertThat(finished.details()).extracting(RunDetailView::caseId)
+                .containsExactly("case-1", "case-2", "case-3", "case-4", "case-5", "case-6");
+    }
+
+    @Test
+    void threeArmsDoNotShareIdempotentRuns() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner runner = runner(readyPreflight(), store, ops, true);
+
+        runner.execute("arm-heuristic", validCohort());
+        runner.execute("arm-text", validCohort());
+        FormalBenchmarkRunner.Outcome graph = runner.execute("arm-graph", validCohort());
+
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(18);
+        assertThat(ops.agentOrigins)
+                .filteredOn(origin -> origin == ContextOrigin.HEURISTIC)
+                .hasSize(6);
+        assertThat(ops.agentOrigins)
+                .filteredOn(origin -> origin == ContextOrigin.TEXT_TOOLS)
+                .hasSize(6);
+        assertThat(ops.agentOrigins)
+                .filteredOn(origin -> origin == ContextOrigin.GRAPH_TOOLS)
+                .hasSize(6);
+        assertThat(graph).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(store.created).hasSize(18);
+    }
+
+    @Test
+    void repeatedArmActionCreatesOnlyOneRunPerCase() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner runner = runner(readyPreflight(), store, ops, true);
+
+        runner.execute("arm-text", validCohort());
+        FormalBenchmarkRunner.Outcome second = runner.execute("arm-text", validCohort());
+
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(6);
+        assertThat(second).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(store.created).hasSize(6);
+    }
+
+    private static BenchmarkPreflight failingPreflight() {
+        return new BenchmarkPreflight(
                 () -> { throw new RuntimeException("pg down"); },
                 new BenchmarkPreflight.DockerProbe() {
                     @Override public boolean daemonReady() { return false; }
@@ -229,15 +326,6 @@ class FormalBenchmarkRunnerTest {
                 },
                 () -> 0,
                 () -> null);
-
-        FormalBenchmarkRunner.Outcome outcome =
-                runner(failing, store, ops, true).execute("dry-run", validCohort());
-
-        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
-        var finished = (FormalBenchmarkRunner.Outcome.Finished) outcome;
-        assertThat(finished.details()).hasSize(1);
-        assertThat(finished.details().getFirst().purpose()).isEqualTo(RunPurpose.DIAGNOSTIC);
-        assertThat(finished.details().getFirst().caseId()).isEqualTo("scof-1326-diagnostic");
     }
 
     private static FormalBenchmarkRunner runner(
@@ -365,8 +453,11 @@ class FormalBenchmarkRunnerTest {
         private final ScriptedStore store;
         private final AtomicInteger calibrationLaunches = new AtomicInteger();
         private final AtomicInteger agentLaunches = new AtomicInteger();
+        private final AtomicInteger agentArmLaunches = new AtomicInteger();
         private final AtomicInteger verifyCalls = new AtomicInteger();
         private final List<String> launchedCalibrationCaseIds = new ArrayList<>();
+        private final List<ContextOrigin> diagnosticOrigins = new ArrayList<>();
+        private final List<ContextOrigin> agentOrigins = new ArrayList<>();
 
         private CountingOps(ScriptedStore store) {
             this.store = store;
@@ -396,13 +487,28 @@ class FormalBenchmarkRunnerTest {
         }
 
         @Override
-        public UUID launchDiagnostic(io.github.patchatlas.run.ContextOrigin origin) {
+        public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin) {
+            agentArmLaunches.incrementAndGet();
+            agentOrigins.add(origin);
+            return store.create(
+                    cohortCase.caseId(),
+                    RunPurpose.AGENT_BENCHMARK,
+                    null,
+                    RunState.QUEUED,
+                    0,
+                    origin);
+        }
+
+        @Override
+        public UUID launchDiagnostic(ContextOrigin origin) {
+            diagnosticOrigins.add(origin);
             return store.create(
                     "scof-1326-diagnostic",
                     RunPurpose.DIAGNOSTIC,
                     null,
                     RunState.QUEUED,
-                    0);
+                    0,
+                    origin);
         }
 
         @Override
@@ -414,6 +520,7 @@ class FormalBenchmarkRunnerTest {
 
     private static final class ScriptedStore implements FormalBenchmarkRunner.Store {
         private final Map<UUID, RunDetailView> byId = new LinkedHashMap<>();
+        private final Map<UUID, ContextOrigin> origins = new LinkedHashMap<>();
         private final List<UUID> created = new ArrayList<>();
 
         UUID create(
@@ -422,8 +529,21 @@ class FormalBenchmarkRunnerTest {
                 TestPatchProvenance provenance,
                 RunState state,
                 int attempts) {
+            return create(caseId, purpose, provenance, state, attempts, null);
+        }
+
+        UUID create(
+                String caseId,
+                RunPurpose purpose,
+                TestPatchProvenance provenance,
+                RunState state,
+                int attempts,
+                ContextOrigin origin) {
             UUID id = UUID.randomUUID();
             put(view(id, caseId, purpose, state, provenance, attempts));
+            if (origin != null) {
+                origins.put(id, origin);
+            }
             created.add(id);
             return id;
         }
@@ -458,6 +578,15 @@ class FormalBenchmarkRunnerTest {
         public Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose) {
             return byId.values().stream()
                     .filter(detail -> caseId.equals(detail.caseId()) && detail.purpose() == purpose)
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<RunDetailView> findRunByCase(
+                String caseId, RunPurpose purpose, ContextOrigin origin) {
+            return byId.values().stream()
+                    .filter(detail -> caseId.equals(detail.caseId()) && detail.purpose() == purpose)
+                    .filter(detail -> origin == origins.get(detail.runId()))
                     .findFirst();
         }
 

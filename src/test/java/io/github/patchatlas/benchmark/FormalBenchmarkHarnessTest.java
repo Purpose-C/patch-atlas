@@ -61,7 +61,9 @@ class FormalBenchmarkHarnessTest {
                 workspaceRoot, workspaceRoot.resolve(".patch-atlas-cache/maven")));
         ChatModel locatingModel = null;
         TestGenerator generator;
-        if (parsed.startsWith("agent-") || BenchmarkActions.DRY_RUN.equals(parsed)) {
+        if (parsed.startsWith("agent-")
+                || parsed.startsWith("arm-")
+                || parsed.startsWith("dry-run")) {
             locatingModel = openAiChatModel();
             generator = new SpringAiTestGenerator(
                     GeneratorConfiguration.identityForVendor(

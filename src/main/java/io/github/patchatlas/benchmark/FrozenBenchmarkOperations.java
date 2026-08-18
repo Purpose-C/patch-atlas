@@ -163,6 +163,36 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
     }
 
     @Override
+    public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin) {
+        try {
+            Path caseDirectory = caseDirectory(cohortCase);
+            GeneratorContextMetadata context =
+                    artifacts.readGeneratorContext(caseDirectory.resolve("generator-context.json"));
+            OracleMetadata oracle = oracleReader.read(caseDirectory.resolve("oracle.json"));
+            CaseMetadata metadata = requireMetadata(cohortCase.caseId());
+            requireIssueDigest(context, metadata);
+            return runStore.submitAgentBenchmark(
+                    submission(
+                            cohortCase,
+                            context,
+                            metadata,
+                            oracle,
+                            snapshotsForOrigin(origin),
+                            origin));
+        } catch (IOException ex) {
+            throw new IllegalStateException("agent launch failed", ex);
+        }
+    }
+
+    static List<SourceSnapshot> snapshotsForOrigin(ContextOrigin origin) {
+        Objects.requireNonNull(origin, "origin");
+        if (origin == ContextOrigin.PINNED) {
+            throw new IllegalArgumentException("arm launch cannot use pinned snapshots");
+        }
+        return List.of();
+    }
+
+    @Override
     public UUID launchDiagnostic() {
         return launchDiagnostic(ContextOrigin.HEURISTIC);
     }
@@ -285,6 +315,16 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
             CaseMetadata metadata,
             OracleMetadata oracle,
             List<SourceSnapshot> snapshots) {
+        return submission(cohortCase, context, metadata, oracle, snapshots, ContextOrigin.HEURISTIC);
+    }
+
+    private static RunSubmission submission(
+            CohortCase cohortCase,
+            GeneratorContextMetadata context,
+            CaseMetadata metadata,
+            OracleMetadata oracle,
+            List<SourceSnapshot> snapshots,
+            ContextOrigin origin) {
         return new RunSubmission(
                 VerificationMode.HISTORICAL,
                 cohortCase.caseId(),
@@ -298,6 +338,7 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
                 cohortCase.modulePath(),
                 cohortCase.javaVersion(),
                 MavenNetworkMode.OFFLINE,
-                snapshots);
+                snapshots,
+                origin);
     }
 }

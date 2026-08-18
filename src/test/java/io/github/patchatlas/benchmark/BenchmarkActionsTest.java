@@ -3,6 +3,7 @@ package io.github.patchatlas.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.run.ContextOrigin;
 import org.junit.jupiter.api.Test;
 
 /** Closed action set and position mapping for the formal benchmark entry. */
@@ -20,6 +21,11 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.parseAction("agent-6")).isEqualTo("agent-6");
         assertThat(BenchmarkActions.parseAction("verify")).isEqualTo("verify");
         assertThat(BenchmarkActions.parseAction("dry-run")).isEqualTo("dry-run");
+        assertThat(BenchmarkActions.parseAction("dry-run-text")).isEqualTo("dry-run-text");
+        assertThat(BenchmarkActions.parseAction("dry-run-graph")).isEqualTo("dry-run-graph");
+        assertThat(BenchmarkActions.parseAction("arm-heuristic")).isEqualTo("arm-heuristic");
+        assertThat(BenchmarkActions.parseAction("arm-text")).isEqualTo("arm-text");
+        assertThat(BenchmarkActions.parseAction("arm-graph")).isEqualTo("arm-graph");
     }
 
     @Test
@@ -95,5 +101,31 @@ class BenchmarkActionsTest {
     @Test
     void isFormalRunExcludesDryRun() {
         assertThat(BenchmarkActions.isFormalRun("dry-run")).isFalse();
+        assertThat(BenchmarkActions.isFormalRun("dry-run-text")).isFalse();
+        assertThat(BenchmarkActions.isFormalRun("dry-run-graph")).isFalse();
+    }
+
+    @Test
+    void isFormalRunIncludesThreeArmActions() {
+        assertThat(BenchmarkActions.isFormalRun("arm-heuristic")).isTrue();
+        assertThat(BenchmarkActions.isFormalRun("arm-text")).isTrue();
+        assertThat(BenchmarkActions.isFormalRun("arm-graph")).isTrue();
+    }
+
+    @Test
+    void locatingOriginMapsDryRunAndArmActions() {
+        assertThat(BenchmarkActions.locatingOrigin("dry-run")).isEqualTo(ContextOrigin.HEURISTIC);
+        assertThat(BenchmarkActions.locatingOrigin("dry-run-text")).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(BenchmarkActions.locatingOrigin("dry-run-graph")).isEqualTo(ContextOrigin.GRAPH_TOOLS);
+        assertThat(BenchmarkActions.locatingOrigin("arm-heuristic")).isEqualTo(ContextOrigin.HEURISTIC);
+        assertThat(BenchmarkActions.locatingOrigin("arm-text")).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(BenchmarkActions.locatingOrigin("arm-graph")).isEqualTo(ContextOrigin.GRAPH_TOOLS);
+    }
+
+    @Test
+    void locatingOriginRejectsActionsWithoutLocatingFactor() {
+        assertThatThrownBy(() -> BenchmarkActions.locatingOrigin("calibrate"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("has no locating origin");
     }
 }
