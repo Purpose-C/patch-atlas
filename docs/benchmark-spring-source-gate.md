@@ -29,7 +29,7 @@ GitBug-Java 里案例 ID 含 `spring` 的只有 3 个。依赖扫描得到 11 �
 
 按 `(repository, buggyRevision)` 去重后，条件 1 命中 **93** 棵 buggy 树（跨源实例记录 95 条，其中 Multi-SWE-bench 与 SWE-PolyBench 有 1 条 Apache Dubbo 基线重叠，SWE-PolyBench 内部另有 1 对同基线实例）。闸门阈值 12，**通过**。`scan.json` 同时记录 `springPresentInstanceCount`（95）与 `unionSpringPresentCount`（93）。
 
-后续冻结只以本扫描的条件 1 命中为输入，再叠加元数据、父提交校验、Java 版本、许可证、动态 fail→pass 与 20 分钟预算。不得按修复是否跨越 DI / 事件 / AOP 边增删成员。可执行规则见 [`benchmark-spring-cohort-rules.md`](benchmark-spring-cohort-rules.md)。对照实验的解释在冻结前定稿，见 [`benchmark-graph-guidance-interpretation.md`](benchmark-graph-guidance-interpretation.md)。
+后续冻结只以本扫描的条件 1 命中为输入，再叠加元数据、父提交校验、Java 版本、许可证、动态 fail→pass 与 20 分钟预算。不得按修复是否跨越 DI / 事件 / AOP 边增删成员。可执行规则见 [`benchmark-spring-cohort-rules.md`](benchmark-spring-cohort-rules.md)。对照实验的解释在冻结前定稿，见 [`benchmark-graph-guidance-interpretation.md`](benchmark-graph-guidance-interpretation.md)。冻结过程见 [`benchmark-cases/spring-v1/`](../benchmark-cases/spring-v1/)：动态合格 1 例，低于最低 4 例，已停止。
 
 ## 扫描未使用的信号
 

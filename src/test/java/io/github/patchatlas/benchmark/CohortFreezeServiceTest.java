@@ -66,6 +66,65 @@ class CohortFreezeServiceTest {
         assertThat(tempDir.resolve("cohort.json")).doesNotExist();
     }
 
+    @Test
+    void springPolicyFreezesSixEligibleCasesUnderTheSpringSelectorVersion() throws Exception {
+        CohortFreezeService service = new CohortFreezeService(
+                metadata -> {
+                    CandidateFacts facts = facts(metadata.generatorData().caseId());
+                    ResolvedKnownTrigger trigger = new ResolvedKnownTrigger(
+                            "",
+                            new TargetTest("p.T", "fails"),
+                            "known patch text",
+                            "f".repeat(64));
+                    return new CohortFreezeService.StaticAssessment(
+                            facts,
+                            java.util.Optional.of(new CohortFreezeService.PreparedCase(
+                                    metadata, trigger, "MIT", "17", tempDir)));
+                },
+                prepared -> new Result.Eligible(List.of(
+                        new DynamicCaseQualifier.Stage("probe", "PASSED", 1))),
+                prepared -> new Selection(List.of(), List.of()),
+                new BenchmarkArtifacts(),
+                CohortFreezeService.springPolicy());
+
+        CohortFreezeService.FreezeResult result = service.freeze(cases(6), tempDir);
+
+        assertThat(result.cohort().selectorVersion()).isEqualTo(SpringCohortFreezeRules.SELECTOR_VERSION);
+        assertThat(result.cohort().datasetRevision()).isEqualTo(SpringCohortFreezeRules.RANKING_REVISION);
+        assertThat(result.cohort().cases()).hasSize(6);
+        assertThat(Files.readString(tempDir.resolve("selection-audit.json")))
+                .contains("spring-v1")
+                .contains("\"maxDynamicProbes\" : 24");
+    }
+
+    @Test
+    void springPolicyWritesAuditWithoutCohortWhenBelowMinimum() throws Exception {
+        CohortFreezeService service = new CohortFreezeService(
+                metadata -> {
+                    CandidateFacts facts = facts(metadata.generatorData().caseId());
+                    ResolvedKnownTrigger trigger = new ResolvedKnownTrigger(
+                            "",
+                            new TargetTest("p.T", "fails"),
+                            "known patch text",
+                            "f".repeat(64));
+                    return new CohortFreezeService.StaticAssessment(
+                            facts,
+                            java.util.Optional.of(new CohortFreezeService.PreparedCase(
+                                    metadata, trigger, "MIT", "17", tempDir)));
+                },
+                prepared -> new Result.Eligible(List.of(
+                        new DynamicCaseQualifier.Stage("probe", "PASSED", 1))),
+                prepared -> new Selection(List.of(), List.of()),
+                new BenchmarkArtifacts(),
+                CohortFreezeService.springPolicy());
+
+        assertThatThrownBy(() -> service.freeze(cases(1), tempDir))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected 4..6");
+        assertThat(tempDir.resolve("selection-audit.json")).isRegularFile();
+        assertThat(tempDir.resolve("cohort.json")).doesNotExist();
+    }
+
     private CohortFreezeService service() {
         return new CohortFreezeService(
                 metadata -> {

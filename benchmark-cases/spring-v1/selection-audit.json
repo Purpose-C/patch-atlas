@@ -1,0 +1,327 @@
+{
+  "datasetRevision" : "12d857dbb984911dcfbb40a89a6e246b6a13cdbd",
+  "seed" : "cc279be0a2cfe38a327d24d828a49b8425ae37e7",
+  "selectorVersion" : "spring-v1",
+  "maxDynamicProbes" : 24,
+  "staticExclusions" : [ {
+    "caseId" : "IBM-JSONata4Java-1485a41ccf50",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "alibaba__fastjson2-1245",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "alibaba__fastjson2-2097",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "alibaba__fastjson2-2285",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "alibaba__fastjson2-2559",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "alibaba__fastjson2-2775",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "alibaba__fastjson2-82",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-10638",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-10846",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-11255",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-11420",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-11781",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-13869",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-2750",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-2801",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3013",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3093",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3317",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3479",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3590",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3622",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-3855",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4026",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4170",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4379",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4515",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4567",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4660",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-4678",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-5138",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-5356",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-5708",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-5783",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-6106",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-6351",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-6498",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-6551",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-7041",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-7938",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8029",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8032",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8126",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8414",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8623",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__dubbo-8947",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5062",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5196",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5286",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5633",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5706",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5834",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5841",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-5865",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6401",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6455",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6522",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6577",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6651",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-6755",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7346",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7420",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7426",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7455",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7532",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7544",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7563",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7655",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7712",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7819",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7823",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7917",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apache__rocketmq-7964",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-1894",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-4119",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-4199",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-4207",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-4464",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "apolloconfig__apollo-4568",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "googlecontainertools__jib-2536",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "googlecontainertools__jib-2542",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "googlecontainertools__jib-2688",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "googlecontainertools__jib-4035",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "googlecontainertools__jib-4144",
+    "code" : "METADATA_INVALID"
+  }, {
+    "caseId" : "jitterted-ensembler-0963194c9ebc",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "jitterted-ensembler-0e512e5b3677",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "jitterted-ensembler-14a39138787f",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "jitterted-ensembler-60ec3bf0273b",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "jitterted-ensembler-6207c9d46460",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "jitterted-ensembler-c9faf3fba524",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "spring-projects-spring-guice-ce15b8e5802a",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "spring-projects-spring-retry-c89b9516d976",
+    "code" : "ISSUE_UNAVAILABLE"
+  }, {
+    "caseId" : "spring-projects-spring-retry-e6091f790c64",
+    "code" : "ISSUE_UNAVAILABLE"
+  } ],
+  "probes" : [ {
+    "probePosition" : 1,
+    "caseId" : "st-tu-dresden-salespoint-85a764f892aa",
+    "startedAt" : "2026-08-18T06:38:18.615709Z",
+    "finishedAt" : "2026-08-18T06:47:02.711207Z",
+    "result" : "ELIGIBLE",
+    "stages" : [ {
+      "stage" : "checkout_buggy",
+      "result" : "PASSED",
+      "durationMs" : 43
+    }, {
+      "stage" : "checkout_fixed",
+      "result" : "PASSED",
+      "durationMs" : 2104
+    }, {
+      "stage" : "parent_revision",
+      "result" : "PASSED",
+      "durationMs" : 1098
+    }, {
+      "stage" : "apply_buggy_trigger",
+      "result" : "PASSED",
+      "durationMs" : 5
+    }, {
+      "stage" : "verify_fixed_trigger",
+      "result" : "PASSED",
+      "durationMs" : 0
+    }, {
+      "stage" : "warmup_buggy",
+      "result" : "PASSED",
+      "durationMs" : 421169
+    }, {
+      "stage" : "warmup_fixed",
+      "result" : "PASSED",
+      "durationMs" : 20138
+    }, {
+      "stage" : "offline_buggy",
+      "result" : "PASSED",
+      "durationMs" : 39109
+    }, {
+      "stage" : "offline_fixed",
+      "result" : "PASSED",
+      "durationMs" : 40393
+    } ]
+  } ]
+}

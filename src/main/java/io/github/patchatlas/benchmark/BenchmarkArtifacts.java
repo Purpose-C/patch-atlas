@@ -72,8 +72,9 @@ public final class BenchmarkArtifacts {
             requireSha(rulesSha256, "rulesSha256");
             requireSha(cohortSha256, "cohortSha256");
             cases = List.copyOf(Objects.requireNonNull(cases, "cases"));
-            if (cases.size() != 6) {
-                throw new IllegalArgumentException("frozen cohort requires exactly 6 cases");
+            if (cases.size() < SpringCohortFreezeRules.MIN_SIZE
+                    || cases.size() > SpringCohortFreezeRules.TARGET_SIZE) {
+                throw new IllegalArgumentException("frozen cohort requires 4 to 6 cases");
             }
             for (int i = 0; i < cases.size(); i++) {
                 if (cases.get(i).position() != i + 1) {

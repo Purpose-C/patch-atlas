@@ -44,6 +44,26 @@ public final class CohortFreezeService {
             java_preference=17,21
             """;
 
+    record FreezePolicy(
+            String datasetRevision,
+            String seed,
+            String selectorVersion,
+            String rulesText,
+            FrozenCohortSelector selector,
+            int targetSize,
+            int minSize) {
+        FreezePolicy {
+            Objects.requireNonNull(datasetRevision, "datasetRevision");
+            Objects.requireNonNull(seed, "seed");
+            Objects.requireNonNull(selectorVersion, "selectorVersion");
+            Objects.requireNonNull(rulesText, "rulesText");
+            Objects.requireNonNull(selector, "selector");
+            if (minSize < 1 || targetSize < minSize) {
+                throw new IllegalArgumentException("invalid freeze size bounds");
+            }
+        }
+    }
+
     record StaticAssessment(CandidateFacts facts, Optional<PreparedCase> prepared) {
         StaticAssessment {
             Objects.requireNonNull(facts, "facts");
@@ -94,6 +114,7 @@ public final class CohortFreezeService {
     private final DynamicPort dynamicPort;
     private final ContextPort contextPort;
     private final BenchmarkArtifacts artifacts;
+    private final FreezePolicy policy;
     private final FrozenCohortSelector selector;
 
     public CohortFreezeService(
@@ -104,10 +125,46 @@ public final class CohortFreezeService {
             BuggyRepositoryReader repositoryReader,
             BuggyOnlyGeneratorContextBuilder contextBuilder) {
         this(
+                git,
+                repositoryInspector,
+                triggerResolver,
+                qualifier,
+                repositoryReader,
+                contextBuilder,
+                task018Policy());
+    }
+
+    public static CohortFreezeService spring(
+            BenchmarkGitWorkspace git,
+            RepositoryStaticInspector repositoryInspector,
+            KnownTriggerResolver triggerResolver,
+            DynamicCaseQualifier qualifier,
+            BuggyRepositoryReader repositoryReader,
+            BuggyOnlyGeneratorContextBuilder contextBuilder) {
+        return new CohortFreezeService(
+                git,
+                repositoryInspector,
+                triggerResolver,
+                qualifier,
+                repositoryReader,
+                contextBuilder,
+                springPolicy());
+    }
+
+    public CohortFreezeService(
+            BenchmarkGitWorkspace git,
+            RepositoryStaticInspector repositoryInspector,
+            KnownTriggerResolver triggerResolver,
+            DynamicCaseQualifier qualifier,
+            BuggyRepositoryReader repositoryReader,
+            BuggyOnlyGeneratorContextBuilder contextBuilder,
+            FreezePolicy policy) {
+        this(
                 productionStaticPort(git, repositoryInspector, triggerResolver),
                 prepared -> qualifier.qualify(dynamicInput(prepared)),
                 prepared -> buildContext(prepared, repositoryReader, contextBuilder),
-                new BenchmarkArtifacts());
+                new BenchmarkArtifacts(),
+                policy);
     }
 
     CohortFreezeService(
@@ -115,12 +172,43 @@ public final class CohortFreezeService {
             DynamicPort dynamicPort,
             ContextPort contextPort,
             BenchmarkArtifacts artifacts) {
+        this(staticPort, dynamicPort, contextPort, artifacts, task018Policy());
+    }
+
+    CohortFreezeService(
+            StaticPort staticPort,
+            DynamicPort dynamicPort,
+            ContextPort contextPort,
+            BenchmarkArtifacts artifacts,
+            FreezePolicy policy) {
         this.staticPort = Objects.requireNonNull(staticPort, "staticPort");
         this.dynamicPort = Objects.requireNonNull(dynamicPort, "dynamicPort");
         this.contextPort = Objects.requireNonNull(contextPort, "contextPort");
         this.artifacts = Objects.requireNonNull(artifacts, "artifacts");
-        this.selector = new FrozenCohortSelector(
-                BenchmarkArtifacts.DATASET_REVISION, BenchmarkArtifacts.SEED);
+        this.policy = Objects.requireNonNull(policy, "policy");
+        this.selector = policy.selector();
+    }
+
+    static FreezePolicy task018Policy() {
+        return new FreezePolicy(
+                BenchmarkArtifacts.DATASET_REVISION,
+                BenchmarkArtifacts.SEED,
+                BenchmarkArtifacts.SELECTOR_VERSION,
+                RULES,
+                new FrozenCohortSelector(BenchmarkArtifacts.DATASET_REVISION, BenchmarkArtifacts.SEED),
+                6,
+                6);
+    }
+
+    static FreezePolicy springPolicy() {
+        return new FreezePolicy(
+                SpringCohortFreezeRules.RANKING_REVISION,
+                SpringCohortFreezeRules.SEED,
+                SpringCohortFreezeRules.SELECTOR_VERSION,
+                SpringCohortFreezeRules.RULES,
+                SpringCohortFreezeRules.selector(),
+                SpringCohortFreezeRules.TARGET_SIZE,
+                SpringCohortFreezeRules.MIN_SIZE);
     }
 
     public FreezeResult freeze(List<CaseMetadata> metadata, Path outputDirectory) throws IOException {
@@ -146,10 +234,10 @@ public final class CohortFreezeService {
                         excluded.caseId(), excluded.code().name()))
                 .toList();
         List<ProbeAudit> probeAudits = new ArrayList<>();
-        List<RankedCandidate> eligible = new ArrayList<>(6);
+        List<RankedCandidate> eligible = new ArrayList<>(policy.targetSize());
 
         List<RankedCandidate> queue = staticSelection.probeQueue();
-        for (int i = 0; i < queue.size() && eligible.size() < 6; i++) {
+        for (int i = 0; i < queue.size() && eligible.size() < policy.targetSize(); i++) {
             RankedCandidate ranked = queue.get(i);
             PreparedCase prepared = Optional.ofNullable(preparedById.get(ranked.caseId()))
                     .orElseThrow(() -> new IllegalStateException(
@@ -177,19 +265,23 @@ public final class CohortFreezeService {
         }
 
         SelectionAudit audit = new SelectionAudit(
-                BenchmarkArtifacts.DATASET_REVISION,
-                BenchmarkArtifacts.SEED,
-                BenchmarkArtifacts.SELECTOR_VERSION,
-                FrozenCohortSelector.MAX_DYNAMIC_PROBES,
+                policy.datasetRevision(),
+                policy.seed(),
+                policy.selectorVersion(),
+                selector.maxDynamicProbes(),
                 staticExclusions,
                 probeAudits);
         artifacts.write(outputDirectory.resolve("selection-audit.json"), audit);
-        if (eligible.size() != 6) {
+        if (eligible.size() < policy.minSize() || eligible.size() > policy.targetSize()) {
             throw new IllegalStateException(
-                    "dynamic qualification produced " + eligible.size() + " eligible cases; expected 6");
+                    "dynamic qualification produced " + eligible.size()
+                            + " eligible cases; expected "
+                            + policy.minSize()
+                            + ".."
+                            + policy.targetSize());
         }
 
-        List<CohortCase> cases = new ArrayList<>(6);
+        List<CohortCase> cases = new ArrayList<>(eligible.size());
         for (int i = 0; i < eligible.size(); i++) {
             int position = i + 1;
             RankedCandidate ranked = eligible.get(i);
@@ -211,10 +303,10 @@ public final class CohortFreezeService {
 
         String cohortSha = BenchmarkArtifacts.cohortSha256(cases);
         Cohort cohort = new Cohort(
-                BenchmarkArtifacts.DATASET_REVISION,
-                BenchmarkArtifacts.SEED,
-                BenchmarkArtifacts.SELECTOR_VERSION,
-                BenchmarkArtifacts.sha256(RULES),
+                policy.datasetRevision(),
+                policy.seed(),
+                policy.selectorVersion(),
+                BenchmarkArtifacts.sha256(policy.rulesText()),
                 cohortSha,
                 cases,
                 List.of());

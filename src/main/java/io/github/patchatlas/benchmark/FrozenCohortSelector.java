@@ -107,6 +107,10 @@ public final class FrozenCohortSelector {
         this.maxDynamicProbes = maxDynamicProbes;
     }
 
+    public int maxDynamicProbes() {
+        return maxDynamicProbes;
+    }
+
     public StaticSelection select(List<CandidateFacts> candidates) {
         Objects.requireNonNull(candidates, "candidates");
         List<RankedCandidate> eligible = new ArrayList<>();
