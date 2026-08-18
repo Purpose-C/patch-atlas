@@ -53,6 +53,37 @@ class SpringAiHttpContractTest {
     }
 
     @Test
+    void stopFinishReasonRecountsWrongHunkHeaderThroughRealGenerator() {
+        String envelope = CandidateDraftParserTest.envelope(wrongHeaderCreatePatch());
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "stop"))));
+
+        ObservedCall call = generate();
+
+        assertThat(call.result())
+                .isInstanceOf(GenerationResult.GeneratedDraft.class)
+                .isNotInstanceOf(GenerationResult.GenerationCallFailure.class);
+        var draft = (GenerationResult.GeneratedDraft) call.result();
+        assertThat(draft.draft().targetTest()).isEqualTo(new TargetTest("fixtures.NewTest", "works"));
+        assertThat(draft.draft().patchText()).isEqualTo(wrongHeaderCreatePatch());
+    }
+
+    @Test
+    void missingFinishReasonStillRejectsWrongHunkHeaderThroughRealGenerator() {
+        String envelope = CandidateDraftParserTest.envelope(wrongHeaderCreatePatch());
+        wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion(envelope, "unknown"))));
+
+        ObservedCall call = generate();
+
+        assertFailure(call.result(), CallFailureCategory.STRUCTURED_OUTPUT_INVALID);
+        assertThat(((GenerationResult.GenerationCallFailure) call.result()).summary())
+                .contains("hunk new count mismatch");
+        CompletionDiagnostics diagnostics = call.result().completionDiagnostics().orElseThrow();
+        assertThat(diagnostics.indicatesComplete()).isFalse();
+        assertThat(diagnostics.finishReason()).isNotIn("stop", "tool_calls");
+        assertThat(call.result()).isNotInstanceOf(GenerationResult.GeneratedDraft.class);
+    }
+
+    @Test
     void illegalToolArgumentsAreRejectedWithoutThrowing() {
         wireMock.stubFor(post(urlPathMatching(COMPLETIONS)).willReturn(okJson(chatCompletion("not-json", "stop"))));
         assertThatCode(() -> {
@@ -362,6 +393,24 @@ class SpringAiHttpContractTest {
                 }
                 """
                 .formatted(escaped);
+    }
+
+    private static String wrongHeaderCreatePatch() {
+        return """
+                diff --git a/src/test/java/fixtures/NewTest.java b/src/test/java/fixtures/NewTest.java
+                new file mode 100644
+                --- /dev/null
+                +++ b/src/test/java/fixtures/NewTest.java
+                @@ -0,0 +1,99 @@
+                +package fixtures;
+                +
+                +import org.junit.jupiter.api.Test;
+                +
+                +class NewTest {
+                +  @Test
+                +  void works() {}
+                +}
+                """;
     }
 
     private static String textCompletion(String contentJson) {

@@ -113,7 +113,8 @@ public final class SpringAiTestGenerator implements TestGenerator {
         }
 
         Optional<ModelUsage> usage = extractUsage(response);
-        Optional<CompletionDiagnostics> diagnostics = Optional.of(completionDiagnostics(response));
+        CompletionDiagnostics completion = completionDiagnostics(response);
+        Optional<CompletionDiagnostics> diagnostics = Optional.of(completion);
         if (isModelRefusal(response)) {
             return new GenerationResult.GenerationCallFailure(
                     CallFailureCategory.MODEL_REFUSED,
@@ -154,7 +155,7 @@ public final class SpringAiTestGenerator implements TestGenerator {
                     diagnostics);
         }
 
-        CandidateDraftParser.ParseResult parsed = draftParser.parse(content);
+        CandidateDraftParser.ParseResult parsed = draftParser.parse(content, completion);
         return switch (parsed) {
             case CandidateDraftParser.ParseResult.Ok ok ->
                     new GenerationResult.GeneratedDraft(ok.draft(), usage, diagnostics);

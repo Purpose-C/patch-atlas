@@ -21,7 +21,7 @@ class TargetTestDeriverTest {
     @Test
     void parseFailureKeepsUnifiedDiffParserReasonAndCategory() {
         String patch = FakeTestGeneratorTest.minimalCreatePatch() + "\nThis is an explanation\n";
-        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(parsed.isOk()).isFalse();
 
         TargetTestDeriver.Result result = deriver.derive(patch);

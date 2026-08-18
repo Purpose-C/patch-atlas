@@ -8,7 +8,8 @@ class UnifiedDiffParserTest {
 
     @Test
     void parsesSingleCreateFile() {
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(FakeTestGeneratorTest.minimalCreatePatch());
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(
+                FakeTestGeneratorTest.minimalCreatePatch(), CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isTrue();
         assertThat(outcome.files()).hasSize(1);
         assertThat(outcome.files().getFirst().kind()).isEqualTo(ParsedFileDiff.Kind.CREATE);
@@ -18,7 +19,7 @@ class UnifiedDiffParserTest {
     @Test
     void rejectsTrailingExplanationText() {
         String patch = FakeTestGeneratorTest.minimalCreatePatch() + "\nThis is an explanation\n";
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
@@ -34,7 +35,7 @@ class UnifiedDiffParserTest {
                 -old
                 +new
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.UNSUPPORTED_CHANGE_TYPE);
     }
@@ -56,14 +57,14 @@ class UnifiedDiffParserTest {
                 @@ -0,0 +1,1 @@
                 +class C {}
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.FILE_OR_LINE_LIMIT_EXCEEDED);
     }
 
     @Test
     void rejectsEmptyPatch() {
-        assertThat(UnifiedDiffParser.parse("").isOk()).isFalse();
+        assertThat(UnifiedDiffParser.parse("", CompletionDiagnostics.unknown()).isOk()).isFalse();
     }
 
     @Test
@@ -78,7 +79,7 @@ class UnifiedDiffParserTest {
                 +
                  class A {}
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isTrue();
         assertThat(outcome.files().getFirst().kind()).isEqualTo(ParsedFileDiff.Kind.MODIFY);
     }
@@ -93,7 +94,7 @@ class UnifiedDiffParserTest {
                 @@ -1,99999999999999999999 +1,1 @@
                 +x
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
@@ -110,7 +111,7 @@ class UnifiedDiffParserTest {
                  package fixtures;
                 +class A {}
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
@@ -129,7 +130,7 @@ class UnifiedDiffParserTest {
                 +
                 +class NewTest {}
                 """;
-        assertThat(UnifiedDiffParser.parse(patch).isOk()).isTrue();
+        assertThat(UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown()).isOk()).isTrue();
     }
 
     @Test
@@ -143,7 +144,7 @@ class UnifiedDiffParserTest {
                  package fixtures;
                 +// x
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
     }
 
@@ -158,7 +159,7 @@ class UnifiedDiffParserTest {
                  package fixtures;
                 +// x
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.reason()).contains("newStart");
     }
@@ -174,7 +175,7 @@ class UnifiedDiffParserTest {
                 @@ -0,0 +1,1 @@
                 +link-target
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.UNSUPPORTED_CHANGE_TYPE);
     }
@@ -191,7 +192,7 @@ class UnifiedDiffParserTest {
                 +class A {}
                 \\ evil marker
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
@@ -208,7 +209,7 @@ class UnifiedDiffParserTest {
                 +class A {}
                 \\ No newline at end of file
                 """;
-        assertThat(UnifiedDiffParser.parse(patch).isOk()).isTrue();
+        assertThat(UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown()).isOk()).isTrue();
     }
 
     @Test
@@ -224,7 +225,7 @@ class UnifiedDiffParserTest {
                 \\ No newline at end of file
                 \\ No newline at end of file
                 """;
-        assertThat(UnifiedDiffParser.parse(patch).isOk()).isFalse();
+        assertThat(UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown()).isOk()).isFalse();
     }
 
     @Test
@@ -239,7 +240,7 @@ class UnifiedDiffParserTest {
                 \\ No newline at end of file
                  class A {}
                 """;
-        assertThat(UnifiedDiffParser.parse(patch).isOk()).isFalse();
+        assertThat(UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown()).isOk()).isFalse();
     }
 
     @Test
@@ -254,7 +255,7 @@ class UnifiedDiffParserTest {
                  a
                  b
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }
@@ -271,7 +272,7 @@ class UnifiedDiffParserTest {
                 @@ -9223372036854775807,0 +1,1 @@
                 +x
                 """;
-        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch);
+        UnifiedDiffParser.ParseOutcome outcome = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
         assertThat(outcome.isOk()).isFalse();
         assertThat(outcome.category()).isEqualTo(PatchRejectionCategory.MALFORMED_OR_OVERSIZED_PATCH);
     }

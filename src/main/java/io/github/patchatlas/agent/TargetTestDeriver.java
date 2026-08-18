@@ -46,7 +46,12 @@ public final class TargetTestDeriver {
     }
 
     public Result derive(String patchText) {
-        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patchText);
+        return derive(patchText, CompletionDiagnostics.unknown());
+    }
+
+    public Result derive(String patchText, CompletionDiagnostics diagnostics) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
+        UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patchText, diagnostics);
         if (!parsed.isOk()) {
             return new Result.Rejected(parsed.category(), parsed.reason());
         }

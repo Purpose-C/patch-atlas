@@ -114,7 +114,7 @@ class SubmitDraftLiveSmokeTest {
                 out.append(" startsDash=").append(patch.startsWith("---"));
                 out.append(" hasFence=").append(patch.contains("```"));
                 out.append(" literalSlashN=").append(patch.contains("\\n"));
-                UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patch);
+                UnifiedDiffParser.ParseOutcome parsed = UnifiedDiffParser.parse(patch, CompletionDiagnostics.unknown());
                 if (parsed.isOk()) {
                     out.append(" parser=ok files=").append(parsed.files().size());
                 } else {

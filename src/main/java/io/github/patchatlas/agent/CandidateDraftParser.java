@@ -42,6 +42,11 @@ public final class CandidateDraftParser {
     }
 
     public ParseResult parse(String rawResponse) {
+        return parse(rawResponse, CompletionDiagnostics.unknown());
+    }
+
+    public ParseResult parse(String rawResponse, CompletionDiagnostics diagnostics) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
         if (rawResponse == null) {
             return new ParseResult.Invalid("response is null");
         }
@@ -88,7 +93,7 @@ public final class CandidateDraftParser {
             return new ParseResult.Invalid("patch must not be empty");
         }
         String patch = patchNode.stringValue();
-        return switch (deriver.derive(patch)) {
+        return switch (deriver.derive(patch, diagnostics)) {
             case TargetTestDeriver.Result.Derived derived -> {
                 try {
                     yield new ParseResult.Ok(new CandidateDraft(patch, derived.targetTest()));

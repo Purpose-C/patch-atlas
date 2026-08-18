@@ -27,10 +27,6 @@ final class UnifiedDiffParser {
 
     private UnifiedDiffParser() {}
 
-    static ParseOutcome parse(String patchText) {
-        return parse(patchText, CompletionDiagnostics.unknown());
-    }
-
     static ParseOutcome parse(String patchText, CompletionDiagnostics diagnostics) {
         Objects.requireNonNull(diagnostics, "diagnostics");
         if (patchText == null) {
