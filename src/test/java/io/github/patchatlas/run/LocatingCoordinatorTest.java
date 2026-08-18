@@ -179,7 +179,7 @@ class LocatingCoordinatorTest {
     }
 
     @Test
-    void textToolsWithoutLocatorFailsAsLocatingNoContext() {
+    void textToolsWithoutLocatorFailsAsLocatingNotConfigured() {
         ClaimedRun claimed = locatingClaim();
         InMemoryLocatingRunSession session = new InMemoryLocatingRunSession(claimed);
         LocatingCoordinator coordinator = new LocatingCoordinator(
@@ -190,7 +190,7 @@ class LocatingCoordinatorTest {
 
         assertThat(result).isInstanceOf(LocatingCoordinator.Result.RunFailed.class);
         assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().category())
-                .isEqualTo(FailureCategory.LOCATING_NO_CONTEXT);
+                .isEqualTo(FailureCategory.LOCATING_NOT_CONFIGURED);
         assertThat(((LocatingCoordinator.Result.RunFailed) result).details().failure().orElseThrow().summary())
                 .contains("not configured");
     }

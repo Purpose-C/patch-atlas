@@ -108,7 +108,7 @@ public final class LocatingCoordinator {
         if (textTools == null) {
             return new Result.RunFailed(session.fail(new RunFailure(
                     FailureStage.LOCATING,
-                    FailureCategory.LOCATING_NO_CONTEXT,
+                    FailureCategory.LOCATING_NOT_CONFIGURED,
                     "text tools locating is not configured")));
         }
         try (CandidateWorkspaceFactory.WorkspaceSession workspace = workspaces.open(claimed, input)) {

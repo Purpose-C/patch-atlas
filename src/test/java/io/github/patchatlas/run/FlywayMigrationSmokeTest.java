@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(15);
+        assertThat(first.migrationsExecuted).isEqualTo(16);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -414,6 +414,54 @@ class FlywayMigrationSmokeTest {
                             """
                                     .formatted(UUID.randomUUID(), runId)))
                     .hasMessageContaining("locating_trace_kind_chk");
+        }
+    }
+
+    @Test
+    void v16AllowsLocatingNotConfiguredAndKeepsZeroHit() throws Exception {
+        migrate();
+        UUID zeroHit = UUID.randomUUID();
+        UUID missing = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      failure_stage, failure_category, failure_summary, completed_at
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'FAILED', 1,
+                      'LOCATING', 'LOCATING_NO_CONTEXT', 'heuristic locating selected no source snapshots',
+                      CURRENT_TIMESTAMP
+                    )
+                    """
+                            .formatted(zeroHit));
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      failure_stage, failure_category, failure_summary, completed_at
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'FAILED', 1,
+                      'LOCATING', 'LOCATING_NOT_CONFIGURED', 'text tools locating is not configured',
+                      CURRENT_TIMESTAMP
+                    )
+                    """
+                            .formatted(missing));
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE verification_run SET failure_category = 'GENERATION_FAILURE' WHERE id = '"
+                                    + missing
+                                    + "'"))
+                    .hasMessageContaining("verification_run_failure_pair_chk");
+            assertThatThrownBy(() -> statement.execute(
+                            "UPDATE verification_run SET failure_stage = 'GENERATION' WHERE id = '"
+                                    + missing
+                                    + "'"))
+                    .hasMessageContaining("verification_run_failure_pair_chk");
         }
     }
 

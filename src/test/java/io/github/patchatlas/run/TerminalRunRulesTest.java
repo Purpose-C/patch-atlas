@@ -76,6 +76,21 @@ class TerminalRunRulesTest {
     }
 
     @Test
+    void locatingNotConfiguredIsDistinctFromZeroHit() {
+        RunFailure missing = new RunFailure(
+                FailureStage.LOCATING,
+                FailureCategory.LOCATING_NOT_CONFIGURED,
+                "text tools locating is not configured");
+        assertThat(RunFailure.legalPair(FailureStage.LOCATING, FailureCategory.LOCATING_NOT_CONFIGURED))
+                .isTrue();
+        assertThat(RunFailure.legalPair(FailureStage.LOCATING, FailureCategory.LOCATING_NO_CONTEXT))
+                .isTrue();
+        assertThat(RunFailure.legalPair(FailureStage.GENERATION, FailureCategory.LOCATING_NOT_CONFIGURED))
+                .isFalse();
+        assertThatCode(() -> TerminalRunRules.requireFailed(null, missing)).doesNotThrowAnyException();
+    }
+
+    @Test
     void recoveryExhaustedIsFailedWithRecoveryStage() {
         RunFailure failure = new RunFailure(
                 FailureStage.RECOVERY, FailureCategory.RECOVERY_EXHAUSTED, "max recoveries reached");

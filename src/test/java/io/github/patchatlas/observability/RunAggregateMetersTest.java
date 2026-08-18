@@ -41,6 +41,9 @@ class RunAggregateMetersTest {
                 .isEqualTo(expectedCompletedTags());
         assertThat(tagSets(registry, "patchatlas.run.failed", "mode", "stage", "category"))
                 .isEqualTo(expectedFailedTags());
+        assertThat(tagSets(registry, "patchatlas.run.failed", "stage", "category"))
+                .contains(Set.of("locating", "locating_no_context"))
+                .contains(Set.of("locating", "locating_not_configured"));
         assertThat(tagSets(registry, "patchatlas.generation.attempts", "provider"))
                 .containsExactlyInAnyOrder(Set.of("fake"), Set.of("openai"), Set.of("agnes"), Set.of("ollama"));
         assertThat(tagSets(registry, "patchatlas.model.usage.records", "provider"))
@@ -172,7 +175,8 @@ class RunAggregateMetersTest {
                         FailureCategory.WORKSPACE_ERROR,
                         FailureCategory.REPLAY_SYSTEM_ERROR,
                         FailureCategory.RECOVERY_EXHAUSTED,
-                        FailureCategory.LOCATING_NO_CONTEXT);
+                        FailureCategory.LOCATING_NO_CONTEXT,
+                        FailureCategory.LOCATING_NOT_CONFIGURED);
         assertThat(RecordedUsageStatus.values())
                 .containsExactly(
                         RecordedUsageStatus.TRACKING_UNAVAILABLE,
@@ -188,7 +192,7 @@ class RunAggregateMetersTest {
                 }
             }
         }
-        assertThat(legalPairs).isEqualTo(13);
+        assertThat(legalPairs).isEqualTo(14);
         assertThat(expectedFailedTags()).hasSize(VerificationMode.values().length * legalPairs);
     }
 

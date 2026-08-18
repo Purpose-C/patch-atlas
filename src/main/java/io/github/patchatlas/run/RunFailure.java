@@ -31,7 +31,8 @@ public record RunFailure(FailureStage stage, FailureCategory category, String su
 
     public static boolean legalPair(FailureStage stage, FailureCategory category) {
         return switch (stage) {
-            case LOCATING -> category == FailureCategory.LOCATING_NO_CONTEXT;
+            case LOCATING -> category == FailureCategory.LOCATING_NO_CONTEXT
+                    || category == FailureCategory.LOCATING_NOT_CONFIGURED;
             case GENERATION -> GENERATION_CATEGORIES.contains(category);
             case PATCH_GATE -> category == FailureCategory.PATCH_REJECTED
                     || category == FailureCategory.WORKSPACE_UNSAFE;
