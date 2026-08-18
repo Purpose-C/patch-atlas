@@ -28,3 +28,6 @@ AGENTS.md
 
 # 领域语言的对外副本在 docs/domain-language.md；本文件是 Agent 本地上下文，不入库。
 CONTEXT.md
+
+# 校准冒烟产物：一次性验证，不是证据。正式校准报告(不带 -smoke)仍入库。
+benchmark-cases/**/*smoke*/
