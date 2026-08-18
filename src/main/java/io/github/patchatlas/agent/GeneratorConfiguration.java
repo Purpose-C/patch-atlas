@@ -63,8 +63,9 @@ public class GeneratorConfiguration {
         return switch (v) {
             case "openai" -> GeneratorIdentity.openai(model);
             case "agnes" -> GeneratorIdentity.agnes(model);
+            case "ollama" -> GeneratorIdentity.ollama(model);
             default -> throw new IllegalStateException(
-                    "patchatlas.generator.openai.vendor must be openai or agnes, got: " + vendor);
+                    "patchatlas.generator.openai.vendor must be openai, agnes or ollama, got: " + vendor);
         };
     }
 }

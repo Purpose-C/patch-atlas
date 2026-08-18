@@ -42,9 +42,9 @@ class RunAggregateMetersTest {
         assertThat(tagSets(registry, "patchatlas.run.failed", "mode", "stage", "category"))
                 .isEqualTo(expectedFailedTags());
         assertThat(tagSets(registry, "patchatlas.generation.attempts", "provider"))
-                .containsExactlyInAnyOrder(Set.of("fake"), Set.of("openai"), Set.of("agnes"));
+                .containsExactlyInAnyOrder(Set.of("fake"), Set.of("openai"), Set.of("agnes"), Set.of("ollama"));
         assertThat(tagSets(registry, "patchatlas.model.usage.records", "provider"))
-                .containsExactlyInAnyOrder(Set.of("fake"), Set.of("openai"), Set.of("agnes"));
+                .containsExactlyInAnyOrder(Set.of("fake"), Set.of("openai"), Set.of("agnes"), Set.of("ollama"));
         assertThat(tagSets(registry, "patchatlas.model.usage.runs", "provider", "status"))
                 .isEqualTo(expectedUsageRunTags());
         assertThat(tagSets(registry, "patchatlas.model.tokens", "provider", "type"))
@@ -241,7 +241,7 @@ class RunAggregateMetersTest {
 
     private static Set<Set<String>> expectedUsageRunTags() {
         Set<Set<String>> sets = new HashSet<>();
-        for (String provider : new String[] {"fake", "openai", "agnes"}) {
+        for (String provider : new String[] {"fake", "openai", "agnes", "ollama"}) {
             for (RecordedUsageStatus status : RecordedUsageStatus.values()) {
                 sets.add(Set.of(provider, lower(status.name())));
             }
@@ -251,7 +251,7 @@ class RunAggregateMetersTest {
 
     private static Set<Set<String>> expectedTokenTags() {
         Set<Set<String>> sets = new HashSet<>();
-        for (String provider : new String[] {"fake", "openai", "agnes"}) {
+        for (String provider : new String[] {"fake", "openai", "agnes", "ollama"}) {
             for (String type : new String[] {"input", "output", "total"}) {
                 sets.add(Set.of(provider, type));
             }

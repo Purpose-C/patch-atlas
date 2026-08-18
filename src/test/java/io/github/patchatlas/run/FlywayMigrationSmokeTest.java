@@ -45,7 +45,7 @@ class FlywayMigrationSmokeTest {
                 .load();
 
         var first = flyway.migrate();
-        assertThat(first.migrationsExecuted).isEqualTo(13);
+        assertThat(first.migrationsExecuted).isEqualTo(14);
         var second = flyway.migrate();
         assertThat(second.migrationsExecuted).isZero();
         flyway.validate();
@@ -335,6 +335,36 @@ class FlywayMigrationSmokeTest {
                         "SELECT java_version FROM verification_run WHERE id = '" + runId + "'")) {
             assertThat(rs.next()).isTrue();
             assertThat(rs.getString(1)).isEqualTo("21");
+        }
+    }
+
+    @Test
+    void v14AllowsOllamaProviderAndStillRejectsUnknownVendor() throws Exception {
+        migrate();
+        UUID runId = UUID.randomUUID();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO verification_run (
+                      id, mode, repository_url, issue_title, issue_body,
+                      buggy_revision, module_path, state, version,
+                      generation_attempt_count, model_provider, model_name
+                    ) VALUES (
+                      '%s', 'LIVE', 'https://github.com/ex/repo.git', 't', 'b',
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', 'QUEUED', 0,
+                      1, 'ollama', 'glm-5.2'
+                    )
+                    """
+                            .formatted(runId));
+            assertThatThrownBy(() -> statement.execute(
+                            """
+                            UPDATE verification_run
+                               SET model_provider = 'mystery'
+                             WHERE id = '%s'
+                            """
+                                    .formatted(runId)))
+                    .hasMessageContaining("verification_run_model_identity_chk");
         }
     }
 

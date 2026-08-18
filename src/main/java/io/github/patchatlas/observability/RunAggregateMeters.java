@@ -15,7 +15,7 @@ import java.util.Optional;
 /** 预注册封闭 tag 组合的 Run Aggregate Metrics。 */
 public final class RunAggregateMeters {
 
-    static final String[] PROVIDERS = {"fake", "openai", "agnes"};
+    static final String[] PROVIDERS = {"fake", "openai", "agnes", "ollama"};
     static final String[] TOKEN_TYPES = {"input", "output", "total"};
 
     private RunAggregateMeters() {}

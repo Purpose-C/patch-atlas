@@ -9,7 +9,7 @@ public record GeneratorIdentity(String provider, String modelName) {
 
     public static final int MAX_PROVIDER_CHARS = 32;
     public static final int MAX_MODEL_CHARS = 128;
-    private static final Set<String> ALLOWED_PROVIDERS = Set.of("fake", "openai", "agnes");
+    private static final Set<String> ALLOWED_PROVIDERS = Set.of("fake", "openai", "agnes", "ollama");
 
     public GeneratorIdentity {
         Objects.requireNonNull(provider, "provider");
@@ -36,5 +36,9 @@ public record GeneratorIdentity(String provider, String modelName) {
 
     public static GeneratorIdentity agnes(String modelName) {
         return new GeneratorIdentity("agnes", modelName);
+    }
+
+    public static GeneratorIdentity ollama(String modelName) {
+        return new GeneratorIdentity("ollama", modelName);
     }
 }

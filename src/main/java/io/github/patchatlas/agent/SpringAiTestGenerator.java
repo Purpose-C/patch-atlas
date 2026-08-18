@@ -76,8 +76,11 @@ public final class SpringAiTestGenerator implements TestGenerator {
             CandidateDraftParser draftParser,
             Sleeper sleeper) {
         this.identity = Objects.requireNonNull(identity, "identity");
-        if (!"openai".equals(identity.provider()) && !"agnes".equals(identity.provider())) {
-            throw new IllegalArgumentException("SpringAiTestGenerator requires openai or agnes provider");
+        if (!"openai".equals(identity.provider())
+                && !"agnes".equals(identity.provider())
+                && !"ollama".equals(identity.provider())) {
+            throw new IllegalArgumentException(
+                    "SpringAiTestGenerator requires openai, agnes or ollama provider");
         }
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
         this.draftParser = Objects.requireNonNull(draftParser, "draftParser");
