@@ -39,6 +39,7 @@ expectedFailureSummary   # Oracle Data
 - **引擎/校准层 → Defects4J 候选**:只用于 Replay Engine 校准和污染对照;采用前必须核对官方元数据、许可证、Java 版本与可重复构建方式。
 - **诚实评测层 → 待核对候选数据源**:**GitBug-Java**、**BugSwarm**、**SWE-bench Java 子集 / Multi-SWE-bench**。在来源、许可证、案例结构和可重复性核验完成前,不得把它们写成既定评测集。
 - **Spring 主演示 → 手挖 1–2 个真实 Spring 案例**(承载"面向 Spring 遗留项目"定位,并让影响分析的置信度分级有用武之地)。
+- **Spring 队列源闸门**：用 buggy revision 的 `pom.xml` 依赖 `groupId` 判定是否使用 Spring，不靠仓库名、不看修复内容。扫描记录见 `spring-source-gate/` 与 `docs/benchmark-spring-source-gate.md`。
 
 **质量闸门(机械,非主观)**:高质量 = 可复现 + 有区分性触发测试,而非"著名"。黄金信号 = 合并 PR 声明修某 issue **且**同 PR 新增/改测试;父提交=buggy、合并=fixed;`checkout 父 → 该测试失败`、`checkout 合并 → 通过` 才收。选样标准冻结、脚本机械执行(Maven / 限时可构建 / Java 17/21 / 有 fail→pass 测试),过滤器留下什么就用什么,杜绝挑样本。
 
