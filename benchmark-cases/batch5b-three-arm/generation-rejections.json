@@ -1,0 +1,133 @@
+{
+  "arms" : [
+    {
+      "origin" : "HEURISTIC",
+      "cases" : [
+        {
+          "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+          "firstRound" : {
+            "feedbackCategory" : "COMPILATION_FAILED",
+            "feedbackSummary" : "compilation failed on buggy"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-91b630f86b5c",
+          "firstRound" : null
+        },
+        {
+          "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+          "firstRound" : {
+            "feedbackCategory" : "COMPILATION_FAILED",
+            "feedbackSummary" : "compilation failed on buggy"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-a96ebc95f9ad",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_APPLICATION_FAILED",
+            "feedbackSummary" : "application failure"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-9de27fa7cd82",
+          "firstRound" : null
+        },
+        {
+          "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+          "firstRound" : {
+            "feedbackCategory" : "TARGET_TEST_PASSED",
+            "feedbackSummary" : "target test stable passed on buggy"
+          }
+        }
+      ]
+    },
+    {
+      "origin" : "TEXT_TOOLS",
+      "cases" : [
+        {
+          "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+          "firstRound" : {
+            "feedbackCategory" : "COMPILATION_FAILED",
+            "feedbackSummary" : "compilation failed on buggy"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-91b630f86b5c",
+          "firstRound" : null
+        },
+        {
+          "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+          "firstRound" : {
+            "feedbackCategory" : "COMPILATION_FAILED",
+            "feedbackSummary" : "compilation failed on buggy"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-a96ebc95f9ad",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_POLICY_REJECTED",
+            "feedbackSummary" : "unsupported git file header"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-9de27fa7cd82",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_APPLICATION_FAILED",
+            "feedbackSummary" : "application failure"
+          }
+        },
+        {
+          "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_POLICY_REJECTED",
+            "feedbackSummary" : "补丁只改了已有测试方法体，无法确定目标"
+          }
+        }
+      ]
+    },
+    {
+      "origin" : "GRAPH_TOOLS",
+      "cases" : [
+        {
+          "caseId" : "Bindambc-whatsapp-business-java-api-362caf5eb33c",
+          "firstRound" : {
+            "feedbackCategory" : "COMPILATION_FAILED",
+            "feedbackSummary" : "compilation failed on buggy"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-91b630f86b5c",
+          "firstRound" : null
+        },
+        {
+          "caseId" : "davidmoten-word-wrap-e59eedf0bac7",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_APPLICATION_FAILED",
+            "feedbackSummary" : "application failure"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-a96ebc95f9ad",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_APPLICATION_FAILED",
+            "feedbackSummary" : "application failure"
+          }
+        },
+        {
+          "caseId" : "jhy-jsoup-9de27fa7cd82",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_APPLICATION_FAILED",
+            "feedbackSummary" : "application failure"
+          }
+        },
+        {
+          "caseId" : "AuthMe-ConfigMe-7bf10c513479",
+          "firstRound" : {
+            "feedbackCategory" : "PATCH_POLICY_REJECTED",
+            "feedbackSummary" : "invalid hunk line prefix"
+          }
+        }
+      ]
+    }
+  ]
+}

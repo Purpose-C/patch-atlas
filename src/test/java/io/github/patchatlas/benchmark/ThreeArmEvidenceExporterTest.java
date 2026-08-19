@@ -259,6 +259,47 @@ class ThreeArmEvidenceExporterTest {
     }
 
     @Test
+    void batch5bReportOpensWithRerunReasonFourLimitationsAndCrossBatchCoverage() throws Exception {
+        Path protocol5b = Path.of("benchmark-cases/batch5b-three-arm/protocol.json");
+        Path criteria5b = Path.of("benchmark-cases/batch5b-three-arm/preregistered-criteria.json");
+
+        new ThreeArmEvidenceExporter().export(
+                COHORT, protocol5b, criteria5b, facts(0), rejections(true), tempDir);
+
+        String md = Files.readString(tempDir.resolve("evidence-report.md"));
+        int rerun = md.indexOf("## Rerun context");
+        int limitations = md.indexOf("## Known limitations");
+        int heuristic = md.indexOf("## Arm HEURISTIC");
+        int cross = md.indexOf("## Cross-batch localization coverage");
+        assertThat(rerun).isGreaterThanOrEqualTo(0);
+        assertThat(rerun).isLessThan(limitations);
+        assertThat(limitations).isLessThan(heuristic);
+        assertThat(heuristic).isLessThan(cross);
+        assertThat(md).contains("These four limitations were frozen before any evaluation run.");
+        assertThat(md.indexOf("82070df")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("6efab8b")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("c177721")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("不作废")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("看过 036")).isBetween(limitations, heuristic);
+        assertThat(md.indexOf("不得用于臂间比较")).isBetween(limitations, heuristic);
+        assertThat(md).contains("response-truncated-share");
+        assertThat(md).contains("reproduction-still-zero");
+        assertThat(md).contains("locating-anyhit-drift");
+        assertThat(md).contains("PatchGate.inspect");
+        assertThat(md).doesNotContain("17 次未进入 Docker Replay");
+        assertThat(md)
+                .doesNotContain("综合得分")
+                .doesNotContain("图更好")
+                .doesNotContain("文本更好")
+                .doesNotContain("更好")
+                .doesNotContain("更差")
+                .doesNotContain("Task 0");
+        assertThat(Files.readString(tempDir.resolve("results.json")))
+                .doesNotContain("overallScore")
+                .doesNotContain("composite");
+    }
+
+    @Test
     void rejectsFactCountOtherThanEighteen() {
         assertThatThrownBy(() -> new ThreeArmEvidenceExporter().export(
                         COHORT, PROTOCOL, CRITERIA, facts(0).subList(0, 6), rejections(true), tempDir))

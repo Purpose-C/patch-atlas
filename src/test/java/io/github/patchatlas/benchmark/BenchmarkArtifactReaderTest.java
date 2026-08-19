@@ -257,6 +257,55 @@ class BenchmarkArtifactReaderTest {
     }
 
     @Test
+    void batch5bEvidenceReportOpensWithRerunReasonAndOmitsRankingClaims() throws IOException {
+        String md = Files.readString(Path.of("benchmark-cases/batch5b-three-arm/evidence-report.md"));
+        int rerun = md.indexOf("## Rerun context");
+        int limitations = md.indexOf("## Known limitations");
+        int heuristic = md.indexOf("## Arm HEURISTIC");
+        int paired = md.indexOf("## Paired localization coverage");
+        int cross = md.indexOf("## Cross-batch localization coverage");
+        assertThat(rerun).isGreaterThanOrEqualTo(0);
+        assertThat(rerun).isLessThan(limitations);
+        assertThat(limitations).isLessThan(heuristic);
+        assertThat(paired).isGreaterThan(heuristic);
+        assertThat(cross).isGreaterThan(paired);
+        assertThat(md.indexOf("82070df")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("不作废")).isBetween(rerun, limitations);
+        assertThat(md.indexOf("看过 036")).isBetween(limitations, heuristic);
+        assertThat(md.indexOf("不得用于臂间比较")).isBetween(limitations, heuristic);
+        assertThat(md).contains("These four limitations");
+        assertThat(md).contains("VALID_REPRODUCTION 1 / 6");
+        assertThat(md).contains("VALID_REPRODUCTION 0 / 6");
+        assertThat(md).contains("Denominator: every AGENT_BENCHMARK run on this arm");
+        assertThat(md).contains("| # | Case | anyHit | recall | precision | selectedCount |");
+        assertThat(md).contains("anyHit: 2 / 6");
+        assertThat(md).contains("anyHit: 5 / 6");
+        assertThat(md).contains("expand count: 0");
+        assertThat(md).contains("0 / 14 first-round rejections");
+        assertThat(md).contains("PatchGate.inspect");
+        assertThat(md).contains("| HEURISTIC | 2 / 6 | 2 / 6 | +0 |");
+        assertThat(md).contains("6efab8b");
+        assertThat(md).contains("c177721");
+        assertThat(md).doesNotContain("17 次未进入 Docker Replay");
+        assertThat(md.substring(paired, cross)).doesNotContain("VALID_REPRODUCTION");
+        assertThat(md)
+                .doesNotContain("综合得分")
+                .doesNotContain("图更好")
+                .doesNotContain("文本更好")
+                .doesNotContain("更好")
+                .doesNotContain("更差")
+                .doesNotContain("/Users/")
+                .doesNotContain("Task 0");
+        assertThat(Files.readString(Path.of("benchmark-cases/batch5b-three-arm/results.json")))
+                .contains("\"runCount\" : 6")
+                .doesNotContain("overallScore")
+                .doesNotContain("composite");
+        String rejections = Files.readString(
+                Path.of("benchmark-cases/batch5b-three-arm/generation-rejections.json"));
+        assertThat(rejections).doesNotContain("/Users/").doesNotContain("/home/");
+    }
+
+    @Test
     void readPreregisteredCriteriaFailsWhenFileMissing() {
         assertThatThrownBy(() -> new BenchmarkArtifacts()
                         .readPreregisteredCriteria(

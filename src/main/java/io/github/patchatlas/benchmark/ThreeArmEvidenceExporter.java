@@ -232,6 +232,7 @@ public final class ThreeArmEvidenceExporter {
 
         int firstRoundTotal = 0;
         int hunkMismatch = 0;
+        int truncated = 0;
         for (ArmRejections arm : rejections.arms()) {
             for (CaseFirstRound item : arm.cases()) {
                 if (item.firstRound() == null) {
@@ -240,6 +241,9 @@ public final class ThreeArmEvidenceExporter {
                 firstRoundTotal++;
                 if (isHunkCountMismatch(item.firstRound().feedbackSummary())) {
                     hunkMismatch++;
+                }
+                if ("RESPONSE_TRUNCATED".equals(item.firstRound().feedbackCategory())) {
+                    truncated++;
                 }
             }
         }
@@ -251,9 +255,20 @@ public final class ThreeArmEvidenceExporter {
         for (ContextOrigin origin : ARMS) {
             armExports.add(toArmExport(origin, byArm.get(origin)));
         }
-        List<JudgementExport> judgements = List.of(
-                hunkJudgement(criteria, hunkMismatch, firstRoundTotal),
-                expandJudgement(criteria, expandTotal));
+        Map<ContextOrigin, Integer> priorAnyHit = priorBatchAnyHitCounts();
+        List<JudgementExport> judgements = new ArrayList<>();
+        for (PreregisteredCriterion criterion : criteria.criteria()) {
+            judgements.add(switch (criterion.id()) {
+                case "hunk-count-mismatch" -> hunkJudgement(criteria, hunkMismatch, firstRoundTotal);
+                case "graph-expand-unused" -> expandJudgement(criteria, expandTotal);
+                case "response-truncated-share" ->
+                        truncatedJudgement(criteria, truncated, firstRoundTotal);
+                case "reproduction-still-zero" -> reproductionJudgement(criteria, armExports);
+                case "locating-anyhit-drift" -> driftJudgement(criteria, armExports, priorAnyHit);
+                default -> throw new IllegalStateException(
+                        "unknown preregistered criterion " + criterion.id());
+            });
+        }
         ResultsExport export = new ResultsExport(
                 cohort.cohortSha256(),
                 cohort.datasetRevision(),
@@ -266,11 +281,11 @@ public final class ThreeArmEvidenceExporter {
                 firstRoundTotal,
                 hunkMismatch,
                 judgements,
-                pipelineNotes());
+                pipelineNotes(criteria));
         artifacts.write(outputDir.resolve("results.json"), export);
         Files.writeString(
                 outputDir.resolve("evidence-report.md"),
-                markdown(cohort, export, byArm, rejections),
+                markdown(cohort, export, byArm, rejections, priorAnyHit),
                 StandardCharsets.UTF_8);
         return export;
     }
@@ -463,6 +478,60 @@ public final class ThreeArmEvidenceExporter {
                 criterion.id(), holds, measured, holds ? criterion.ifHolds() : criterion.ifDoesNotHold());
     }
 
+    private static JudgementExport truncatedJudgement(
+            PreregisteredCriteria criteria, int truncated, int firstRoundTotal) {
+        PreregisteredCriterion criterion = criterion(criteria, "response-truncated-share");
+        boolean holds = firstRoundTotal > 0 && truncated * 3 > firstRoundTotal;
+        String measured = truncated + " / " + firstRoundTotal + " first-round rejections";
+        return new JudgementExport(
+                criterion.id(), holds, measured, holds ? criterion.ifHolds() : criterion.ifDoesNotHold());
+    }
+
+    private static JudgementExport reproductionJudgement(
+            PreregisteredCriteria criteria, List<ArmExport> arms) {
+        PreregisteredCriterion criterion = criterion(criteria, "reproduction-still-zero");
+        boolean holds = arms.stream().allMatch(arm -> arm.validReproductions() == 0);
+        String measured = arms.stream()
+                .map(arm -> arm.origin() + " " + arm.validReproductions() + " / " + arm.runCount())
+                .reduce((left, right) -> left + "; " + right)
+                .orElse("");
+        return new JudgementExport(
+                criterion.id(), holds, measured, holds ? criterion.ifHolds() : criterion.ifDoesNotHold());
+    }
+
+    private static JudgementExport driftJudgement(
+            PreregisteredCriteria criteria,
+            List<ArmExport> arms,
+            Map<ContextOrigin, Integer> priorAnyHit) {
+        PreregisteredCriterion criterion = criterion(criteria, "locating-anyhit-drift");
+        boolean holds = false;
+        List<String> parts = new ArrayList<>();
+        for (ArmExport arm : arms) {
+            int previous = priorAnyHit.getOrDefault(ContextOrigin.valueOf(arm.origin()), 0);
+            int delta = Math.abs(arm.anyHitCount() - previous);
+            if (delta >= 2) {
+                holds = true;
+            }
+            parts.add(arm.origin() + " " + arm.anyHitCount() + "/6 vs " + previous + "/6 (delta "
+                    + delta + ")");
+        }
+        return new JudgementExport(
+                criterion.id(),
+                holds,
+                String.join("; ", parts),
+                holds ? criterion.ifHolds() : criterion.ifDoesNotHold());
+    }
+
+    private static Map<ContextOrigin, Integer> priorBatchAnyHitCounts() throws IOException {
+        Path path = Path.of("benchmark-cases/batch5-three-arm/results.json");
+        ResultsExport prior = new BenchmarkArtifacts().readJson(path, ResultsExport.class);
+        Map<ContextOrigin, Integer> counts = new EnumMap<>(ContextOrigin.class);
+        for (ArmExport arm : prior.arms()) {
+            counts.put(ContextOrigin.valueOf(arm.origin()), arm.anyHitCount());
+        }
+        return counts;
+    }
+
     private static PreregisteredCriterion criterion(PreregisteredCriteria criteria, String id) {
         return criteria.criteria().stream()
                 .filter(item -> id.equals(item.id()))
@@ -470,7 +539,20 @@ public final class ThreeArmEvidenceExporter {
                 .orElseThrow(() -> new IllegalStateException("missing preregistered criterion " + id));
     }
 
-    private static List<String> pipelineNotes() {
+    private static boolean hasCriterion(PreregisteredCriteria criteria, String id) {
+        return criteria.criteria().stream().anyMatch(item -> id.equals(item.id()));
+    }
+
+    private static List<String> pipelineNotes(PreregisteredCriteria criteria) {
+        if (hasCriterion(criteria, "response-truncated-share")) {
+            return List.of(
+                    "No evaluation cell was rerun.",
+                    "036 file artifacts in benchmark-cases/batch5-three-arm were not modified.",
+                    "Sampling production revision stayed at 302fe81.",
+                    "No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.",
+                    "After verifyAlreadyApplied takes caller diagnostics, PatchGate.inspect still writes unknown() inside the method. Production callers are known-trigger inspection only. This batch did not change inspect.",
+                    "First-round refusals were compilation, application, and patch policy; RESPONSE_TRUNCATED count is reported under preregistered criteria.");
+        }
         return List.of(
                 "No evaluation cell was rerun.",
                 "Stale diagnostic leases were marked failed so they would not be claimed ahead of this queue.",
@@ -485,13 +567,28 @@ public final class ThreeArmEvidenceExporter {
             Cohort cohort,
             ResultsExport export,
             Map<ContextOrigin, List<ArmCaseFact>> byArm,
-            FirstRoundRejectionLog rejections) {
+            FirstRoundRejectionLog rejections,
+            Map<ContextOrigin, Integer> priorAnyHit) {
         StringBuilder md = new StringBuilder();
         md.append("# Three-Arm Locating Evaluation Evidence\n\n");
-        md.append("## Known limitations\n\n");
-        md.append("These three limitations were frozen before any evaluation run.\n\n");
         List<String> limitations = export.protocolLimitations();
-        int split = Math.max(0, limitations.size() - 3);
+        String rerun = limitations.stream()
+                .filter(item -> item.contains("82070df"))
+                .findFirst()
+                .orElse(null);
+        if (rerun != null) {
+            md.append("## Rerun context\n\n");
+            md.append(rerun).append("\n\n");
+        }
+        boolean fourKnown = !limitations.isEmpty() && limitations.getLast().contains("看过 036");
+        int knownCount = fourKnown ? 4 : 3;
+        int split = Math.max(0, limitations.size() - knownCount);
+        md.append("## Known limitations\n\n");
+        if (fourKnown) {
+            md.append("These four limitations were frozen before any evaluation run.\n\n");
+        } else {
+            md.append("These three limitations were frozen before any evaluation run.\n\n");
+        }
         for (String limitation : limitations.subList(split, limitations.size())) {
             md.append("1. ").append(limitation).append("\n");
         }
@@ -505,6 +602,9 @@ public final class ThreeArmEvidenceExporter {
         md.append("- Failure handling: ").append(export.failureHandling()).append("\n\n");
         md.append("Other protocol limitations:\n\n");
         for (String limitation : limitations.subList(0, split)) {
+            if (rerun != null && limitation.equals(rerun)) {
+                continue;
+            }
             md.append("- ").append(limitation).append('\n');
         }
         md.append('\n');
@@ -548,6 +648,24 @@ public final class ThreeArmEvidenceExporter {
             md.append(" |\n");
         }
         md.append('\n');
+
+        if (rerun != null) {
+            md.append("## Cross-batch localization coverage\n\n");
+            md.append("036 (`benchmark-cases/batch5-three-arm`) versus this batch. ");
+            md.append("The locating path was unchanged; a difference of 2 or more anyHit cases on one arm is a stop condition, not a ranking.\n\n");
+            md.append("| Arm | 036 anyHit | this batch anyHit | delta |\n");
+            md.append("| --- | --- | --- | --- |\n");
+            for (ArmExport arm : export.arms()) {
+                int previous = priorAnyHit.getOrDefault(ContextOrigin.valueOf(arm.origin()), 0);
+                int delta = arm.anyHitCount() - previous;
+                md.append("| ").append(arm.origin());
+                md.append(" | ").append(previous).append(" / 6");
+                md.append(" | ").append(arm.anyHitCount()).append(" / 6");
+                md.append(" | ").append(delta >= 0 ? "+" : "").append(delta);
+                md.append(" |\n");
+            }
+            md.append('\n');
+        }
 
         md.append("## First-round generation rejections\n\n");
         md.append("Counts are first `generation.attempt.rejected` records (attempt_ordinal = 1). ");

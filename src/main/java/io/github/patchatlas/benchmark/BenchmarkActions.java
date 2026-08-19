@@ -15,7 +15,7 @@ import java.util.Set;
  * {@code arm-heuristic} / {@code arm-text} / {@code arm-graph} 对冻结队列全部六例以
  * {@code AGENT_BENCHMARK} 启动，彼此只差定位来源。
  * {@code verify-three-arm} 从 PostgreSQL 读取 18 次终态 Run，把证据写到
- * {@code benchmark-cases/batch5-three-arm/}，不写 {@code task018}。
+ * {@code benchmark-cases/batch5b-three-arm/}，不写 {@code task018} 或 {@code batch5-three-arm}。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
  */
 public final class BenchmarkActions {

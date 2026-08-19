@@ -234,8 +234,9 @@ class FormalBenchmarkRunnerTest {
         assertThat(ops.threeArmVerifyCalls.get()).isEqualTo(1);
         assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
         Path output = ((FormalBenchmarkRunner.Outcome.Verified) outcome).output();
-        assertThat(output.toString()).contains("batch5-three-arm");
+        assertThat(output.toString()).contains("batch5b-three-arm");
         assertThat(output.toString()).doesNotContain("task018");
+        assertThat(output.toString()).doesNotContain("batch5-three-arm");
     }
 
     @Test
@@ -569,7 +570,7 @@ class FormalBenchmarkRunnerTest {
         @Override
         public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) {
             threeArmVerifyCalls.incrementAndGet();
-            return Path.of("batch5-three-arm/results.json");
+            return Path.of("batch5b-three-arm/results.json");
         }
     }
 

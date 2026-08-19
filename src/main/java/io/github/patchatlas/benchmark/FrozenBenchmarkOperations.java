@@ -259,7 +259,7 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
         if (runs.size() != 18) {
             throw new IllegalArgumentException("expected 18 three-arm runs, got " + runs.size());
         }
-        Path outputDir = artifactsRoot.resolveSibling("batch5-three-arm");
+        Path outputDir = artifactsRoot.resolveSibling("batch5b-three-arm");
         List<ArmCaseFact> facts = new ArrayList<>(18);
         for (ThreeArmRun run : runs) {
             CohortCase cohortCase = requireCohortCase(cohort, run.detail().caseId());
