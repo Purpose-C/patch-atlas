@@ -74,7 +74,7 @@ class ClaimHonestyGateTest {
         assertThat(cells).containsOnly("A", "B", "C");
         assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(11);
         assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(7);
-        assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(2);
+        assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }
 
     private static String sha256(String path) throws Exception {
