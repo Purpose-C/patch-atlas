@@ -2,7 +2,27 @@
 
 [![CI](https://github.com/Purpose-C/patch-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Purpose-C/patch-atlas/actions/workflows/ci.yml)
 
-PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据真实 Issue 生成候选回归测试，并通过隔离环境中的跨版本执行，判断测试是否真正复现缺陷，而不是编译错误、环境故障或偶发失败。
+PatchAtlas 把公开 Java Issue 转成候选回归测试，再在隔离环境里对 Buggy / Fixed Revision 执行同一次测试，用执行事实判断是不是真的复现了缺陷。模型回答不是结论。
+
+对外能力声明见 [声明对照表](docs/claim-register.md)。每一条都能指到测试、带分母的实测，或显式标成未测量。
+
+## 评测数字（带分母）
+
+这些是已经入库的观测，不是演示里重跑出来的。
+
+| 观测 | 值 | 证据 |
+| --- | --- | --- |
+| 5b 三臂 `VALID_REPRODUCTION` | HEURISTIC **1/6**，TEXT_TOOLS **0/6**，GRAPH_TOOLS **0/6** | [5b 报告](benchmark-cases/batch5b-three-arm/evidence-report.md) |
+| 5b 走到 Docker Replay | **4/18** | 同上 Run inventory |
+| Spring 案例研究 | **0/3**，三次全 `GENERATION_EXHAUSTED` | [Spring 报告](benchmark-cases/spring-case-study/evidence-report.md) |
+| `expand` 使用次数（036 / 5b / Spring） | **0 / 0 / 0** | 三份证据报告 |
+| Calibration Case | **3/3** `VALID_REPRODUCTION` | [task018 报告](benchmark-cases/task018/evidence-report.md) |
+
+Calibration 的 3/3 用的是已知触发测试，用来校准 Replay Engine，**不是** Agent 生成成绩。同份 task018 报告里 Agent 为 **0/3**。
+
+5b 启发式臂有一次 `VALID_REPRODUCTION`。它是 **18 次里的 1 次**，不是挑选后重跑。n=6 与 n=1 都不支持臂间比较。`expand` 三次都是 0：工具在代码里存在，评测里模型没有调用它。这不能当成图引导定位已经成立。
+
+未测量：所用模型对 GitBug-Java 的训练数据污染边界；同一模型名下权重是否长期不变。
 
 ## 核心思路
 
@@ -20,176 +40,63 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它根据
              VALID_REPRODUCTION
 ```
 
-生成器只能读取 Issue 与 Buggy Revision。Fixed Revision、人类修复差异和已知触发测试属于验证数据，不会进入生成上下文。
+生成器只能读取 Issue 与 Buggy Revision。Fixed Revision、人类修复差异和已知触发测试是 Oracle Data，进不了生成上下文。
 
-## 项目亮点
+真正要看的是方法：预言机隔离、预注册判据、不适用不写成 0、定位覆盖率 / 复现率 / 成本不合成一个分数、失败留在分母里。
 
-- **真实开源场景**：输入来自公开 Java 仓库、Issue 和固定 Commit，不依赖虚构业务数据。
-- **证据驱动**：JGit、Maven、JUnit 与 Docker 产生可复核事实，模型结论不能替代真实执行。
-- **假失败识别**：目标是区分有效断言失败、编译失败、环境失败、超时和 flaky 噪音。
-- **受限执行**：只允许强类型 Maven 命令模板；容器以非 root、无 capability、资源受限方式运行。
-- **诚实评测**：历史 Bug Benchmark 同时保留成功与失败案例，并隔离人类修复等预言机数据。
+## 一条命令启动
 
-## 已实现能力
+```bash
+./scripts/up.sh
+```
 
-- Spring Boot 健康检查与 Vue 运行控制台（列表/详情，只读）；
-- 公开 GitHub HTTPS 仓库获取与固定 Commit 校验；
-- 仓库 URL、目标目录和 Revision 输入边界校验；
-- 强类型 Maven 测试与依赖预热命令；
-- Docker 沙箱、超时清理、有界日志与 Maven 缓存复用；
-- Surefire XML 解析、七类执行结果与 flaky 归约；
-- Live/Historical Replay、Candidate Patch Gate 与 PostgreSQL Run 恢复；
-- Fake/真实模型 adapter，以及最多三轮 Buggy-only 生成修正；
-- 可恢复的 Java/网络执行策略、生产 Docker/Replay adapter 与 Worker 完整装配；
-- `POST/GET /api/runs` 幂等创建、keyset 列表与可审计详情；
-- Run 详情区分四种 Recorded Usage Status，并在有价格配置时展示已记录用量的估算费用；
-- Actuator 指标、沙箱执行 Timer 与 Logstash 结构化领域日志；
-- 受控 off-by-one 校准案例；
-- spring-cloud-openfeign #1326 真实历史案例与缓存数据。
+这会拉起 PostgreSQL、API 和 Vue 只读控制台：http://127.0.0.1:8080/runs 。**不**启动 Issue2Test Worker，**不**调用模型，**不**读取 `.env`。新库是空的，上面的评测 Run 不会出现在这个列表里。说明、限制和干净目录验证见 [docs/up.md](docs/up.md)。
 
-目前尚未实现前端提交表单、SSE/指标看板、真实 Agent Benchmark 与交付包装。README 只陈述已经存在且能够验证的能力。估算费用不是账单。
+缺 Worker 凭据时：
 
-**安全提示**：本实例为单用户自托管，默认无认证。不要直接暴露到公网。API Key 仅经后端环境变量注入，永不进入前端。
+```bash
+./scripts/up.sh --worker
+```
 
-Worker 默认将 Maven 缓存放在 `<workspace-root>/.patch-atlas-cache/maven`。单次 Run 清理只删除其独立工作区，不删除共享缓存；若部署时重建整个 workspace root，缓存也会随之失效。
+会退出并列出 `missing:` 的变量，不会改成 FAKE 假装成功。
+
+开发时仍可用 `./mvnw spring-boot:run` 与 `frontend` 下的 Vite；那不是一条命令路径。
+
+## 怎么读报告
+
+- [5b 导读](benchmark-cases/batch5b-three-arm/reading-guide.md) → 原文 [`evidence-report.md`](benchmark-cases/batch5b-three-arm/evidence-report.md)
+- [Spring 案例导读](benchmark-cases/spring-case-study/reading-guide.md) → 原文 [`evidence-report.md`](benchmark-cases/spring-case-study/evidence-report.md)
+- 架构图（每个图元都有类）：[docs/architecture-diagram.md](docs/architecture-diagram.md)
+- 演示脚本：[docs/demo-script.md](docs/demo-script.md)
 
 ## 技术栈
 
-- Java 21、Spring Boot 4.1、Maven Wrapper；
-- JGit、JUnit 5、Mockito；
-- Docker；
-- Vue 3、TypeScript、Vite、Vitest；
-- GitHub Actions。
-
-## 项目结构
-
-```text
-patch-atlas/
-├── src/                 Spring Boot 产品代码与测试
-├── frontend/            Vue 控制台
-├── fixtures/            可控的缺陷校准仓库
-├── benchmark-cases/     真实历史案例元数据与执行证据
-├── docs/                产品架构与工程决策
-├── .github/workflows/   持续集成
-├── pom.xml
-└── README.md
-```
-
-## 本地运行
-
-要求：JDK 21、Node.js 22+。Docker 集成验证还需要 Docker Desktop。
-
-```bash
-./mvnw test
-./mvnw spring-boot:run
-```
-
-另开终端启动前端：
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-Vite 开发服务器会把 `/api` 请求代理到 Spring Boot。控制台路由为 `/runs` 与 `/runs/:runId`。
-
-### 持久化与 Worker（可选）
-
-```bash
-export SPRING_PROFILES_ACTIVE=persistence
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/patchatlas
-export SPRING_DATASOURCE_USERNAME=...
-export SPRING_DATASOURCE_PASSWORD=...
-# Worker（执行队列；需要 workspace 根目录与 Docker）
-export PATCHATLAS_WORKER_ENABLED=true   # 或 application 配置 patchatlas.worker.enabled=true
-# patchatlas.worker.workspace-root=/var/patchatlas/workspaces
-```
-
-可选费用估算（全部给出才启用；缺省表示费用不可用，不是 `$0`）：
-
-```bash
-export PATCHATLAS_PRICING_PROVIDER=openai
-export PATCHATLAS_PRICING_MODEL=gpt-4.1-mini
-export PATCHATLAS_PRICING_INPUT_USD_PER_MILLION_TOKENS=0.40
-export PATCHATLAS_PRICING_OUTPUT_USD_PER_MILLION_TOKENS=1.60
-export PATCHATLAS_PRICING_EFFECTIVE_DATE=2026-08-13
-export PATCHATLAS_PRICING_SOURCE=operator-config
-```
-
-默认 console 为 Logstash JSON。领域事件只带白名单字段，例如：
-
-```json
-{"@timestamp":"2026-08-13T11:34:06.544444+09:00","message":"run claimed","logger_name":"io.github.patchatlas.observability.RunEvents","level":"INFO","run_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","event":"run.claimed","mode":"LIVE","recovery_count":0}
-```
-
-`run_id` 是唯一 Run Correlation ID。日志不包含 Issue 正文、Patch、完整沙箱日志、Idempotency-Key、异常 message 或 API Key。
-
-启用 persistence 后可读取 Run 聚合指标（tag 仅为封闭枚举）：
-
-```http
-GET /actuator/metrics/patchatlas.run.completed?tag=mode:live&tag=verdict:valid_reproduction
-GET /actuator/metrics/patchatlas.run.failed
-GET /actuator/metrics/patchatlas.generation.attempts?tag=provider:openai
-GET /actuator/metrics/patchatlas.model.usage.records?tag=provider:openai
-GET /actuator/metrics/patchatlas.model.usage.runs?tag=provider:openai&tag=status:recorded_for_all_attempts
-GET /actuator/metrics/patchatlas.model.tokens?tag=provider:openai&tag=type:total
-GET /actuator/metrics/patchatlas.sandbox.execution.duration?tag=command_type:test&tag=timed_out:false
-```
-
-完整定价配置存在时还有 `patchatlas.model.cost.estimated`。沙箱 Timer 随进程重启归零，恢复重跑按实际执行再计一次；终态 Run 计数以 PostgreSQL 为准，不因恢复或重复 terminal 调用翻倍。
-
-创建 Run（异步，不在 HTTP 中等待模型/Docker）：
-
-```http
-POST /api/runs
-Idempotency-Key: demo-1
-Content-Type: application/json
-```
+Java 21、Spring Boot 4.1、Maven Wrapper、JGit、JUnit 5、Docker、Vue 3、GitHub Actions。
 
 ## 验证命令
 
 ```bash
-# 默认离线测试，不访问 GitHub、不要求 Docker
 ./mvnw test
-
-# PostgreSQL / Flyway / 幂等与分页
 ./mvnw test -Dgroups=database
-
-# 真实公开仓库获取
 ./mvnw test -Dgroups=network
-
-# Docker 沙箱集成测试
 ./mvnw test -Dgroups=docker
-
-# 前端
-cd frontend
-npm run typecheck
-npm test
-npm run build
+cd frontend && npm ci && npm run typecheck && npm test && npm run build
 ```
 
-受控差分校准：
-
-```bash
-RUNNER=docker bash fixtures/off-by-one/run-replay.sh
-```
+受控差分校准：`RUNNER=docker bash fixtures/off-by-one/run-replay.sh`
 
 ## 文档
 
 - [产品愿景](docs/VISION.md)
-- [系统架构与设计决策](docs/architecture.md)
+- [系统架构](docs/architecture.md)
 - [领域语言](docs/domain-language.md)
-- [架构决策记录（ADR）](docs/adr/README.md)
-- [Benchmark 方法与指标](benchmark-cases/README.md)
-- [spring-cloud-openfeign #1326 案例](benchmark-cases/spring-cloud-openfeign-1326.md)
+- [ADR](docs/adr/README.md)
+- [Benchmark 方法](benchmark-cases/README.md)
 
 ## 安全边界
 
-Issue、源码、构建日志和模型输出均视为不可信输入。当前沙箱不挂载主机 Home、Docker Socket 或 API Key，并限制 CPU、内存、PID 与执行时间。
-
-V1 是单用户、自托管工具。联网容器仍使用 Docker bridge，共享 Maven 缓存也存在依赖投毒风险，因此当前实现不具备公开多租户安全边界。
+Issue、源码、构建日志和模型输出都是不可信输入。当前沙箱不挂载主机 Home、Docker Socket 或 API Key。单用户自托管，默认无认证，不要直接暴露到公网。API Key 只经后端环境变量注入，不进前端。不具备公开多租户安全边界。
 
 ## License
 
-本项目代码以 [Apache License 2.0](LICENSE) 发布。第三方仓库源码仅在本地工作区使用，不纳入版本控制。
+本项目代码以 [Apache License 2.0](LICENSE) 发布。第三方仓库源码只在本地工作区使用，不纳入版本控制。
