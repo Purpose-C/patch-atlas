@@ -2,9 +2,9 @@
 
 本目录记录一次案例研究的候选判定，**不是**冻结队列，也**不支持**统计结论。
 
-机器可读结果见 [`candidates.json`](candidates.json)。输入是已冻结的源闸门并集 [`../spring-source-gate/scan.json`](../spring-source-gate/scan.json) 与静态/动态审计 [`../spring-v1/selection-audit.json`](../spring-v1/selection-audit.json)。未打开新的数据源。
+机器可读结果见 [`candidates.json`](candidates.json)。跑前协议见 [`protocol.json`](protocol.json)。输入是已冻结的源闸门并集 [`../spring-source-gate/scan.json`](../spring-source-gate/scan.json) 与静态/动态审计 [`../spring-v1/selection-audit.json`](../spring-v1/selection-audit.json)。未打开新的数据源。
 
-**本文件不选定案例。** `selectedCaseId` 为空。三臂运行须等操作者确认之后才能开始。
+操作者已确认 `selectedCaseId=st-tu-dresden-salespoint-85a764f892aa`。该确认发生在任何案例研究 Run 之前。
 
 ## 机械条件（缺一不可）
 
@@ -40,7 +40,7 @@
 | 其中因 C2 不合格 | 82 |
 | 其中因 C3 不合格 | 10 |
 | 额外清单（非并集成员）不合格 | 1 |
-| 已选定 | 无（待确认） |
+| 已确认选定 | `st-tu-dresden-salespoint-85a764f892aa` |
 
 ## 合格（源闸门）
 
@@ -93,4 +93,13 @@ Multi-SWE-bench Java 与 SWE-PolyBench Java 的记录没有合并提交 SHA，�
 
 ## 确认
 
-操作者确认后，把选定的 `caseId` 写入后续选定记录。在此之前不得启动三臂运行。合格名单目前只有上面这一条源闸门成员；额外清单中的 `scof-1326` 因 C1 不合格。
+操作者已确认选定 `st-tu-dresden-salespoint-85a764f892aa`。合格名单在确认时只有这一条源闸门成员；额外清单中的 `scof-1326` 因 C1 不合格。
+
+## 证据强度不对称（跑前登记，跑完不得修改）
+
+选定案例是 Spring 框架本身，修复点 `PersistentAccountancy.java` 位于 DI 密集区，对图臂有利。这**不**改变选样合法性：它是五条机械条件筛出的唯一合格成员，`filtersNotApplied` 已记录未按「是否跨越 DI / AOP / 事件边」筛选。解读时必须带上本表：
+
+| 观测 | 强度 | 含义 |
+| --- | --- | --- |
+| `expand` 被使用 | 弱 | 有利单例，不可外推 |
+| `expand` 仍为 0 | 强 | 最有利条件下都不用，原因锁死在工具设计或提示词 |

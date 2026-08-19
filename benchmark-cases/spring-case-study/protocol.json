@@ -1,0 +1,36 @@
+{
+  "kind": "case-study",
+  "n": 1,
+  "statisticalInference": "not-supported",
+  "armComparison": "not-permitted",
+  "successCriterion": "the locating trace answers whether expand was used and what it saw; VALID_REPRODUCTION is not the success criterion",
+  "caseId": "st-tu-dresden-salespoint-85a764f892aa",
+  "evaluationId": "spring-case-study",
+  "runPurpose": "AGENT_BENCHMARK",
+  "arms": [
+    "HEURISTIC",
+    "TEXT_TOOLS",
+    "GRAPH_TOOLS"
+  ],
+  "confirmationStatus": "CONFIRMED",
+  "registeredBeforeRuns": true,
+  "evidenceAsymmetry": {
+    "selectionLegality": "The selected case is the only source-gate member that passed the five mechanical conditions. filtersNotApplied records that whether the defect crosses DI, AOP, or event graph edges was not a selection filter. The strength table below is interpretation background, not a selection rule.",
+    "expandUsed": {
+      "strength": "weak",
+      "reason": "salespoint is a Spring framework itself, and the repair site PersistentAccountancy.java sits in a DI-dense area. That is favorable for the graph arm. A single favorable case does not generalize."
+    },
+    "expandUnused": {
+      "strength": "strong",
+      "reason": "If expand remains unused even under this favorable condition, the cause is locked to tool design or the locating prompt, not cohort composition."
+    }
+  },
+  "limitations": [
+    "n=1. This is a case study. It does not support statistical conclusions and must not be used for arm-to-arm comparison.",
+    "The model identifier has no dated weight pin; the vendor may change weights without renaming. Results are not a long-term reproducibility claim.",
+    "Training-data composition and knowledge cutoff are unpublished, so contamination against this GitBug-Java case cannot be bounded.",
+    "Formal runs depend on a locally mounted GitBug-Java tree for the issue body and revisions; public clone URLs plus this repository's frozen metadata are not enough to reproduce the run.",
+    "Three AGENT_BENCHMARK runs are stored regardless of downstream success or failure. Pipeline failures unrelated to locating (Docker, environment, transport) may be retried once and must be recorded; result-driven reruns are not permitted.",
+    "Localization coverage is an oracle-derived metric. It is reported after the run. It must not enter Generator Context, Generation Feedback, or locating_trace."
+  ]
+}

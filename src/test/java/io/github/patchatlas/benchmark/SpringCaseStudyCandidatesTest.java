@@ -18,20 +18,30 @@ class SpringCaseStudyCandidatesTest {
 
     private static final Path CANDIDATES =
             Path.of("benchmark-cases/spring-case-study/candidates.json");
+    private static final Path PROTOCOL = Path.of("benchmark-cases/spring-case-study/protocol.json");
     private static final Path README = Path.of("benchmark-cases/spring-case-study/candidates.md");
     private static final Path SCAN = Path.of("benchmark-cases/spring-source-gate/scan.json");
     private static final Path AUDIT = Path.of("benchmark-cases/spring-v1/selection-audit.json");
+    private static final String SELECTED = "st-tu-dresden-salespoint-85a764f892aa";
 
     @Test
-    void mechanicalListHasOneEligibleCaseAndNoSelection() throws Exception {
+    void mechanicalListHasOneEligibleCaseAndConfirmedSelection() throws Exception {
         JsonNode candidates = JsonMapper.shared().readTree(CANDIDATES.toFile());
+        JsonNode protocol = JsonMapper.shared().readTree(PROTOCOL.toFile());
         JsonNode scan = JsonMapper.shared().readTree(SCAN.toFile());
         JsonNode audit = JsonMapper.shared().readTree(AUDIT.toFile());
         String markdown = Files.readString(README);
 
-        assertThat(candidates.path("confirmationStatus").stringValue())
-                .isEqualTo("PENDING_OPERATOR_CONFIRMATION");
-        assertThat(candidates.path("selectedCaseId").isNull()).isTrue();
+        assertThat(candidates.path("confirmationStatus").stringValue()).isEqualTo("CONFIRMED");
+        assertThat(candidates.path("selectedCaseId").stringValue()).isEqualTo(SELECTED);
+        assertThat(protocol.path("confirmationStatus").stringValue()).isEqualTo("CONFIRMED");
+        assertThat(protocol.path("caseId").stringValue()).isEqualTo(SELECTED);
+        assertThat(protocol.path("registeredBeforeRuns").booleanValue()).isTrue();
+        assertThat(protocol.path("n").intValue()).isEqualTo(1);
+        assertThat(protocol.path("statisticalInference").stringValue()).isEqualTo("not-supported");
+        assertThat(protocol.path("armComparison").stringValue()).isEqualTo("not-permitted");
+        assertEvidenceAsymmetry(candidates.path("evidenceAsymmetry"));
+        assertEvidenceAsymmetry(protocol.path("evidenceAsymmetry"));
         assertThat(candidates.path("summary").path("sourceGateEligibleCount").intValue())
                 .isEqualTo(1);
         assertThat(ids(candidates.path("summary").path("eligibleCaseIds")))
@@ -101,13 +111,29 @@ class SpringCaseStudyCandidatesTest {
 
         String jsonText = candidates.toPrettyString();
         assertNoSelectionLanguage(jsonText);
+        assertNoSelectionLanguage(protocol.toPrettyString());
         assertNoSelectionLanguage(markdown);
         assertThat(jsonText).doesNotContain("Autowired");
-        assertThat(markdown).contains("待确认");
-        assertThat(markdown).contains("不选定案例");
+        assertThat(markdown).contains("已确认选定");
+        assertThat(markdown).contains("弱");
+        assertThat(markdown).contains("强");
         assertThat(markdown).contains("缺陷是否跨越 DI / AOP / 事件图边");
-        assertThat(markdown).contains("st-tu-dresden-salespoint-85a764f892aa");
+        assertThat(markdown).contains(SELECTED);
         assertThat(markdown).contains("scof-1326");
+    }
+
+    private static void assertEvidenceAsymmetry(JsonNode node) {
+        assertThat(node.path("expandUsed").path("strength").stringValue()).isEqualTo("weak");
+        assertThat(node.path("expandUnused").path("strength").stringValue()).isEqualTo("strong");
+        assertThat(node.path("expandUsed").path("reason").stringValue())
+                .contains("DI-dense")
+                .contains("does not generalize");
+        assertThat(node.path("expandUnused").path("reason").stringValue())
+                .contains("tool design")
+                .contains("locating prompt");
+        assertThat(node.path("selectionLegality").stringValue())
+                .contains("not a selection filter")
+                .contains("five mechanical conditions");
     }
 
     private static void assertNoSelectionLanguage(String text) {

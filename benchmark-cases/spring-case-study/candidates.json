@@ -1,7 +1,7 @@
 {
-  "purpose": "Mechanical qualification for a Spring case study. Not a frozen cohort. Not a statistical evaluation. No case is selected in this file.",
-  "confirmationStatus": "PENDING_OPERATOR_CONFIRMATION",
-  "selectedCaseId": null,
+  "purpose": "Mechanical qualification for a Spring case study. Not a frozen cohort. Not a statistical evaluation. Operator confirmation is recorded; runs have not started.",
+  "confirmationStatus": "CONFIRMED",
+  "selectedCaseId": "st-tu-dresden-salespoint-85a764f892aa",
   "conditions": [
     {
       "id": "C1",
@@ -2101,5 +2101,18 @@
         }
       }
     }
-  ]
+  ],
+  "confirmedBy": "operator",
+  "evidenceAsymmetry": {
+    "registeredBeforeRuns": true,
+    "selectionLegality": "The selected case is the only source-gate member that passed the five mechanical conditions. filtersNotApplied records that whether the defect crosses DI, AOP, or event graph edges was not a selection filter. The strength table below is interpretation background, not a selection rule.",
+    "expandUsed": {
+      "strength": "weak",
+      "reason": "salespoint is a Spring framework itself, and the repair site PersistentAccountancy.java sits in a DI-dense area. That is favorable for the graph arm. A single favorable case does not generalize."
+    },
+    "expandUnused": {
+      "strength": "strong",
+      "reason": "If expand remains unused even under this favorable condition, the cause is locked to tool design or the locating prompt, not cohort composition."
+    }
+  }
 }
