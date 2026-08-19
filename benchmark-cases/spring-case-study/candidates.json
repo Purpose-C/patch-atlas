@@ -1,0 +1,2105 @@
+{
+  "purpose": "Mechanical qualification for a Spring case study. Not a frozen cohort. Not a statistical evaluation. No case is selected in this file.",
+  "confirmationStatus": "PENDING_OPERATOR_CONFIRMATION",
+  "selectedCaseId": null,
+  "conditions": [
+    {
+      "id": "C1",
+      "required": "Java + Maven, and the case can run in the existing Docker sandbox"
+    },
+    {
+      "id": "C2",
+      "required": "buggy and fixed revisions exist, and the first parent of fixed equals buggy"
+    },
+    {
+      "id": "C3",
+      "required": "a corresponding issue body is available (Issue2Test input)"
+    },
+    {
+      "id": "C4",
+      "required": "a production Maven <dependency> groupId contains org.springframework; not a repository-name test"
+    },
+    {
+      "id": "C5",
+      "required": "the human fix changed at least one non-test .java file"
+    }
+  ],
+  "filtersNotApplied": [
+    "whether the defect crosses DI, AOP, or event graph edges",
+    "freeze minimum cohort size of 4",
+    "same-change test requirement",
+    "license resolution",
+    "PatchGate compatibility as a selection filter",
+    "the freeze diagnostic denylist as such",
+    "ranking, preference, or any suggested pick"
+  ],
+  "universe": {
+    "source": "benchmark-cases/spring-source-gate/scan.json unionSpringPresent",
+    "count": 93,
+    "note": "Reused the frozen source-gate union. No extra datasets were opened. Every union member already passes C4."
+  },
+  "summary": {
+    "sourceGateEligibleCount": 1,
+    "sourceGateIneligibleCount": 92,
+    "failedC2Count": 82,
+    "failedC3Count": 10,
+    "additionalInventoryIneligibleCount": 1,
+    "eligibleCaseIds": [
+      "st-tu-dresden-salespoint-85a764f892aa"
+    ]
+  },
+  "eligible": [
+    {
+      "caseId": "st-tu-dresden-salespoint-85a764f892aa",
+      "repository": "st-tu-dresden/salespoint",
+      "cloneUrl": "https://github.com/st-tu-dresden/salespoint.git",
+      "buggyRevision": "e9c2fe5efee8ad76bf73738f46f911c18eb078b8",
+      "fixedRevisionPrefix": "85a764f892aa",
+      "C1": "PASS",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "PASS",
+      "evidence": {
+        "C1": "GitBug-Java Maven case; pom.xml java.version=17; dynamic probe stages warmup_* and offline_* all PASSED under the existing Docker sandbox",
+        "C2": "selection-audit.json probe stage parent_revision=PASSED",
+        "C3": "passed freeze static filters (not ISSUE_UNAVAILABLE); GitBug-Java issueAvailable requires a non-PR issue with non-blank title and body",
+        "C4": [
+          "org.springframework.boot",
+          "org.springframework.experimental"
+        ],
+        "C5": {
+          "method": "byte-compare cached buggy vs fixed trees; ignore src/test and target/",
+          "productionJavaPaths": [
+            "src/main/java/org/salespointframework/accountancy/PersistentAccountancy.java"
+          ]
+        }
+      }
+    }
+  ],
+  "additionalInventory": [
+    {
+      "caseId": "scof-1326",
+      "source": "existing calibration record; not a member of the source-gate union",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C1",
+      "C1": "FAIL",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "PASS",
+      "evidence": {
+        "C1": "AGENT_BENCHMARK three-arm replay uses MavenNetworkMode.OFFLINE. This case parent POM is spring-cloud-build 4.3.3-SNAPSHOT; the calibration record required ONLINE to resolve it. Running it on the existing three-arm path would require changing the runner.",
+        "C2": "calibration record: fixed first parent equals buggy (squash, single parent)",
+        "C3": "calibration record includes GitHub issue 1326 body",
+        "C4": "production module org.springframework.cloud.openfeign (groupId identity, not a repository-name test)",
+        "C5": "spring-cloud-openfeign-core/src/main/java/org/springframework/cloud/openfeign/support/SpringMvcContract.java"
+      }
+    }
+  ],
+  "sourceGateCases": [
+    {
+      "caseId": "IBM-JSONata4Java-1485a41ccf50",
+      "repository": "IBM/JSONata4Java",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-1245",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-2097",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-2285",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-2559",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-2775",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "alibaba__fastjson2-82",
+      "repository": "alibaba/fastjson2",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.data",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-10638",
+      "repository": "apache/dubbo",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-10846",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-11255",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-11420",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-11781",
+      "repository": "apache/dubbo",
+      "sources": [
+        "multi-swe-bench-java",
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-13869",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-2750",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-2801",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3013",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3093",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3317",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3479",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3590",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3622",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-3855",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4026",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4170",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4379",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4515",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4567",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4660",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-4678",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-5138",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-5356",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-5708",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-5783",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-6106",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-6351",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-6498",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-6551",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-7041",
+      "repository": "apache/dubbo",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-7938",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8029",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8032",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8126",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8414",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8623",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__dubbo-8947",
+      "repository": "apache/dubbo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework",
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5062",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5196",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5286",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5633",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5706",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5834",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5841",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-5865",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6401",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6455",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6522",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6577",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6651",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-6755",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7346",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7420",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7426",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7455",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7532",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7544",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7563",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7655",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7712",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7819",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7823",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7917",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apache__rocketmq-7964",
+      "repository": "apache/rocketmq",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-1894",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-4119",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-4199",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-4207",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-4464",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "apolloconfig__apollo-4568",
+      "repository": "apolloconfig/apollo",
+      "sources": [
+        "swe-polybench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.cloud"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "googlecontainertools__jib-2536",
+      "repository": "googlecontainertools/jib",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "googlecontainertools__jib-2542",
+      "repository": "googlecontainertools/jib",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "googlecontainertools__jib-2688",
+      "repository": "googlecontainertools/jib",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "googlecontainertools__jib-4035",
+      "repository": "googlecontainertools/jib",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "googlecontainertools__jib-4144",
+      "repository": "googlecontainertools/jib",
+      "sources": [
+        "multi-swe-bench-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C2",
+      "freezeExclusionCode": "METADATA_INVALID",
+      "C1": "NOT_EVALUATED",
+      "C2": "FAIL",
+      "C3": "NOT_EVALUATED",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C2": "METADATA_INVALID: Multi-SWE-bench Java / SWE-PolyBench Java records have no merge-commit SHA, so the parent(fixed)==buggy check cannot be decided. A patch replay must not stand in for that check."
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-0963194c9ebc",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-0e512e5b3677",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-14a39138787f",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-60ec3bf0273b",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-6207c9d46460",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "jitterted-ensembler-c9faf3fba524",
+      "repository": "jitterted/ensembler",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.security"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "spring-projects-spring-guice-ce15b8e5802a",
+      "repository": "spring-projects/spring-guice",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "spring-projects-spring-retry-c89b9516d976",
+      "repository": "spring-projects/spring-retry",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "spring-projects-spring-retry-e6091f790c64",
+      "repository": "spring-projects/spring-retry",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework"
+      ],
+      "C4": "PASS",
+      "verdict": "INELIGIBLE",
+      "failedCondition": "C3",
+      "freezeExclusionCode": "ISSUE_UNAVAILABLE",
+      "C1": "NOT_EVALUATED",
+      "C2": "NOT_EVALUATED",
+      "C3": "FAIL",
+      "C5": "NOT_EVALUATED",
+      "evidence": {
+        "C3": "ISSUE_UNAVAILABLE: GitBug-Java record has no usable non-PR issue body"
+      }
+    },
+    {
+      "caseId": "st-tu-dresden-salespoint-85a764f892aa",
+      "repository": "st-tu-dresden/salespoint",
+      "sources": [
+        "gitbug-java"
+      ],
+      "springMatchingGroupIds": [
+        "org.springframework.boot",
+        "org.springframework.experimental"
+      ],
+      "C4": "PASS",
+      "verdict": "ELIGIBLE",
+      "failedCondition": null,
+      "freezeExclusionCode": null,
+      "C1": "PASS",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C5": "PASS",
+      "evidence": {
+        "C1": "GitBug-Java Maven case; pom.xml java.version=17; dynamic probe stages warmup_* and offline_* all PASSED under the existing Docker sandbox",
+        "C2": "selection-audit.json probe stage parent_revision=PASSED",
+        "C3": "passed freeze static filters (not ISSUE_UNAVAILABLE); GitBug-Java issueAvailable requires a non-PR issue with non-blank title and body",
+        "C4": [
+          "org.springframework.boot",
+          "org.springframework.experimental"
+        ],
+        "C5": {
+          "method": "byte-compare cached buggy vs fixed trees; ignore src/test and target/",
+          "productionJavaPaths": [
+            "src/main/java/org/salespointframework/accountancy/PersistentAccountancy.java"
+          ]
+        }
+      }
+    }
+  ]
+}

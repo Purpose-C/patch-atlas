@@ -41,6 +41,7 @@ expectedFailureSummary   # Oracle Data
 - **Spring 主演示 → 手挖 1–2 个真实 Spring 案例**(承载"面向 Spring 遗留项目"定位,并让影响分析的置信度分级有用武之地)。
 - **Spring 队列源闸门**：用 buggy revision 的 `pom.xml` 依赖 `groupId` 判定是否使用 Spring，不靠仓库名、不看修复内容。扫描记录见 `spring-source-gate/` 与 `docs/benchmark-spring-source-gate.md`。
 - **Spring 使用队列冻结**：源闸门并集 93 棵树按冻结规则过滤后，动态合格 1 例，低于最低 4 例，停止且不写入队列。过程见 `spring-v1/` 与 `docs/benchmark-spring-cohort-rules.md`。图引导对照的预先声明解释见 `docs/benchmark-graph-guidance-interpretation.md`。
+- **Spring 案例研究候选**：在同一源闸门并集上按机械资格（Java/Maven 沙箱、父提交、Issue 正文、生产依赖含 Spring、修复含非测试 `.java`）判定；**不**按缺陷是否跨越图边挑选。合格名单待操作者确认。记录见 `spring-case-study/`。
 
 **质量闸门(机械,非主观)**:高质量 = 可复现 + 有区分性触发测试,而非"著名"。黄金信号 = 合并 PR 声明修某 issue **且**同 PR 新增/改测试;父提交=buggy、合并=fixed;`checkout 父 → 该测试失败`、`checkout 合并 → 通过` 才收。选样标准冻结、脚本机械执行(Maven / 限时可构建 / Java 17/21 / 有 fail→pass 测试),过滤器留下什么就用什么,杜绝挑样本。
 
