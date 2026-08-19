@@ -12,6 +12,8 @@ class DemoRecordingAuditTest {
     void recordingKeepsTheFailureAndTheDenominator() throws Exception {
         String recording = Files.readString(Path.of("docs/demo-recording.md"));
         assertThat(recording).contains("4b77189");
+        assertThat(recording).contains("ea49e43");
+        assertThat(recording).contains("引用该 Tag");
         assertThat(recording).contains("missing: OPENAI_API_KEY");
         assertThat(recording).contains("already in use");
         assertThat(recording).contains("18 次里的 1 次");
@@ -21,6 +23,7 @@ class DemoRecordingAuditTest {
         assertThat(recording).contains("0 / 0 / 0");
         assertThat(recording).contains("未入镜凭据");
         assertThat(recording).contains("没有为了画面重跑");
+        assertThat(recording).doesNotContain("打在收录本记录的提交上");
         assertThat(recording).doesNotContain("/Users/");
         assertThat(recording).doesNotContain("/home/");
         assertThat(recording).doesNotContain("OPENAI_API_KEY=");

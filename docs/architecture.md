@@ -166,6 +166,6 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 受控校准案例和一个真实 Spring 历史案例；
 - 冻结队列上的正式 Agent Benchmark。3 个 Calibration 案例全部 `VALID_REPRODUCTION`，3 个 Agent 案例全部未复现（`GENERATION_EXHAUSTED`）。失败集中在统一 diff 的输出契约层而非测试设计层：9 次拒绝中 6 次为 `trailing non-patch text`、3 次为 `hunk new count mismatch`。完整证据见 `benchmark-cases/task018/`。
 - 一条命令启动只读控制台（PostgreSQL + API + Vue）。命令与干净目录验证见 [`docs/up.md`](up.md)。该命令不启动 Issue2Test Worker，也不调用模型。
-- 演示录制见 [`docs/demo-recording.md`](demo-recording.md)。相对录制时的代码只增加这份说明，不改定位、生成、Gate 或阈值。
+- 演示录制见 [`docs/demo-recording.md`](demo-recording.md)。Tag `demo` 在录制时运行的 `4b77189`；该说明提交引用该 Tag，不改定位、生成、Gate 或阈值。
 
 本文件不再把「演示 Tag」列为未交付项。其它未做的能力见 [`VISION.md`](VISION.md)，不在本次交付范围内。
