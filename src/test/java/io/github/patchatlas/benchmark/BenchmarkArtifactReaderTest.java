@@ -118,6 +118,74 @@ class BenchmarkArtifactReaderTest {
     }
 
     @Test
+    void readBatch5bProtocolFreezesRerunReasonFourLimitationsAndRetained036() throws IOException {
+        BenchmarkArtifacts.ProtocolMetadata protocol = new BenchmarkArtifacts()
+                .readProtocol(Path.of("benchmark-cases/batch5b-three-arm/protocol.json"));
+
+        assertThat(protocol.provider()).isEqualTo("ollama");
+        assertThat(protocol.model()).isEqualTo("glm-5.2");
+        assertThat(protocol.endpoint()).isEqualTo("https://ollama.com/v1");
+        assertThat(protocol.limitations()).hasSize(9);
+        assertThat(protocol.limitations().get(4))
+                .contains("修复流水线缺陷")
+                .contains("不是按结果重跑")
+                .contains("82070df")
+                .contains("6efab8b")
+                .contains("c177721")
+                .contains("036")
+                .contains("保留")
+                .contains("不作废");
+        List<String> known = protocol.limitations().subList(5, 9);
+        assertThat(known.get(0)).contains("expand").contains("find").contains("search");
+        assertThat(known.get(1)).contains("jsoup#2002").contains("whatsapp#100").contains("文本臂");
+        assertThat(known.get(2)).contains("6 个二元").contains("不得用于臂间比较");
+        assertThat(known.get(3)).contains("看过 036").contains("之后才跑");
+        assertThat(protocol.failureHandling()).contains("Patch Gate 的策略性拒绝可修正");
+        String raw = Files.readString(Path.of("benchmark-cases/batch5b-three-arm/protocol.json"));
+        assertThat(raw)
+                .doesNotContain("Task 0")
+                .doesNotContain("/Users/")
+                .doesNotContain("/home/");
+    }
+
+    @Test
+    void readBatch5bPreregisteredCriteriaFreezesFourJudgements() throws IOException {
+        BenchmarkArtifacts.PreregisteredCriteria table = new BenchmarkArtifacts()
+                .readPreregisteredCriteria(
+                        Path.of("benchmark-cases/batch5b-three-arm/preregistered-criteria.json"));
+
+        assertThat(table.criteria()).extracting(BenchmarkArtifacts.PreregisteredCriterion::id)
+                .containsExactly(
+                        "response-truncated-share",
+                        "graph-expand-unused",
+                        "reproduction-still-zero",
+                        "locating-anyhit-drift");
+        BenchmarkArtifacts.PreregisteredCriterion truncated = table.criteria().get(0);
+        assertThat(truncated.observation()).contains("RESPONSE_TRUNCATED").contains("三分之一");
+        assertThat(truncated.ifHolds()).contains("token").contains("另开任务");
+        assertThat(truncated.ifDoesNotHold()).contains("不改");
+        BenchmarkArtifacts.PreregisteredCriterion expand = table.criteria().get(1);
+        assertThat(expand.observation()).contains("expand").contains("0");
+        assertThat(expand.ifHolds()).contains("不得据此断言");
+        assertThat(expand.ifDoesNotHold()).doesNotContain("更好").doesNotContain("更差");
+        BenchmarkArtifacts.PreregisteredCriterion reproduction = table.criteria().get(2);
+        assertThat(reproduction.observation()).contains("VALID_REPRODUCTION").contains("0");
+        assertThat(reproduction.ifHolds()).contains("合格结果").contains("不触发");
+        assertThat(reproduction.ifDoesNotHold()).contains("不得做臂间比较");
+        BenchmarkArtifacts.PreregisteredCriterion drift = table.criteria().get(3);
+        assertThat(drift.observation()).contains("anyHit").contains("2/6").contains("5/6");
+        assertThat(drift.ifHolds()).contains("停下排查");
+        assertThat(drift.ifDoesNotHold()).contains("不构成停止条件");
+        String raw = Files.readString(
+                Path.of("benchmark-cases/batch5b-three-arm/preregistered-criteria.json"));
+        assertThat(raw)
+                .doesNotContain("更好")
+                .doesNotContain("更差")
+                .doesNotContain("Task 0")
+                .doesNotContain("/Users/");
+    }
+
+    @Test
     void readThreeArmFirstRoundRejectionsCountsHunkMismatchWithoutPaths() throws IOException {
         ThreeArmEvidenceExporter.FirstRoundRejectionLog log = new BenchmarkArtifacts().readJson(
                 Path.of("benchmark-cases/batch5-three-arm/generation-rejections.json"),

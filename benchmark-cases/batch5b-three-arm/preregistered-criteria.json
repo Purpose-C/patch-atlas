@@ -1,0 +1,28 @@
+{
+  "criteria" : [
+    {
+      "id" : "response-truncated-share",
+      "observation" : "首轮拒绝里 RESPONSE_TRUNCATED 合计超过三分之一",
+      "ifHolds" : "瓶颈转为 token 预算或上下文体积，另开任务处理。",
+      "ifDoesNotHold" : "不超过三分之一则不改 token 预算与上下文体积上限。"
+    },
+    {
+      "id" : "graph-expand-unused",
+      "observation" : "图臂 expand 使用次数仍为 0",
+      "ifHolds" : "再次确认本队列不提供沿边遍历机会；不得据此断言图没有信息量。",
+      "ifDoesNotHold" : "报告 expand 的实际使用次数；该观测只说明本队列出现了沿边调用，不改变复现率不得用于臂间比较的局限。"
+    },
+    {
+      "id" : "reproduction-still-zero",
+      "observation" : "三臂 VALID_REPRODUCTION 仍全部为 0",
+      "ifHolds" : "这是合格结果，不触发又一次重跑；报告首轮拒绝原因分布，指出新的阻塞点。",
+      "ifDoesNotHold" : "按臂描述 VALID_REPRODUCTION 计数；不得做臂间比较，也不得因此再开一轮重跑。"
+    },
+    {
+      "id" : "locating-anyhit-drift",
+      "observation" : "某臂 anyHit 与 036 相差不少于 2 例（036 基准：启发式 2/6、文本 5/6、图 5/6）",
+      "ifHolds" : "停下排查，报告前必须查清原因；不得直接发布。",
+      "ifDoesNotHold" : "各臂与 036 的 anyHit 差值小于 2 例，视为定位链路未改时的噪音，不构成停止条件。"
+    }
+  ]
+}
