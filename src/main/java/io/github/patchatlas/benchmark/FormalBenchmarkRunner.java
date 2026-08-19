@@ -59,6 +59,9 @@ public final class FormalBenchmarkRunner {
 
         Optional<RunDetailView> findRunByCase(String caseId, RunPurpose purpose, ContextOrigin origin);
 
+        Optional<RunDetailView> findRunByCase(
+                String caseId, RunPurpose purpose, ContextOrigin origin, String evaluationId);
+
         Optional<RunDetailView> findRunDetail(UUID runId);
     }
 
@@ -69,6 +72,10 @@ public final class FormalBenchmarkRunner {
 
         UUID launchAgent(CohortCase cohortCase, ContextOrigin origin);
 
+        default UUID launchAgent(CohortCase cohortCase, ContextOrigin origin, String evaluationId) {
+            return launchAgent(cohortCase, origin);
+        }
+
         UUID launchDiagnostic(ContextOrigin origin);
 
         default UUID launchDiagnostic() {
@@ -78,6 +85,11 @@ public final class FormalBenchmarkRunner {
         Path exportEvidence(Cohort cohort, List<RunDetailView> details) throws IOException;
 
         Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) throws IOException;
+
+        default Path exportThreeArmEvidence(
+                Cohort cohort, List<ThreeArmRun> runs, String evaluationId) throws IOException {
+            return exportThreeArmEvidence(cohort, runs);
+        }
     }
 
     @FunctionalInterface
@@ -110,8 +122,9 @@ public final class FormalBenchmarkRunner {
         if (BenchmarkActions.VERIFY.equals(parsed)) {
             return verify(cohort);
         }
-        if (BenchmarkActions.VERIFY_THREE_ARM.equals(parsed)) {
-            return verifyThreeArm(cohort);
+        if (BenchmarkActions.VERIFY_THREE_ARM.equals(parsed)
+                || BenchmarkActions.VERIFY_THREE_ARM_036.equals(parsed)) {
+            return verifyThreeArm(cohort, BenchmarkActions.threeArmEvaluationId(parsed));
         }
         if (parsed.startsWith("dry-run")) {
             return dryRun(BenchmarkActions.locatingOrigin(parsed));
@@ -135,7 +148,10 @@ public final class FormalBenchmarkRunner {
                 yield runPositions(cohort, position, position, RunPurpose.AGENT_BENCHMARK);
             }
             case BenchmarkActions.ARM_HEURISTIC, BenchmarkActions.ARM_TEXT, BenchmarkActions.ARM_GRAPH ->
-                    runArm(cohort, BenchmarkActions.locatingOrigin(parsed));
+                    runArm(
+                            cohort,
+                            BenchmarkActions.locatingOrigin(parsed),
+                            BenchmarkActions.threeArmEvaluationId(parsed));
             default -> throw new IllegalArgumentException("unsupported formal action " + parsed);
         };
     }
@@ -163,14 +179,14 @@ public final class FormalBenchmarkRunner {
         return new Outcome.Finished(details);
     }
 
-    private Outcome runArm(Cohort cohort, ContextOrigin origin) {
+    private Outcome runArm(Cohort cohort, ContextOrigin origin, String evaluationId) {
         List<RunDetailView> details = new ArrayList<>();
         for (CohortCase cohortCase : cohort.cases()) {
-            Optional<RunDetailView> existing =
-                    store.findRunByCase(cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin);
+            Optional<RunDetailView> existing = store.findRunByCase(
+                    cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin, evaluationId);
             UUID runId = existing.isPresent()
                     ? existing.orElseThrow().runId()
-                    : operations.launchAgent(cohortCase, origin);
+                    : operations.launchAgent(cohortCase, origin, evaluationId);
             Optional<RunDetailView> terminal = waiter.awaitTerminal(runId, AGENT_WAIT);
             if (terminal.isEmpty()) {
                 return new Outcome.TimedOut(runId, RESUME_MESSAGE);
@@ -180,12 +196,15 @@ public final class FormalBenchmarkRunner {
         return new Outcome.Finished(details);
     }
 
-    private Outcome verifyThreeArm(Cohort cohort) {
+    private Outcome verifyThreeArm(Cohort cohort, String evaluationId) {
         List<ThreeArmRun> runs = new ArrayList<>(18);
         for (ContextOrigin origin : ThreeArmEvidenceExporter.ARMS) {
             for (CohortCase cohortCase : cohort.cases()) {
                 RunDetailView detail = store.findRunByCase(
-                                cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin)
+                                cohortCase.caseId(),
+                                RunPurpose.AGENT_BENCHMARK,
+                                origin,
+                                evaluationId)
                         .orElseThrow(() -> new IllegalStateException(
                                 "missing " + origin + " run for case " + cohortCase.caseId()));
                 if (!detail.state().isTerminal()) {
@@ -200,7 +219,8 @@ public final class FormalBenchmarkRunner {
             }
         }
         try {
-            return new Outcome.Verified(operations.exportThreeArmEvidence(cohort, runs));
+            return new Outcome.Verified(
+                    operations.exportThreeArmEvidence(cohort, runs, evaluationId));
         } catch (IOException ex) {
             throw new IllegalStateException("three-arm evidence export failed", ex);
         }

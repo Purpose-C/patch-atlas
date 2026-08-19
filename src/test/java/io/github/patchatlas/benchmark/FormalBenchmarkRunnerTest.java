@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -237,6 +238,39 @@ class FormalBenchmarkRunnerTest {
         assertThat(output.toString()).contains("batch5b-three-arm");
         assertThat(output.toString()).doesNotContain("task018");
         assertThat(output.toString()).doesNotContain("batch5-three-arm");
+        assertThat(ops.lastThreeArmEvaluationId).isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+    }
+
+    @Test
+    void verifyThreeArm036SelectsBatch5WhenCaseIdsCollide() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        seedCollidingThreeArmBatches(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true)
+                        .execute("verify-three-arm-036", validCohort());
+
+        assertThat(ops.threeArmVerifyCalls.get()).isEqualTo(1);
+        assertThat(ops.lastThreeArmEvaluationId).isEqualTo(EvaluationIds.BATCH5_THREE_ARM);
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
+        Path output = ((FormalBenchmarkRunner.Outcome.Verified) outcome).output();
+        assertThat(output.toString()).contains("batch5-three-arm");
+        assertThat(output.toString()).doesNotContain("batch5b-three-arm");
+    }
+
+    @Test
+    void verifyThreeArmSelectsBatch5bWhenCaseIdsCollide() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        seedCollidingThreeArmBatches(store);
+        FormalBenchmarkRunner.Outcome outcome =
+                runner(failingPreflight(), store, ops, true).execute("verify-three-arm", validCohort());
+
+        assertThat(ops.lastThreeArmEvaluationId).isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Verified.class);
+        Path output = ((FormalBenchmarkRunner.Outcome.Verified) outcome).output();
+        assertThat(output.toString()).contains("batch5b-three-arm");
+        assertThat(output.toString()).doesNotContain("batch5-three-arm");
     }
 
     @Test
@@ -393,6 +427,15 @@ class FormalBenchmarkRunnerTest {
     }
 
     private static void seedThreeArm(ScriptedStore store) {
+        seedThreeArm(store, EvaluationIds.BATCH5B_THREE_ARM);
+    }
+
+    private static void seedCollidingThreeArmBatches(ScriptedStore store) {
+        seedThreeArm(store, EvaluationIds.BATCH5_THREE_ARM);
+        seedThreeArm(store, EvaluationIds.BATCH5B_THREE_ARM);
+    }
+
+    private static void seedThreeArm(ScriptedStore store, String evaluationId) {
         Cohort cohort = validCohort();
         for (ContextOrigin origin : ThreeArmEvidenceExporter.ARMS) {
             for (CohortCase item : cohort.cases()) {
@@ -402,7 +445,8 @@ class FormalBenchmarkRunnerTest {
                         TestPatchProvenance.AGENT_GENERATED,
                         RunState.COMPLETED,
                         1,
-                        origin);
+                        origin,
+                        evaluationId);
             }
         }
     }
@@ -538,6 +582,11 @@ class FormalBenchmarkRunnerTest {
 
         @Override
         public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin) {
+            return launchAgent(cohortCase, origin, null);
+        }
+
+        @Override
+        public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin, String evaluationId) {
             agentArmLaunches.incrementAndGet();
             agentOrigins.add(origin);
             return store.create(
@@ -546,7 +595,8 @@ class FormalBenchmarkRunnerTest {
                     null,
                     RunState.QUEUED,
                     0,
-                    origin);
+                    origin,
+                    evaluationId);
         }
 
         @Override
@@ -569,14 +619,24 @@ class FormalBenchmarkRunnerTest {
 
         @Override
         public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) {
-            threeArmVerifyCalls.incrementAndGet();
-            return Path.of("batch5b-three-arm/results.json");
+            return exportThreeArmEvidence(cohort, runs, EvaluationIds.BATCH5B_THREE_ARM);
         }
+
+        @Override
+        public Path exportThreeArmEvidence(
+                Cohort cohort, List<ThreeArmRun> runs, String evaluationId) {
+            threeArmVerifyCalls.incrementAndGet();
+            lastThreeArmEvaluationId = evaluationId;
+            return Path.of(evaluationId + "/results.json");
+        }
+
+        private String lastThreeArmEvaluationId;
     }
 
     private static final class ScriptedStore implements FormalBenchmarkRunner.Store {
         private final Map<UUID, RunDetailView> byId = new LinkedHashMap<>();
         private final Map<UUID, ContextOrigin> origins = new LinkedHashMap<>();
+        private final Map<UUID, String> evaluations = new LinkedHashMap<>();
         private final List<UUID> created = new ArrayList<>();
 
         UUID create(
@@ -595,10 +655,24 @@ class FormalBenchmarkRunnerTest {
                 RunState state,
                 int attempts,
                 ContextOrigin origin) {
+            return create(caseId, purpose, provenance, state, attempts, origin, null);
+        }
+
+        UUID create(
+                String caseId,
+                RunPurpose purpose,
+                TestPatchProvenance provenance,
+                RunState state,
+                int attempts,
+                ContextOrigin origin,
+                String evaluationId) {
             UUID id = UUID.randomUUID();
             put(view(id, caseId, purpose, state, provenance, attempts));
             if (origin != null) {
                 origins.put(id, origin);
+            }
+            if (evaluationId != null) {
+                evaluations.put(id, evaluationId);
             }
             created.add(id);
             return id;
@@ -643,6 +717,16 @@ class FormalBenchmarkRunnerTest {
             return byId.values().stream()
                     .filter(detail -> caseId.equals(detail.caseId()) && detail.purpose() == purpose)
                     .filter(detail -> origin == origins.get(detail.runId()))
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<RunDetailView> findRunByCase(
+                String caseId, RunPurpose purpose, ContextOrigin origin, String evaluationId) {
+            return byId.values().stream()
+                    .filter(detail -> caseId.equals(detail.caseId()) && detail.purpose() == purpose)
+                    .filter(detail -> origin == origins.get(detail.runId()))
+                    .filter(detail -> Objects.equals(evaluationId, evaluations.get(detail.runId())))
                     .findFirst();
         }
 

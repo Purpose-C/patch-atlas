@@ -167,6 +167,11 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
 
     @Override
     public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin) {
+        return launchAgent(cohortCase, origin, null);
+    }
+
+    @Override
+    public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin, String evaluationId) {
         try {
             Path caseDirectory = caseDirectory(cohortCase);
             GeneratorContextMetadata context =
@@ -174,14 +179,16 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
             OracleMetadata oracle = oracleReader.read(caseDirectory.resolve("oracle.json"));
             CaseMetadata metadata = requireMetadata(cohortCase.caseId());
             requireIssueDigest(context, metadata);
-            return runStore.submitAgentBenchmark(
-                    submission(
-                            cohortCase,
-                            context,
-                            metadata,
-                            oracle,
-                            snapshotsForOrigin(origin),
-                            origin));
+            RunSubmission agentSubmission = submission(
+                    cohortCase,
+                    context,
+                    metadata,
+                    oracle,
+                    snapshotsForOrigin(origin),
+                    origin);
+            return evaluationId == null
+                    ? runStore.submitAgentBenchmark(agentSubmission)
+                    : runStore.submitAgentBenchmark(agentSubmission, evaluationId);
         } catch (IOException ex) {
             throw new IllegalStateException("agent launch failed", ex);
         }
@@ -254,12 +261,20 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
 
     @Override
     public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs) throws IOException {
+        return exportThreeArmEvidence(cohort, runs, EvaluationIds.BATCH5B_THREE_ARM);
+    }
+
+    @Override
+    public Path exportThreeArmEvidence(Cohort cohort, List<ThreeArmRun> runs, String evaluationId)
+            throws IOException {
         Objects.requireNonNull(cohort, "cohort");
         Objects.requireNonNull(runs, "runs");
+        Objects.requireNonNull(evaluationId, "evaluationId");
         if (runs.size() != 18) {
             throw new IllegalArgumentException("expected 18 three-arm runs, got " + runs.size());
         }
-        Path outputDir = artifactsRoot.resolveSibling("batch5b-three-arm");
+        Path sourceDir = threeArmSourceDir(artifactsRoot, evaluationId);
+        Path outputDir = threeArmOutputDir(evaluationId, sourceDir);
         List<ArmCaseFact> facts = new ArrayList<>(18);
         for (ThreeArmRun run : runs) {
             CohortCase cohortCase = requireCohortCase(cohort, run.detail().caseId());
@@ -272,12 +287,48 @@ public final class FrozenBenchmarkOperations implements FormalBenchmarkRunner.Op
         }
         new ThreeArmEvidenceExporter(artifacts).export(
                 cohort,
-                outputDir.resolve("protocol.json"),
-                outputDir.resolve("preregistered-criteria.json"),
+                sourceDir.resolve("protocol.json"),
+                sourceDir.resolve("preregistered-criteria.json"),
                 facts,
-                artifacts.readJson(outputDir.resolve("generation-rejections.json"), FirstRoundRejectionLog.class),
+                artifacts.readJson(sourceDir.resolve("generation-rejections.json"), FirstRoundRejectionLog.class),
                 outputDir);
-        return outputDir.resolve("results.json");
+        Path written = outputDir.resolve("results.json");
+        return completeThreeArmExport(evaluationId, sourceDir, written);
+    }
+
+    static Path threeArmSourceDir(Path artifactsRoot, String evaluationId) {
+        Objects.requireNonNull(artifactsRoot, "artifactsRoot");
+        Objects.requireNonNull(evaluationId, "evaluationId");
+        return switch (evaluationId) {
+            case EvaluationIds.BATCH5_THREE_ARM -> artifactsRoot.resolveSibling("batch5-three-arm");
+            case EvaluationIds.BATCH5B_THREE_ARM -> artifactsRoot.resolveSibling("batch5b-three-arm");
+            default -> throw new IllegalArgumentException("unknown three-arm evaluation " + evaluationId);
+        };
+    }
+
+    static Path threeArmOutputDir(String evaluationId, Path sourceDir) throws IOException {
+        Objects.requireNonNull(evaluationId, "evaluationId");
+        Objects.requireNonNull(sourceDir, "sourceDir");
+        if (EvaluationIds.BATCH5_THREE_ARM.equals(evaluationId)) {
+            return Files.createTempDirectory("batch5-three-arm-reexport-");
+        }
+        return sourceDir;
+    }
+
+    static Path completeThreeArmExport(String evaluationId, Path sourceDir, Path written)
+            throws IOException {
+        Objects.requireNonNull(evaluationId, "evaluationId");
+        Objects.requireNonNull(sourceDir, "sourceDir");
+        Objects.requireNonNull(written, "written");
+        if (EvaluationIds.BATCH5_THREE_ARM.equals(evaluationId)) {
+            Path frozen = sourceDir.resolve("results.json");
+            if (!Files.readString(written).equals(Files.readString(frozen))) {
+                throw new IllegalStateException(
+                        "036 re-export does not match frozen results.json; see " + written);
+            }
+            return frozen;
+        }
+        return written;
     }
 
     static Set<String> selectedPathsFromSnapshots(List<SourceSnapshot> snapshots) {

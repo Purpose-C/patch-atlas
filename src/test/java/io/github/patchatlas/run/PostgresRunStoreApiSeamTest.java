@@ -1,6 +1,7 @@
 package io.github.patchatlas.run;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.replay.AttemptRecord;
@@ -332,6 +333,43 @@ class PostgresRunStoreApiSeamTest {
                         .runId())
                 .isEqualTo(graphId);
         assertThat(heuristicId).isNotEqualTo(textId).isNotEqualTo(graphId);
+    }
+
+    @Test
+    void findRunByCaseWithEvaluationKeepsBatchesApartWithoutRenamingCaseId() {
+        UUID first = store.submitAgentBenchmark(
+                liveSubmission("shared-case", ContextOrigin.GRAPH_TOOLS), "batch5-three-arm");
+        UUID second = store.submitAgentBenchmark(
+                liveSubmission("shared-case", ContextOrigin.GRAPH_TOOLS), "batch5b-three-arm");
+
+        assertThat(store.findRunByCase(
+                        "shared-case",
+                        RunPurpose.AGENT_BENCHMARK,
+                        ContextOrigin.GRAPH_TOOLS,
+                        "batch5-three-arm")
+                        .orElseThrow()
+                        .runId())
+                .isEqualTo(first);
+        assertThat(store.findRunByCase(
+                        "shared-case",
+                        RunPurpose.AGENT_BENCHMARK,
+                        ContextOrigin.GRAPH_TOOLS,
+                        "batch5b-three-arm")
+                        .orElseThrow()
+                        .runId())
+                .isEqualTo(second);
+        assertThat(store.findRunDetail(first).orElseThrow().caseId()).isEqualTo("shared-case");
+        assertThat(store.findRunDetail(second).orElseThrow().caseId()).isEqualTo("shared-case");
+        assertThat(store.findRunByCase(
+                        "shared-case",
+                        RunPurpose.AGENT_BENCHMARK,
+                        ContextOrigin.GRAPH_TOOLS,
+                        "missing-evaluation"))
+                .isEmpty();
+        assertThatThrownBy(() -> store.submitAgentBenchmark(
+                        liveSubmission("bad-eval", ContextOrigin.HEURISTIC), "Batch_5"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("evaluationId");
     }
 
     private ClaimedRun claimAndGenerate(String caseId) {

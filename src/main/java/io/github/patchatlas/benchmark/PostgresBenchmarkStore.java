@@ -29,6 +29,12 @@ final class PostgresBenchmarkStore implements FormalBenchmarkRunner.Store {
     }
 
     @Override
+    public Optional<RunDetailView> findRunByCase(
+            String caseId, RunPurpose purpose, ContextOrigin origin, String evaluationId) {
+        return store.findRunByCase(caseId, purpose, origin, evaluationId);
+    }
+
+    @Override
     public Optional<RunDetailView> findRunDetail(UUID runId) {
         return store.findRunDetail(runId);
     }

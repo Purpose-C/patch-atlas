@@ -246,4 +246,5 @@ Counts are first `generation.attempt.rejected` records (attempt_ordinal = 1). Ru
 - No Docker, environment, or transfer stop condition occurred. One HEURISTIC run ended in LOCATING_NO_CONTEXT; that is a locating outcome, not an unrelated pipeline failure.
 - After verifyAlreadyApplied takes caller diagnostics, PatchGate.inspect still writes unknown() inside the method. Production callers are known-trigger inspection only. This batch did not change inspect.
 - First-round refusals were compilation, application, and patch policy; RESPONSE_TRUNCATED count is reported under preregistered criteria.
+- 041 sampling temporarily prefixed the 036 `case_id` values so `findRunByCase` would not resume those rows. Those prefixes have been removed; the database `case_id` again matches the 036 report. Batch disambiguation now uses the `evaluation_id` column, which is not copied into evidence reports.
 

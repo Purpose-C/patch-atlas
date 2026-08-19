@@ -75,7 +75,15 @@ public final class PostgresRunStore {
 
     /** 正式 Agent Benchmark 样本入口；生成与 Replay 控制流仍沿用普通 Run。 */
     public UUID submitAgentBenchmark(RunSubmission submission) {
-        return submit(RunPurpose.AGENT_BENCHMARK, submission);
+        return submitAgentBenchmark(submission, null);
+    }
+
+    /**
+     * 正式 Agent Benchmark 样本入口。{@code evaluationId} 只用于同 case 多批次消歧，
+     * 不进入证据报告。
+     */
+    public UUID submitAgentBenchmark(RunSubmission submission, String evaluationId) {
+        return submit(RunPurpose.AGENT_BENCHMARK, submission, evaluationId);
     }
 
     /** 诊断重跑入口；不进入正式 Benchmark 分母，仍经过完整生成与 Replay 链路。 */
@@ -187,8 +195,13 @@ public final class PostgresRunStore {
     }
 
     private UUID submit(RunPurpose purpose, RunSubmission submission) {
+        return submit(purpose, submission, null);
+    }
+
+    private UUID submit(RunPurpose purpose, RunSubmission submission, String evaluationId) {
         Objects.requireNonNull(purpose, "purpose");
         Objects.requireNonNull(submission, "submission");
+        String normalizedEvaluationId = normalizeEvaluationId(evaluationId);
         UUID id = UUID.randomUUID();
         String snapshotsJson = snapshotsCodec.encode(submission.sourceSnapshots());
         jdbc.sql(
@@ -197,12 +210,12 @@ public final class PostgresRunStore {
                           id, mode, run_purpose, case_id, repository_url, license, issue_url,
                           issue_title, issue_body, buggy_revision, fixed_revision,
                           module_path, java_version, network_mode, source_snapshots, input_schema_version,
-                          context_origin, state, version, recovery_count, replay_round
+                          context_origin, evaluation_id, state, version, recovery_count, replay_round
                         ) VALUES (
                           :id, :mode, :runPurpose, :caseId, :repositoryUrl, :license, :issueUrl,
                           :issueTitle, :issueBody, :buggyRevision, :fixedRevision,
                           :modulePath, :javaVersion, :networkMode, CAST(:sourceSnapshots AS jsonb), :schemaVersion,
-                          :contextOrigin, :state, 0, 0, 0
+                          :contextOrigin, :evaluationId, :state, 0, 0, 0
                         )
                         """)
                 .param("id", id)
@@ -222,9 +235,20 @@ public final class PostgresRunStore {
                 .param("sourceSnapshots", snapshotsJson)
                 .param("schemaVersion", SourceSnapshotsCodec.CURRENT_INPUT_SCHEMA_VERSION)
                 .param("contextOrigin", submission.contextOrigin().name())
+                .param("evaluationId", normalizedEvaluationId)
                 .param("state", RunState.QUEUED.name())
                 .update();
         return id;
+    }
+
+    static String normalizeEvaluationId(String evaluationId) {
+        if (evaluationId == null) {
+            return null;
+        }
+        if (!evaluationId.matches("^[a-z0-9-]{1,64}$")) {
+            throw new IllegalArgumentException("evaluationId must match [a-z0-9-]{1,64}");
+        }
+        return evaluationId;
     }
 
     /**
@@ -444,6 +468,55 @@ public final class PostgresRunStore {
                 .param("caseId", caseId)
                 .param("purpose", purpose.name())
                 .param("origin", origin.name())
+                .query((rs, rowNum) -> mapDetailHeader(rs))
+                .optional();
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        return completeDetail(header.orElseThrow());
+    }
+
+    /**
+     * 只读查找同一 caseId + Run Purpose + 定位来源 + 评测批次的正式 Run。
+     * {@code evaluationId} 不出现在证据报告里。
+     */
+    public Optional<RunDetailView> findRunByCase(
+            String caseId, RunPurpose purpose, ContextOrigin origin, String evaluationId) {
+        Objects.requireNonNull(caseId, "caseId");
+        Objects.requireNonNull(purpose, "purpose");
+        Objects.requireNonNull(origin, "origin");
+        if (caseId.isBlank()) {
+            throw new IllegalArgumentException("caseId must not be blank");
+        }
+        String normalizedEvaluationId = normalizeEvaluationId(evaluationId);
+        Optional<RunDetailView> header = jdbc.sql(
+                        """
+                        SELECT r.id, r.mode, r.run_purpose, r.state, r.case_id,
+                               r.repository_url, r.issue_url, r.issue_title, r.issue_body,
+                               r.buggy_revision, r.fixed_revision, r.module_path,
+                               r.java_version, r.network_mode,
+                               r.generation_attempt_count, r.model_provider, r.model_name,
+                               r.model_input_tokens, r.model_output_tokens, r.model_total_tokens,
+                               r.model_usage_record_count,
+                               r.locating_model_calls, r.locating_usage_record_count,
+                               r.locating_input_tokens, r.locating_output_tokens, r.locating_total_tokens,
+                               r.verdict, r.failure_stage, r.failure_category, r.failure_summary,
+                               r.created_at, r.updated_at, r.completed_at, r.final_replay_round,
+                               c.patch_text, c.patch_sha256, c.target_class, c.target_method,
+                               c.patch_provenance
+                          FROM verification_run r
+                          LEFT JOIN candidate_test_patch c ON c.run_id = r.id
+                         WHERE r.case_id = :caseId
+                           AND r.run_purpose = :purpose
+                           AND r.context_origin = :origin
+                           AND r.evaluation_id IS NOT DISTINCT FROM :evaluationId
+                         ORDER BY r.created_at ASC, r.id ASC
+                         LIMIT 1
+                        """)
+                .param("caseId", caseId)
+                .param("purpose", purpose.name())
+                .param("origin", origin.name())
+                .param("evaluationId", normalizedEvaluationId)
                 .query((rs, rowNum) -> mapDetailHeader(rs))
                 .optional();
         if (header.isEmpty()) {

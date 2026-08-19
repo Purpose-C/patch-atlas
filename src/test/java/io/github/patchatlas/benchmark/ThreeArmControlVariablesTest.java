@@ -3,6 +3,7 @@ package io.github.patchatlas.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -161,5 +162,53 @@ class ThreeArmControlVariablesTest {
         assertThat(captor.getValue().sourceSnapshots()).isEmpty();
         assertThat(captor.getValue().contextOrigin()).isEqualTo(ContextOrigin.TEXT_TOOLS);
         assertThat(captor.getValue().caseId()).isEqualTo("case-1");
+
+        when(store.submitAgentBenchmark(any(), any())).thenReturn(runId);
+        assertThat(operations.launchAgent(
+                        cohortCase, ContextOrigin.GRAPH_TOOLS, EvaluationIds.BATCH5B_THREE_ARM))
+                .isEqualTo(runId);
+        verify(store).submitAgentBenchmark(any(), eq(EvaluationIds.BATCH5B_THREE_ARM));
+    }
+
+    @Test
+    void threeArmExportHelpersKeep036FrozenAndRejectUnknownEvaluation() throws Exception {
+        Path artifactsRoot = tempDir.resolve("task018");
+        Files.createDirectories(artifactsRoot);
+        assertThat(FrozenBenchmarkOperations.threeArmSourceDir(
+                        artifactsRoot, EvaluationIds.BATCH5_THREE_ARM).getFileName().toString())
+                .isEqualTo("batch5-three-arm");
+        assertThat(FrozenBenchmarkOperations.threeArmSourceDir(
+                        artifactsRoot, EvaluationIds.BATCH5B_THREE_ARM).getFileName().toString())
+                .isEqualTo("batch5b-three-arm");
+        assertThatThrownBy(() -> FrozenBenchmarkOperations.threeArmSourceDir(artifactsRoot, "other"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unknown three-arm evaluation");
+
+        Path sourceDir = tempDir.resolve("batch5-three-arm");
+        Files.createDirectories(sourceDir);
+        Files.writeString(sourceDir.resolve("results.json"), "{\"ok\":true}");
+        Path matching = tempDir.resolve("written.json");
+        Files.writeString(matching, "{\"ok\":true}");
+        Path mismatch = tempDir.resolve("mismatch.json");
+        Files.writeString(mismatch, "{\"ok\":false}");
+        assertThat(FrozenBenchmarkOperations.completeThreeArmExport(
+                        EvaluationIds.BATCH5_THREE_ARM, sourceDir, matching))
+                .isEqualTo(sourceDir.resolve("results.json"));
+        assertThatThrownBy(() -> FrozenBenchmarkOperations.completeThreeArmExport(
+                        EvaluationIds.BATCH5_THREE_ARM, sourceDir, mismatch))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("036 re-export does not match frozen results.json");
+        Path batch5bWritten = tempDir.resolve("batch5b.json");
+        assertThat(FrozenBenchmarkOperations.completeThreeArmExport(
+                        EvaluationIds.BATCH5B_THREE_ARM, sourceDir, batch5bWritten))
+                .isEqualTo(batch5bWritten);
+
+        Path fiveBOutput = FrozenBenchmarkOperations.threeArmOutputDir(
+                EvaluationIds.BATCH5B_THREE_ARM, sourceDir);
+        assertThat(fiveBOutput).isEqualTo(sourceDir);
+        Path fiveOutput = FrozenBenchmarkOperations.threeArmOutputDir(
+                EvaluationIds.BATCH5_THREE_ARM, sourceDir);
+        assertThat(fiveOutput).isDirectory();
+        assertThat(fiveOutput).isNotEqualTo(sourceDir);
     }
 }

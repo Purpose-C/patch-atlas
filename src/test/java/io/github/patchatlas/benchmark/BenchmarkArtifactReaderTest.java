@@ -286,6 +286,14 @@ class BenchmarkArtifactReaderTest {
         assertThat(md).contains("| HEURISTIC | 2 / 6 | 2 / 6 | +0 |");
         assertThat(md).contains("6efab8b");
         assertThat(md).contains("c177721");
+        int notes = md.indexOf("## Evaluation notes");
+        assertThat(notes).isGreaterThan(heuristic);
+        String evaluationNotes = md.substring(notes);
+        assertThat(evaluationNotes).contains("evaluation_id");
+        assertThat(evaluationNotes).contains("temporarily prefixed");
+        assertThat(evaluationNotes).contains("have been removed");
+        assertThat(evaluationNotes).contains("not copied into evidence reports");
+        assertThat(md.substring(0, notes)).doesNotContain("evaluation_id");
         assertThat(md).doesNotContain("17 次未进入 Docker Replay");
         assertThat(md.substring(paired, cross)).doesNotContain("VALID_REPRODUCTION");
         assertThat(md)
@@ -299,7 +307,8 @@ class BenchmarkArtifactReaderTest {
         assertThat(Files.readString(Path.of("benchmark-cases/batch5b-three-arm/results.json")))
                 .contains("\"runCount\" : 6")
                 .doesNotContain("overallScore")
-                .doesNotContain("composite");
+                .doesNotContain("composite")
+                .doesNotContain("evaluation_id");
         String rejections = Files.readString(
                 Path.of("benchmark-cases/batch5b-three-arm/generation-rejections.json"));
         assertThat(rejections).doesNotContain("/Users/").doesNotContain("/home/");

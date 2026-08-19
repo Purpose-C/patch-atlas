@@ -16,6 +16,9 @@ import java.util.Set;
  * {@code AGENT_BENCHMARK} 启动，彼此只差定位来源。
  * {@code verify-three-arm} 从 PostgreSQL 读取 18 次终态 Run，把证据写到
  * {@code benchmark-cases/batch5b-three-arm/}，不写 {@code task018} 或 {@code batch5-three-arm}。
+ * {@code verify-three-arm-036} 按 {@code evaluation_id} 读取 036 的 18 次 Run，重导到临时目录并
+ * 与冻结的 {@code results.json} 比对，不改 {@code batch5-three-arm/}。
+ * 三臂查找用 {@code evaluation_id} 消歧，不改会被打印的 {@code case_id}。
  * 缺少明确前提时显式入口失败，不能悄悄 skip 并报告成功。
  */
 public final class BenchmarkActions {
@@ -30,6 +33,7 @@ public final class BenchmarkActions {
     public static final String AGENT_6 = "agent-6";
     public static final String VERIFY = "verify";
     public static final String VERIFY_THREE_ARM = "verify-three-arm";
+    public static final String VERIFY_THREE_ARM_036 = "verify-three-arm-036";
     public static final String DRY_RUN = "dry-run";
     public static final String DRY_RUN_TEXT = "dry-run-text";
     public static final String DRY_RUN_GRAPH = "dry-run-graph";
@@ -48,6 +52,7 @@ public final class BenchmarkActions {
             AGENT_6,
             VERIFY,
             VERIFY_THREE_ARM,
+            VERIFY_THREE_ARM_036,
             DRY_RUN,
             DRY_RUN_TEXT,
             DRY_RUN_GRAPH,
@@ -98,6 +103,7 @@ public final class BenchmarkActions {
         return !FREEZE.equals(parsed)
                 && !VERIFY.equals(parsed)
                 && !VERIFY_THREE_ARM.equals(parsed)
+                && !VERIFY_THREE_ARM_036.equals(parsed)
                 && !parsed.startsWith("dry-run");
     }
 
@@ -108,6 +114,15 @@ public final class BenchmarkActions {
             case DRY_RUN_TEXT, ARM_TEXT -> ContextOrigin.TEXT_TOOLS;
             case DRY_RUN_GRAPH, ARM_GRAPH -> ContextOrigin.GRAPH_TOOLS;
             default -> throw new IllegalArgumentException(action + " has no locating origin");
+        };
+    }
+
+    /** 三臂动作所选择的评测批次；该值写入 {@code evaluation_id}，不进入证据报告。 */
+    public static String threeArmEvaluationId(String action) {
+        return switch (parseAction(action)) {
+            case VERIFY_THREE_ARM, ARM_HEURISTIC, ARM_TEXT, ARM_GRAPH -> EvaluationIds.BATCH5B_THREE_ARM;
+            case VERIFY_THREE_ARM_036 -> EvaluationIds.BATCH5_THREE_ARM;
+            default -> throw new IllegalArgumentException(action + " has no three-arm evaluation");
         };
     }
 }

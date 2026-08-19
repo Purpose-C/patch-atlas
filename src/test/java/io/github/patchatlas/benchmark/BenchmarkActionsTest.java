@@ -21,6 +21,7 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.parseAction("agent-6")).isEqualTo("agent-6");
         assertThat(BenchmarkActions.parseAction("verify")).isEqualTo("verify");
         assertThat(BenchmarkActions.parseAction("verify-three-arm")).isEqualTo("verify-three-arm");
+        assertThat(BenchmarkActions.parseAction("verify-three-arm-036")).isEqualTo("verify-three-arm-036");
         assertThat(BenchmarkActions.parseAction("dry-run")).isEqualTo("dry-run");
         assertThat(BenchmarkActions.parseAction("dry-run-text")).isEqualTo("dry-run-text");
         assertThat(BenchmarkActions.parseAction("dry-run-graph")).isEqualTo("dry-run-graph");
@@ -98,6 +99,7 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.isFormalRun("freeze")).isFalse();
         assertThat(BenchmarkActions.isFormalRun("verify")).isFalse();
         assertThat(BenchmarkActions.isFormalRun("verify-three-arm")).isFalse();
+        assertThat(BenchmarkActions.isFormalRun("verify-three-arm-036")).isFalse();
     }
 
     @Test
@@ -132,5 +134,26 @@ class BenchmarkActionsTest {
         assertThatThrownBy(() -> BenchmarkActions.locatingOrigin("verify-three-arm"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("has no locating origin");
+    }
+
+    @Test
+    void threeArmEvaluationIdMapsVerifyAndArmActions() {
+        assertThat(BenchmarkActions.threeArmEvaluationId("verify-three-arm"))
+                .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+        assertThat(BenchmarkActions.threeArmEvaluationId("verify-three-arm-036"))
+                .isEqualTo(EvaluationIds.BATCH5_THREE_ARM);
+        assertThat(BenchmarkActions.threeArmEvaluationId("arm-heuristic"))
+                .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+        assertThat(BenchmarkActions.threeArmEvaluationId("arm-text"))
+                .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+        assertThat(BenchmarkActions.threeArmEvaluationId("arm-graph"))
+                .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+    }
+
+    @Test
+    void threeArmEvaluationIdRejectsActionsWithoutBatch() {
+        assertThatThrownBy(() -> BenchmarkActions.threeArmEvaluationId("calibrate"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("has no three-arm evaluation");
     }
 }
