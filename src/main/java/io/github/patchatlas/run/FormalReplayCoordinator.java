@@ -159,7 +159,8 @@ public final class FormalReplayCoordinator {
                 session.workspace(),
                 session.modulePath(),
                 draft,
-                session.executionPolicy());
+                session.executionPolicy(),
+                CompletionDiagnostics.unknown());
         if (prepared instanceof PatchPreparationResult.RejectedCandidate rejected) {
             throw new PatchGateRejectedException(toPatchGateFailure(rejected));
         }

@@ -58,6 +58,15 @@ class PatchGateTest {
     }
 
     @Test
+    void verifyAlreadyAppliedHasNoFourArgumentOverload() {
+        long fourArg = java.util.Arrays.stream(PatchGate.class.getDeclaredMethods())
+                .filter(method -> "verifyAlreadyApplied".equals(method.getName())
+                        && method.getParameterCount() == 4)
+                .count();
+        assertThat(fourArg).isZero();
+    }
+
+    @Test
     void inspectsCandidatePolicyWithoutWorkspaceIo() {
         CandidateDraft candidate = new CandidateDraft(
                 FakeTestGeneratorTest.minimalCreatePatch(),
@@ -97,7 +106,7 @@ class PatchGateTest {
                 new TargetTest("fixtures.NewTest", "works"));
 
         PatchPreparationResult result = gate.verifyAlreadyApplied(
-                workspace, "", candidate, MavenNetworkMode.OFFLINE);
+                workspace, "", candidate, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         assertThat(Files.readString(existing)).isEqualTo(before);
@@ -110,12 +119,55 @@ class PatchGateTest {
                 new TargetTest("fixtures.NewTest", "works"));
 
         PatchPreparationResult result = gate.verifyAlreadyApplied(
-                workspace, "", candidate, MavenNetworkMode.OFFLINE);
+                workspace, "", candidate, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
                 .isEqualTo(PatchRejectionCategory.APPLICATION_FAILURE);
         assertThat(Files.exists(workspace.resolve("src/test/java/fixtures/NewTest.java"))).isFalse();
+    }
+
+    @Test
+    void verifyAlreadyAppliedUsesCallerDiagnosticsNotInternalUnknown() throws Exception {
+        Path existing = workspace.resolve("src/test/java/fixtures/OldTest.java");
+        Files.createDirectories(existing.getParent());
+        String alreadyApplied =
+                """
+                package fixtures;
+
+                import org.junit.jupiter.api.Test;
+
+                class OldTest {
+                  @Test
+                  void already() {}
+
+                  @Test
+                  void added() {}
+                }
+                """;
+        Files.writeString(existing, alreadyApplied, StandardCharsets.UTF_8);
+        CandidateDraft candidate = new CandidateDraft(
+                WRONG_HEADER_COUNTS_PATCH, new TargetTest("fixtures.OldTest", "added"));
+
+        PatchPreparationResult unknown = gate.verifyAlreadyApplied(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
+        assertThat(unknown).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
+        assertThat(((PatchPreparationResult.RejectedCandidate) unknown).reason())
+                .isEqualTo("hunk new count mismatch");
+        assertThat(Files.readString(existing)).isEqualTo(alreadyApplied);
+
+        PatchPreparationResult recounted = gate.verifyAlreadyApplied(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.of("stop", "0", "10"));
+        assertThat(recounted).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
+        assertThat(Files.readString(existing)).isEqualTo(alreadyApplied);
     }
 
     @Test
@@ -240,6 +292,35 @@ class PatchGateTest {
         Files.createDirectories(outsideWs);
         try {
             PatchPreparationResult result = gate.prepare(
+                    outsideWs,
+                    "",
+                    new CandidateDraft(
+                            FakeTestGeneratorTest.minimalCreatePatch(),
+                            new TargetTest("fixtures.NewTest", "works")),
+                    MavenNetworkMode.OFFLINE,
+                    CompletionDiagnostics.unknown());
+            assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
+            assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
+                    .isEqualTo(PatchRejectionCategory.WORKSPACE_UNSAFE);
+        } finally {
+            try (var walk = Files.walk(outsideRoot)) {
+                walk.sorted((a, b) -> b.compareTo(a)).forEach(p -> {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (Exception ignored) {
+                    }
+                });
+            }
+        }
+    }
+
+    @Test
+    void verifyAlreadyAppliedRejectsWorkspaceOutsideAllowedRoot() throws Exception {
+        Path outsideRoot = Files.createTempDirectory("outside-gate-verify-");
+        Path outsideWs = outsideRoot.resolve("ws");
+        Files.createDirectories(outsideWs);
+        try {
+            PatchPreparationResult result = gate.verifyAlreadyApplied(
                     outsideWs,
                     "",
                     new CandidateDraft(

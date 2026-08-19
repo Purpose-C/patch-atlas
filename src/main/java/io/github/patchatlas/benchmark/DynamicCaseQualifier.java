@@ -159,7 +159,8 @@ public final class DynamicCaseQualifier {
                                         workspace,
                                         input.modulePath(),
                                         draft(input),
-                                        policy)
+                                        policy,
+                                        CompletionDiagnostics.unknown())
                                 instanceof PatchPreparationResult.PreparedCandidate;
                     }
                 },

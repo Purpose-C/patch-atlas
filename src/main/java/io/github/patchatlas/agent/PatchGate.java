@@ -116,26 +116,33 @@ public final class PatchGate {
             Path workspace,
             String modulePath,
             CandidateDraft candidate,
-            MavenNetworkMode networkMode) {
+            MavenNetworkMode networkMode,
+            CompletionDiagnostics diagnostics) {
         return verifyAlreadyApplied(
                 workspace,
                 modulePath,
                 candidate,
-                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode));
+                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode),
+                diagnostics);
     }
 
     /**
      * 校准 patch 在 Fixed Revision 中应已存在；这里只读验证，不再次应用 patch。
+     *
+     * <p>完成证据必须由调用方传入。人类 / 数据集补丁没有 completion，调用点应显式
+     * {@link CompletionDiagnostics#unknown()}，不得在本方法内静默假定。
      */
     public PatchPreparationResult verifyAlreadyApplied(
             Path workspace,
             String modulePath,
             CandidateDraft candidate,
-            MavenExecutionPolicy executionPolicy) {
+            MavenExecutionPolicy executionPolicy,
+            CompletionDiagnostics diagnostics) {
         Objects.requireNonNull(workspace, "workspace");
         Objects.requireNonNull(modulePath, "modulePath");
         Objects.requireNonNull(candidate, "candidate");
         Objects.requireNonNull(executionPolicy, "executionPolicy");
+        Objects.requireNonNull(diagnostics, "diagnostics");
 
         final Path trustedWorkspace;
         try {
@@ -145,7 +152,7 @@ public final class PatchGate {
         }
 
         PolicyDetails policy = inspectInternal(
-                modulePath, candidate, executionPolicy, CompletionDiagnostics.unknown());
+                modulePath, candidate, executionPolicy, diagnostics);
         if (!policy.accepted()) {
             return policy.rejection();
         }
