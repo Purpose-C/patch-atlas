@@ -163,7 +163,8 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - Run 聚合指标、沙箱执行遥测、结构化领域日志与估算费用；
 - 受控校准案例和一个真实 Spring 历史案例；
 - 冻结队列上的正式 Agent Benchmark。3 个 Calibration 案例全部 `VALID_REPRODUCTION`，3 个 Agent 案例全部未复现（`GENERATION_EXHAUSTED`）。失败集中在统一 diff 的输出契约层而非测试设计层：9 次拒绝中 6 次为 `trailing non-patch text`、3 次为 `hunk new count mismatch`。完整证据见 `benchmark-cases/task018/`。
+- 一条命令启动只读控制台（PostgreSQL + API + Vue）。命令与干净目录验证见 [`docs/up.md`](up.md)。该命令不启动 Issue2Test Worker，也不调用模型。
 
 尚未实现：
 
-- 示例报告、演示 Tag 与一条命令启动的交付包装。
+- 演示 Tag。示例报告导读与对外 README 包装仍待交付。
