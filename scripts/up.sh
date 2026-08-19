@@ -73,6 +73,16 @@ if [[ -f "$ROOT/.env" ]]; then
     echo "note: .env exists in the working tree but this script does not read it" >&2
 fi
 
+# Leftover containers with these names make `compose up` fail with
+# "The container name is already in use". Remove them first so a second
+# start succeeds. Do not remove named volumes.
+for name in patchatlas-postgres-1 patchatlas-app-1 patchatlas-web-1; do
+    if docker container inspect "$name" >/dev/null 2>&1; then
+        echo "removing leftover container ${name} so compose can start" >&2
+        docker rm -f "$name" >/dev/null
+    fi
+done
+
 "${COMPOSE[@]}" up --build -d --wait --wait-timeout 600
 
 echo "PatchAtlas console is up"

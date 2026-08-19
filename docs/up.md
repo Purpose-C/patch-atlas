@@ -27,6 +27,8 @@
 
 若带 `--worker`，或环境里已经有 `PATCHATLAS_WORKER_ENABLED=true` / `PATCHATLAS_GENERATOR_TYPE=OPENAI`，脚本会拒绝启动，并列出缺的凭据或说明本打包不含 Worker。缺 `OPENAI_API_KEY`、`PATCHATLAS_OPENAI_MODEL` 或 `PATCHATLAS_WORKER_WORKSPACE_ROOT` 时直接报 `missing:`，不会改成 FAKE 假装成功。
 
+重复执行 `./scripts/up.sh` 是安全的。若已有占用 `patchatlas-postgres-1` / `patchatlas-app-1` / `patchatlas-web-1` 的容器，脚本会先删掉这三个容器再拉起，不删 named volume。其它名字的容器（例如评测用的独立 Postgres）不会动。
+
 沙箱执行依赖宿主 Docker 引擎。本 Compose 栈不挂载 Docker Socket，因此即使用户提供了模型凭据，这条命令也不会启动 Worker。
 
 历史评测证据在 `benchmark-cases/`，不在这次拉起的空库里。

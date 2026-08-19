@@ -42,8 +42,22 @@ class DeliveryUpScriptTest {
         assertThat(verification).contains("missing: OPENAI_API_KEY");
         assertThat(verification).contains("\"status\":\"UP\"");
         assertThat(verification).contains("\"items\":[]");
+        assertThat(verification).contains("removing leftover container patchatlas-postgres-1");
+        assertThat(verification).contains("连跑两次");
         assertThat(verification).doesNotContain("_待填_");
         assertThat(verification).doesNotContain("/Users/");
+    }
+
+    @Test
+    void upScriptClearsLeftoverComposeNamesBeforeUp() throws IOException {
+        String up = Files.readString(UP);
+        assertThat(up).contains("patchatlas-postgres-1");
+        assertThat(up).contains("patchatlas-app-1");
+        assertThat(up).contains("patchatlas-web-1");
+        assertThat(up).contains("docker rm -f");
+        assertThat(up).contains("up --build -d --wait");
+        assertThat(up).doesNotContain("down -v");
+        assertThat(up).doesNotContain("volume rm");
     }
 
     @Test

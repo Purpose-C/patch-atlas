@@ -60,3 +60,34 @@ curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/runs
 - `GET /runs` → HTTP 200
 - 验证目录始终没有 `.env`
 - `./scripts/down.sh` 退出码 0
+
+## 连跑两次（2026-08-20）
+
+同一类干净副本（无 `.env`、无 `target/`、无 `frontend/node_modules/`），在第一次已经拉起成功之后立刻再执行一次，不先 `down`：
+
+```bash
+./scripts/up.sh
+curl -sf http://127.0.0.1:8080/api/v1/health
+./scripts/up.sh
+curl -sf http://127.0.0.1:8080/api/v1/health
+./scripts/down.sh
+```
+
+期望：两次 `./scripts/up.sh` 都是退出码 0；第二次会清掉占用 `patchatlas-postgres-1` / `patchatlas-app-1` / `patchatlas-web-1` 的容器再拉起；健康检查仍为 `"status":"UP"`；`/api/runs` 仍是空列表。
+
+实际：
+
+- 第一次退出码 0。`GET /api/v1/health` → `{"name":"PatchAtlas","status":"UP",...}`；`GET /api/runs` → `{"items":[],"nextCursor":null}`；`GET /runs` → HTTP 200
+- 第二次标准错误含：
+
+  ```text
+  removing leftover container patchatlas-postgres-1 so compose can start
+  removing leftover container patchatlas-app-1 so compose can start
+  removing leftover container patchatlas-web-1 so compose can start
+  ```
+
+  随后退出码 0。健康检查再次 `"status":"UP"`，`/api/runs` 仍为 `{"items":[],"nextCursor":null}`，`/runs` HTTP 200
+- `./scripts/down.sh` 退出码 0
+- 验证目录始终没有 `.env`
+
+这只证明启动脚本重复执行不再因同名容器失败。`docs/demo-recording.md` 里那次 Compose 冲突失败仍按当时真实发生保留，没有重录。
