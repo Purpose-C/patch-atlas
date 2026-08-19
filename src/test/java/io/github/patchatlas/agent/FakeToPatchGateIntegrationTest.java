@@ -29,7 +29,11 @@ class FakeToPatchGateIntegrationTest {
         PatchGate gate = new PatchGate(tempDir);
         GenerationResult.GeneratedDraft draft = (GenerationResult.GeneratedDraft) generated;
         PatchPreparationResult result = gate.prepare(
-                workspace, "", draft.draft(), MavenNetworkMode.OFFLINE);
+                workspace,
+                "",
+                draft.draft(),
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
     }
 }

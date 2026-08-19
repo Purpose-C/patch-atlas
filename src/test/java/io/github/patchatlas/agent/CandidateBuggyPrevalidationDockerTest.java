@@ -76,7 +76,7 @@ class CandidateBuggyPrevalidationDockerTest {
         CandidateDraft draft = new CandidateDraft(AGENT_CANDIDATE_PATCH, AGENT_TARGET);
         PatchGate gate = new PatchGate(tempDir);
         PatchPreparationResult prepared =
-                gate.prepare(workspace, "", draft, MavenNetworkMode.OFFLINE);
+                gate.prepare(workspace, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown());
         assertThat(prepared).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         PatchPreparationResult.PreparedCandidate ok =
                 (PatchPreparationResult.PreparedCandidate) prepared;

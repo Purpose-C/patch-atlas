@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.CandidateDraft;
 import io.github.patchatlas.agent.CallFailureCategory;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationRequest;
@@ -131,7 +132,12 @@ class Issue2TestWorkerRecoveryTest {
         Path firstWorkspace;
         try (var session = cloningFactory().open(claimed, input)) {
             firstWorkspace = session.workspace();
-            var prepared = gate.prepare(session.workspace(), "", draft, MavenNetworkMode.OFFLINE);
+            var prepared = gate.prepare(
+                    session.workspace(),
+                    "",
+                    draft,
+                    MavenNetworkMode.OFFLINE,
+                    CompletionDiagnostics.unknown());
             assertThat(prepared)
                     .isInstanceOf(io.github.patchatlas.agent.PatchPreparationResult.PreparedCandidate.class);
             // 污染工作区：模拟崩溃前留下已打 patch 的文件

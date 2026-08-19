@@ -33,8 +33,12 @@ class PatchGateTest {
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures.NewTest", "works"));
 
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult result = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         Path created = workspace.resolve("src/test/java/fixtures/NewTest.java");
@@ -43,6 +47,14 @@ class PatchGateTest {
         PatchPreparationResult.PreparedCandidate prepared =
                 (PatchPreparationResult.PreparedCandidate) result;
         assertThat(prepared.command().arguments()).contains("-Dtest=fixtures.NewTest#works");
+    }
+
+    @Test
+    void prepareHasNoFourArgumentOverload() {
+        long fourArg = java.util.Arrays.stream(PatchGate.class.getDeclaredMethods())
+                .filter(method -> "prepare".equals(method.getName()) && method.getParameterCount() == 4)
+                .count();
+        assertThat(fourArg).isZero();
     }
 
     @Test
@@ -141,8 +153,12 @@ class PatchGateTest {
         CandidateDraft candidate = new CandidateDraft(
                 patch, new TargetTest("fixtures.OldTest", "added"));
 
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult result = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         assertThat(Files.readString(existing)).contains("void added()");
@@ -163,8 +179,12 @@ class PatchGateTest {
         CandidateDraft candidate = new CandidateDraft(
                 patch, new TargetTest("fixtures.Evil", "x"));
 
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult result = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
@@ -178,8 +198,12 @@ class PatchGateTest {
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures.OtherTest", "works"));
 
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult result = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
@@ -201,7 +225,8 @@ class PatchGateTest {
                 new CandidateDraft(
                         FakeTestGeneratorTest.minimalCreatePatch(),
                         new TargetTest("fixtures.NewTest", "works")),
-                MavenNetworkMode.OFFLINE);
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
@@ -220,7 +245,8 @@ class PatchGateTest {
                     new CandidateDraft(
                             FakeTestGeneratorTest.minimalCreatePatch(),
                             new TargetTest("fixtures.NewTest", "works")),
-                    MavenNetworkMode.OFFLINE);
+                    MavenNetworkMode.OFFLINE,
+                    CompletionDiagnostics.unknown());
             assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
             assertThat(((PatchPreparationResult.RejectedCandidate) result).category())
                     .isEqualTo(PatchRejectionCategory.WORKSPACE_UNSAFE);
@@ -257,8 +283,12 @@ class PatchGateTest {
                 FakeTestGeneratorTest.minimalCreatePatch(),
                 new TargetTest("fixtures." + "N".repeat(250), "works"));
 
-        PatchPreparationResult result =
-                gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult result = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(Files.exists(workspace.resolve("src/test/java/fixtures/NewTest.java"))).isFalse();
@@ -284,7 +314,8 @@ class PatchGateTest {
                 "",
                 new CandidateDraft(
                         patch, new TargetTest("fixtures.Short", "x")),
-                MavenNetworkMode.OFFLINE);
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(Files.readString(existing)).isEqualTo(before);
@@ -326,7 +357,8 @@ class PatchGateTest {
                 workspace,
                 "",
                 new CandidateDraft(patch, new TargetTest("fixtures.Crlf", "x")),
-                MavenNetworkMode.OFFLINE);
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
 
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         String after = Files.readString(existing);
@@ -356,7 +388,8 @@ class PatchGateTest {
                 workspace,
                 "core",
                 new CandidateDraft(patch, new TargetTest("com.ex.T", "m")),
-                MavenNetworkMode.OFFLINE);
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
         assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         assertThat(Files.exists(workspace.resolve("core/src/test/java/com/ex/T.java"))).isTrue();
     }
@@ -384,7 +417,12 @@ class PatchGateTest {
         CandidateDraft candidate = new CandidateDraft(
                 WRONG_HEADER_COUNTS_PATCH, new TargetTest("fixtures.OldTest", "added"));
 
-        PatchPreparationResult unknown = gate.prepare(workspace, "", candidate, MavenNetworkMode.OFFLINE);
+        PatchPreparationResult unknown = gate.prepare(
+                workspace,
+                "",
+                candidate,
+                MavenNetworkMode.OFFLINE,
+                CompletionDiagnostics.unknown());
         assertThat(unknown).isInstanceOf(PatchPreparationResult.RejectedCandidate.class);
         assertThat(((PatchPreparationResult.RejectedCandidate) unknown).reason())
                 .isEqualTo("hunk new count mismatch");

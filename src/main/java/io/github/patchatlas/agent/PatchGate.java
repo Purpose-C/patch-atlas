@@ -58,19 +58,6 @@ public final class PatchGate {
             Path workspace,
             String modulePath,
             CandidateDraft candidate,
-            MavenNetworkMode networkMode) {
-        return prepare(
-                workspace,
-                modulePath,
-                candidate,
-                new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode),
-                CompletionDiagnostics.unknown());
-    }
-
-    public PatchPreparationResult prepare(
-            Path workspace,
-            String modulePath,
-            CandidateDraft candidate,
             MavenNetworkMode networkMode,
             CompletionDiagnostics diagnostics) {
         return prepare(
@@ -79,14 +66,6 @@ public final class PatchGate {
                 candidate,
                 new MavenExecutionPolicy(MavenExecutionPolicy.DEFAULT_JAVA_VERSION, networkMode),
                 diagnostics);
-    }
-
-    public PatchPreparationResult prepare(
-            Path workspace,
-            String modulePath,
-            CandidateDraft candidate,
-            MavenExecutionPolicy executionPolicy) {
-        return prepare(workspace, modulePath, candidate, executionPolicy, CompletionDiagnostics.unknown());
     }
 
     public PatchPreparationResult prepare(

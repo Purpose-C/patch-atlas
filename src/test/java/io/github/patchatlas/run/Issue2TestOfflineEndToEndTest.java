@@ -3,6 +3,7 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.FakeTestGenerator;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationResult;
@@ -225,9 +226,11 @@ class Issue2TestOfflineEndToEndTest {
         assertThat(warmup.warm(buggy, command)).isEmpty();
         assertThat(warmup.warm(fixed, command)).isEmpty();
         PatchGate gate = new PatchGate(formalRoot);
-        assertThat(gate.prepare(buggy, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        buggy, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
-        assertThat(gate.prepare(fixed, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        fixed, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
         return new HistoricalReplayEngine(sandbox, formalRoot)
                 .verify(new HistoricalReplayRequest(buggy, fixed, command, candidate.targetTest()));

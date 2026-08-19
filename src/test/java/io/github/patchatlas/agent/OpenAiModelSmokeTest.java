@@ -216,9 +216,11 @@ class OpenAiModelSmokeTest {
                 .materialize("file://" + hist.originDir(), hist.fixedSha(), formalRoot, "fixed");
         CandidateDraft draft = new CandidateDraft(candidate.patchText(), candidate.targetTest());
         PatchGate gate = new PatchGate(workspaceRoot);
-        assertThat(gate.prepare(buggy, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        buggy, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
-        assertThat(gate.prepare(fixed, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        fixed, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
 
         HistoricalReplayEngine engine = new HistoricalReplayEngine(docker, workspaceRoot);

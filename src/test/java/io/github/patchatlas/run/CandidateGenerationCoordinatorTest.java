@@ -715,9 +715,11 @@ class CandidateGenerationCoordinatorTest {
                         "fixed");
         PatchGate gate = new PatchGate(formalRoot);
         CandidateDraft draft = new CandidateDraft(candidate.patchText(), candidate.targetTest());
-        assertThat(gate.prepare(buggy, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        buggy, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
-        assertThat(gate.prepare(fixed, "", draft, MavenNetworkMode.OFFLINE))
+        assertThat(gate.prepare(
+                        fixed, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
                 .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
 
         HistoricalReplayEngine engine = new HistoricalReplayEngine(sandbox, formalRoot);

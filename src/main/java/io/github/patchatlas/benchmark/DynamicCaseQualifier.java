@@ -1,6 +1,7 @@
 package io.github.patchatlas.benchmark;
 
 import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.repository.ParentRevisionCheckResult;
@@ -146,7 +147,8 @@ public final class DynamicCaseQualifier {
                                         workspace,
                                         input.modulePath(),
                                         draft(input),
-                                        policy)
+                                        policy,
+                                        CompletionDiagnostics.unknown())
                                 instanceof PatchPreparationResult.PreparedCandidate;
                     }
 

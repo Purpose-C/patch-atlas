@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.agent.CandidateDraft;
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.GenerationInput;
 import io.github.patchatlas.agent.GenerationResult;
 import io.github.patchatlas.agent.PatchGate;
@@ -82,7 +83,11 @@ class TempCandidateWorkspaceFactoryTest {
                     LocalGitFixture.MODIFY_EXISTING_PATCH,
                     new TargetTest(LocalGitFixture.TARGET_CLASS, LocalGitFixture.TARGET_METHOD));
             PatchPreparationResult result = gate.prepare(
-                    session.workspace(), "", draft, MavenNetworkMode.OFFLINE);
+                    session.workspace(),
+                    "",
+                    draft,
+                    MavenNetworkMode.OFFLINE,
+                    CompletionDiagnostics.unknown());
             assertThat(result).isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
             String content = Files.readString(
                     session.workspace().resolve("src/test/java/fixtures/OldTest.java"),
