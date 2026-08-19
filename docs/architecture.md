@@ -33,6 +33,8 @@ Issue 定位与影响分析共用同一张代码关系图。前者服务于候�
 
 ## 总体结构
 
+主链与 Oracle 边界的可核对图见 [`architecture-diagram.md`](architecture-diagram.md)。下面是包级摘要。
+
 ```text
 Vue 控制台
     ↓
