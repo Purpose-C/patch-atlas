@@ -1,0 +1,11 @@
+{
+  "position" : 4,
+  "role" : "AGENT_BENCHMARK",
+  "caseId" : "st-tu-dresden-salespoint-85a764f892aa",
+  "sortKey" : "7ba36351709c2c8b6bd28ca95e89d99e5dc4f8e186b312f92dbf4d29687efd17",
+  "repositoryUrl" : "https://github.com/st-tu-dresden/salespoint.git",
+  "issueUrl" : "https://github.com/st-tu-dresden/salespoint/issues/412",
+  "license" : "Apache-2.0",
+  "modulePath" : "",
+  "javaVersion" : "17"
+}

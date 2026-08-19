@@ -1,0 +1,77 @@
+{
+  "caseId" : "st-tu-dresden-salespoint-85a764f892aa",
+  "issueUrl" : "https://github.com/st-tu-dresden/salespoint/issues/412",
+  "issueContentSha256" : "b6be75a1f028b6a82782b7198094346e8754d0073155036dcd3d985df36d1afb",
+  "buggyRevision" : "e9c2fe5efee8ad76bf73738f46f911c18eb078b8",
+  "sources" : [ {
+    "path" : "src/main/java/org/salespointframework/Salespoint.java",
+    "gitBlobId" : "aaf446eda8649b6a206eea4b10fb6a8a3ad2ede8",
+    "contentSha256" : "93092e9ea612f76d2c5e7463030f322c38c895143b0764be42447b7842fb172e",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/salespointframework/accountancy/Accountancy.java",
+    "gitBlobId" : "aaf6d390c7e730979f2baeb235ec3691a2da4621",
+    "contentSha256" : "a8307fc9ac698cc02ef7243e71ef32697e5d71e1d6e6eaec9af885bc7787d710",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/salespointframework/accountancy/AccountancyEntry.java",
+    "gitBlobId" : "32402cde9f96e29bd3054233911c96dba51a4851",
+    "contentSha256" : "10c00043bf6c47969f29bc0b10a95212c948ee5f980501319d1c6b3d69fc7145",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/main/java/org/salespointframework/accountancy/AccountancyEntryRepository.java",
+    "gitBlobId" : "483dc12801737f081ed639787b162335c28d9a1e",
+    "contentSha256" : "964a8ff5851d7e71192ffb702ce2cb622a7c0fbf86760265354b2572ce161d82",
+    "selectionReason" : "ISSUE_CLASS_NAME"
+  }, {
+    "path" : "src/test/java/example/ExampleControllerIntegrationTests.java",
+    "gitBlobId" : "e063c7151138e84ba69f91be1229be44417ca3b2",
+    "contentSha256" : "f7270be30f44e6c1c5c1c6e7fbf460cdc6c69e306c82c1194373f2be877a35c4",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/AbstractIntegrationTests.java",
+    "gitBlobId" : "4e2c1e090849ea3c52512a66ab6a6b89df75abf8",
+    "contentSha256" : "61dd02c37bf4ec3748da95ed3c2760e5ec9a6bd0c81b366b0e3d7753aa68d64e",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/SalespointApplicationConfigurationTests.java",
+    "gitBlobId" : "6e3a7733610ed02ebc5644fedbc0c7f0e9f04ce4",
+    "contentSha256" : "9be4c3a83dee4c24cc1a5864b397dc8165299f47dc40d1284dca8b029d4eb032",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/SalespointAutoConfigurationTests.java",
+    "gitBlobId" : "81bbd39ab961ef595606f333f7802b411193b1f8",
+    "contentSha256" : "ffbcbc57f753623d6d4eed0f1f24dd8b508af976c8a478cf0adad57b37f4732d",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/SalespointSecurityConfigurationIntegrationTests.java",
+    "gitBlobId" : "13fb4faa388e25410181ccf05bb17e5a2c8ecebd",
+    "contentSha256" : "41ebf8408223a4d797edb0a8b66f2992d603a2ecdfdc9d82b8a8ea32bf4711ff",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/SalespointWebApplicationConfigurationTests.java",
+    "gitBlobId" : "77532f312cbb3a4cb787d40c8305fc54067e2353",
+    "contentSha256" : "46e2680611d198649b9b728769710e73de2fe063b62eb59e4fd1bda6ae1df603",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/TestSalespoint.java",
+    "gitBlobId" : "c65aee41a84030476f8f0d9f34c4993f38687504",
+    "contentSha256" : "50917c1756beba488c4fee8571d38ab791554e8f7401a101e43a9643d85a8175",
+    "selectionReason" : "REFERENCING_TEST"
+  }, {
+    "path" : "src/test/java/org/salespointframework/accountancy/AccountancyOrderEventListenerTests.java",
+    "gitBlobId" : "b194c94348b825ced523dad016804d205cb5236e",
+    "contentSha256" : "4ab44ebfbeac8c56def527ded37dceb101162396f230565c8e788b61e8822f01",
+    "selectionReason" : "REFERENCING_TEST"
+  } ],
+  "excludedSources" : [ {
+    "path" : "src/test/java/org/salespointframework/accountancy/AccountancyPeriodTests.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/org/salespointframework/accountancy/AccountancyRepositoryTests.java",
+    "reason" : "FILE_LIMIT"
+  }, {
+    "path" : "src/test/java/org/salespointframework/accountancy/AccountancyTests.java",
+    "reason" : "FILE_LIMIT"
+  } ]
+}

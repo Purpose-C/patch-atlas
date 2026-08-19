@@ -9,6 +9,7 @@ import io.github.patchatlas.agent.SpringAiTestGenerator;
 import io.github.patchatlas.agent.TestGenerator;
 import io.github.patchatlas.analysis.BuggyRepositoryReader;
 import io.github.patchatlas.benchmark.BenchmarkArtifacts.Cohort;
+import io.github.patchatlas.benchmark.BenchmarkArtifacts.CohortCase;
 import io.github.patchatlas.run.GitCloneWorkspaceFetcher;
 import io.github.patchatlas.run.Issue2TestRuntime;
 import io.github.patchatlas.run.Issue2TestWorker;
@@ -28,7 +29,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 
 /**
  * Explicit {@code -Dgroups=model} entry for calibrate / calibrate-N / agent-N / verify /
- * verify-three-arm / verify-three-arm-036.
+ * verify-three-arm / verify-three-arm-036 / case-study-*.
  * Missing shared prerequisites fail the test; they are not skipped.
  */
 @Tag("model")
@@ -41,8 +42,12 @@ class FormalBenchmarkHarnessTest {
     void runClosedFormalAction() throws Exception {
         String action = requiredEnv("PATCHATLAS_BENCHMARK_ACTION");
         String parsed = BenchmarkActions.parseAction(action);
+        boolean caseStudy = BenchmarkActions.isCaseStudy(parsed);
         Path projectRoot = Path.of("").toAbsolutePath().normalize();
-        Path artifactsRoot = projectRoot.resolve("benchmark-cases/task018");
+        Path frozenRoot = projectRoot.resolve("benchmark-cases/task018");
+        Path artifactsRoot = caseStudy
+                ? projectRoot.resolve("benchmark-cases/spring-case-study")
+                : frozenRoot;
         Path workspaceRoot = Path.of(requiredEnv("PATCHATLAS_WORKER_WORKSPACE_ROOT"))
                 .toAbsolutePath()
                 .normalize();
@@ -55,7 +60,10 @@ class FormalBenchmarkHarnessTest {
 
         DataSource dataSource = dataSource();
         BenchmarkArtifacts artifacts = new BenchmarkArtifacts();
-        Cohort cohort = artifacts.readCohort(artifactsRoot.resolve("cohort.json"));
+        Cohort frozenCohort = artifacts.readCohort(frozenRoot.resolve("cohort.json"));
+        CohortCase studyCase = caseStudy
+                ? artifacts.readCohortCase(artifactsRoot.resolve("case.json"))
+                : null;
         BenchmarkPreflight preflight = new BenchmarkPreflight(dataSource, workspaceRoot);
         PostgresRunStore runStore = new PostgresRunStore(dataSource);
         DockerSandboxRunner sandbox = new DockerSandboxRunner(DockerSandboxConfig.defaults(
@@ -64,7 +72,8 @@ class FormalBenchmarkHarnessTest {
         TestGenerator generator;
         if (parsed.startsWith("agent-")
                 || parsed.startsWith("arm-")
-                || parsed.startsWith("dry-run")) {
+                || parsed.startsWith("dry-run")
+                || caseStudy) {
             locatingModel = openAiChatModel();
             generator = new SpringAiTestGenerator(
                     GeneratorConfiguration.identityForVendor(
@@ -87,7 +96,9 @@ class FormalBenchmarkHarnessTest {
                 runStore, Issue2TestWorker.DEFAULT_LEASE, Issue2TestWorker.DEFAULT_HEARTBEAT);
         FormalBenchmarkRunner.Store store = new PostgresBenchmarkStore(runStore);
         BenchmarkGitWorkspace git = new BenchmarkGitWorkspace(
-                projectRoot.resolve(".patch-atlas-cache/task018"));
+                projectRoot.resolve(caseStudy
+                        ? ".patch-atlas-cache/spring-case-study"
+                        : ".patch-atlas-cache/task018"));
         FrozenBenchmarkOperations operations = new FrozenBenchmarkOperations(
                 artifactsRoot,
                 artifacts,
@@ -109,7 +120,9 @@ class FormalBenchmarkHarnessTest {
                 operations,
                 new WorkerBackedWaiter(store, worker, OWNER, Duration.ofSeconds(2)));
 
-        FormalBenchmarkRunner.Outcome outcome = runner.execute(action, cohort);
+        FormalBenchmarkRunner.Outcome outcome = caseStudy
+                ? runner.executeCaseStudy(action, frozenCohort, studyCase)
+                : runner.execute(action, frozenCohort);
         switch (outcome) {
             case FormalBenchmarkRunner.Outcome.PreflightFailed failed ->
                     throw new IllegalStateException("preflight failed: " + failed.reasons());

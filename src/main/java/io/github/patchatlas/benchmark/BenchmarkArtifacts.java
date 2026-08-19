@@ -260,6 +260,16 @@ public final class BenchmarkArtifacts {
         return mapper.readValue(path.toFile(), type);
     }
 
+    /** 读取单案例研究的 {@code case.json}。 */
+    public CohortCase readCohortCase(Path path) throws IOException {
+        Objects.requireNonNull(path, "path");
+        try {
+            return mapper.readValue(path.toFile(), CohortCase.class);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("case file is invalid: " + ex.getMessage(), ex);
+        }
+    }
+
     /** 读取并校验冻结的 cohort.json。 */
     public Cohort readCohort(Path path) throws IOException {
         Objects.requireNonNull(path, "path");

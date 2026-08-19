@@ -385,6 +385,82 @@ class FormalBenchmarkRunnerTest {
         assertThat(store.created).hasSize(6);
     }
 
+    @Test
+    void executeRejectsCaseStudyActions() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        assertThatThrownBy(() -> runner(readyPreflight(), store, ops, true)
+                        .execute("case-study-heuristic", validCohort()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("executeCaseStudy");
+        assertThat(ops.agentArmLaunches.get()).isZero();
+    }
+
+    @Test
+    void caseStudyHeuristicLaunchesOneCaseWithDedicatedEvaluationId() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        CohortCase study = validCohort().cases().get(3);
+        FormalBenchmarkRunner.Outcome outcome = runner(readyPreflight(), store, ops, true)
+                .executeCaseStudy("case-study-heuristic", validCohort(), study);
+
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(1);
+        assertThat(ops.agentLaunches.get()).isZero();
+        assertThat(ops.agentOrigins).containsExactly(ContextOrigin.HEURISTIC);
+        assertThat(ops.lastAgentEvaluationId).isEqualTo(EvaluationIds.SPRING_CASE_STUDY);
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        var finished = (FormalBenchmarkRunner.Outcome.Finished) outcome;
+        assertThat(finished.details()).hasSize(1);
+        assertThat(finished.details().getFirst().caseId()).isEqualTo(study.caseId());
+        assertThat(finished.details().getFirst().purpose()).isEqualTo(RunPurpose.AGENT_BENCHMARK);
+    }
+
+    @Test
+    void caseStudyArmsDoNotShareIdempotentRuns() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner runner = runner(readyPreflight(), store, ops, true);
+        CohortCase study = validCohort().cases().get(3);
+
+        runner.executeCaseStudy("case-study-heuristic", validCohort(), study);
+        runner.executeCaseStudy("case-study-text", validCohort(), study);
+        FormalBenchmarkRunner.Outcome graph =
+                runner.executeCaseStudy("case-study-graph", validCohort(), study);
+
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(3);
+        assertThat(ops.agentOrigins).containsExactly(
+                ContextOrigin.HEURISTIC, ContextOrigin.TEXT_TOOLS, ContextOrigin.GRAPH_TOOLS);
+        assertThat(graph).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(store.created).hasSize(3);
+    }
+
+    @Test
+    void repeatedCaseStudyActionCreatesOnlyOneRun() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner runner = runner(readyPreflight(), store, ops, true);
+        CohortCase study = validCohort().cases().get(3);
+
+        runner.executeCaseStudy("case-study-text", validCohort(), study);
+        FormalBenchmarkRunner.Outcome second =
+                runner.executeCaseStudy("case-study-text", validCohort(), study);
+
+        assertThat(ops.agentArmLaunches.get()).isEqualTo(1);
+        assertThat(second).isInstanceOf(FormalBenchmarkRunner.Outcome.Finished.class);
+        assertThat(store.created).hasSize(1);
+    }
+
+    @Test
+    void caseStudyPreflightFailureCreatesNoRun() {
+        ScriptedStore store = new ScriptedStore();
+        CountingOps ops = new CountingOps(store);
+        FormalBenchmarkRunner.Outcome outcome = runner(failingPreflight(), store, ops, true)
+                .executeCaseStudy("case-study-graph", validCohort(), validCohort().cases().get(3));
+
+        assertThat(outcome).isInstanceOf(FormalBenchmarkRunner.Outcome.PreflightFailed.class);
+        assertThat(ops.agentArmLaunches.get()).isZero();
+    }
+
     private static BenchmarkPreflight failingPreflight() {
         return new BenchmarkPreflight(
                 () -> { throw new RuntimeException("pg down"); },
@@ -552,6 +628,7 @@ class FormalBenchmarkRunnerTest {
         private final List<String> launchedCalibrationCaseIds = new ArrayList<>();
         private final List<ContextOrigin> diagnosticOrigins = new ArrayList<>();
         private final List<ContextOrigin> agentOrigins = new ArrayList<>();
+        private String lastAgentEvaluationId;
 
         private CountingOps(ScriptedStore store) {
             this.store = store;
@@ -589,6 +666,7 @@ class FormalBenchmarkRunnerTest {
         public UUID launchAgent(CohortCase cohortCase, ContextOrigin origin, String evaluationId) {
             agentArmLaunches.incrementAndGet();
             agentOrigins.add(origin);
+            lastAgentEvaluationId = evaluationId;
             return store.create(
                     cohortCase.caseId(),
                     RunPurpose.AGENT_BENCHMARK,

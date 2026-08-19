@@ -9,6 +9,7 @@ public final class EvaluationIds {
 
     public static final String BATCH5_THREE_ARM = "batch5-three-arm";
     public static final String BATCH5B_THREE_ARM = "batch5b-three-arm";
+    public static final String SPRING_CASE_STUDY = "spring-case-study";
 
     private EvaluationIds() {}
 }

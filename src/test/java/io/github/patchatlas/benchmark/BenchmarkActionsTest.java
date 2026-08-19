@@ -28,6 +28,9 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.parseAction("arm-heuristic")).isEqualTo("arm-heuristic");
         assertThat(BenchmarkActions.parseAction("arm-text")).isEqualTo("arm-text");
         assertThat(BenchmarkActions.parseAction("arm-graph")).isEqualTo("arm-graph");
+        assertThat(BenchmarkActions.parseAction("case-study-heuristic")).isEqualTo("case-study-heuristic");
+        assertThat(BenchmarkActions.parseAction("case-study-text")).isEqualTo("case-study-text");
+        assertThat(BenchmarkActions.parseAction("case-study-graph")).isEqualTo("case-study-graph");
     }
 
     @Test
@@ -114,6 +117,9 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.isFormalRun("arm-heuristic")).isTrue();
         assertThat(BenchmarkActions.isFormalRun("arm-text")).isTrue();
         assertThat(BenchmarkActions.isFormalRun("arm-graph")).isTrue();
+        assertThat(BenchmarkActions.isFormalRun("case-study-heuristic")).isTrue();
+        assertThat(BenchmarkActions.isFormalRun("case-study-text")).isTrue();
+        assertThat(BenchmarkActions.isFormalRun("case-study-graph")).isTrue();
     }
 
     @Test
@@ -124,6 +130,9 @@ class BenchmarkActionsTest {
         assertThat(BenchmarkActions.locatingOrigin("arm-heuristic")).isEqualTo(ContextOrigin.HEURISTIC);
         assertThat(BenchmarkActions.locatingOrigin("arm-text")).isEqualTo(ContextOrigin.TEXT_TOOLS);
         assertThat(BenchmarkActions.locatingOrigin("arm-graph")).isEqualTo(ContextOrigin.GRAPH_TOOLS);
+        assertThat(BenchmarkActions.locatingOrigin("case-study-heuristic")).isEqualTo(ContextOrigin.HEURISTIC);
+        assertThat(BenchmarkActions.locatingOrigin("case-study-text")).isEqualTo(ContextOrigin.TEXT_TOOLS);
+        assertThat(BenchmarkActions.locatingOrigin("case-study-graph")).isEqualTo(ContextOrigin.GRAPH_TOOLS);
     }
 
     @Test
@@ -148,6 +157,12 @@ class BenchmarkActionsTest {
                 .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
         assertThat(BenchmarkActions.threeArmEvaluationId("arm-graph"))
                 .isEqualTo(EvaluationIds.BATCH5B_THREE_ARM);
+        assertThat(BenchmarkActions.threeArmEvaluationId("case-study-heuristic"))
+                .isEqualTo(EvaluationIds.SPRING_CASE_STUDY);
+        assertThat(BenchmarkActions.threeArmEvaluationId("case-study-text"))
+                .isEqualTo(EvaluationIds.SPRING_CASE_STUDY);
+        assertThat(BenchmarkActions.threeArmEvaluationId("case-study-graph"))
+                .isEqualTo(EvaluationIds.SPRING_CASE_STUDY);
     }
 
     @Test
@@ -155,5 +170,14 @@ class BenchmarkActionsTest {
         assertThatThrownBy(() -> BenchmarkActions.threeArmEvaluationId("calibrate"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("has no three-arm evaluation");
+    }
+
+    @Test
+    void isCaseStudyIdentifiesSingleCaseArmActions() {
+        assertThat(BenchmarkActions.isCaseStudy("case-study-heuristic")).isTrue();
+        assertThat(BenchmarkActions.isCaseStudy("case-study-text")).isTrue();
+        assertThat(BenchmarkActions.isCaseStudy("case-study-graph")).isTrue();
+        assertThat(BenchmarkActions.isCaseStudy("arm-heuristic")).isFalse();
+        assertThat(BenchmarkActions.isCaseStudy("verify-three-arm")).isFalse();
     }
 }

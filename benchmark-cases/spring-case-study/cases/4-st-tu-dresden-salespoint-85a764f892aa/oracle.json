@@ -1,0 +1,7 @@
+{
+  "caseId" : "st-tu-dresden-salespoint-85a764f892aa",
+  "fixedRevision" : "85a764f892aaca4cfcb6749e55f3131a23cc8f66",
+  "targetClass" : "org.salespointframework.accountancy.AccountancyTests",
+  "targetMethod" : "addExistingEntry",
+  "knownTriggerPatchSha256" : "cdd59b6da4e35a11919cd075e551684135245134c348bebe23f8bc9bb7c5823e"
+}

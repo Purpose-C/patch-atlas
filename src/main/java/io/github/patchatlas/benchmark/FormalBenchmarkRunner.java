@@ -129,6 +129,9 @@ public final class FormalBenchmarkRunner {
         if (parsed.startsWith("dry-run")) {
             return dryRun(BenchmarkActions.locatingOrigin(parsed));
         }
+        if (BenchmarkActions.isCaseStudy(parsed)) {
+            throw new IllegalArgumentException("use executeCaseStudy for " + parsed);
+        }
 
         Result checked = preflight.check(cohort);
         if (checked instanceof Result.NotReady notReady) {
@@ -149,11 +152,32 @@ public final class FormalBenchmarkRunner {
             }
             case BenchmarkActions.ARM_HEURISTIC, BenchmarkActions.ARM_TEXT, BenchmarkActions.ARM_GRAPH ->
                     runArm(
-                            cohort,
+                            cohort.cases(),
                             BenchmarkActions.locatingOrigin(parsed),
                             BenchmarkActions.threeArmEvaluationId(parsed));
             default -> throw new IllegalArgumentException("unsupported formal action " + parsed);
         };
+    }
+
+    /**
+     * Single confirmed case, three-arm evaluation id. Preflight still checks the frozen
+     * six-case cohort digest and shared hosts; the launched case is {@code studyCase}.
+     */
+    public Outcome executeCaseStudy(String action, Cohort preflightCohort, CohortCase studyCase) {
+        Objects.requireNonNull(preflightCohort, "preflightCohort");
+        Objects.requireNonNull(studyCase, "studyCase");
+        String parsed = BenchmarkActions.parseAction(action);
+        if (!BenchmarkActions.isCaseStudy(parsed)) {
+            throw new IllegalArgumentException(parsed + " is not a case-study action");
+        }
+        Result checked = preflight.check(preflightCohort);
+        if (checked instanceof Result.NotReady notReady) {
+            return new Outcome.PreflightFailed(notReady.reasons());
+        }
+        return runArm(
+                List.of(studyCase),
+                BenchmarkActions.locatingOrigin(parsed),
+                BenchmarkActions.threeArmEvaluationId(parsed));
     }
 
     private Outcome runPositions(Cohort cohort, int from, int to, RunPurpose purpose) {
@@ -179,9 +203,9 @@ public final class FormalBenchmarkRunner {
         return new Outcome.Finished(details);
     }
 
-    private Outcome runArm(Cohort cohort, ContextOrigin origin, String evaluationId) {
+    private Outcome runArm(List<CohortCase> cases, ContextOrigin origin, String evaluationId) {
         List<RunDetailView> details = new ArrayList<>();
-        for (CohortCase cohortCase : cohort.cases()) {
+        for (CohortCase cohortCase : cases) {
             Optional<RunDetailView> existing = store.findRunByCase(
                     cohortCase.caseId(), RunPurpose.AGENT_BENCHMARK, origin, evaluationId);
             UUID runId = existing.isPresent()
