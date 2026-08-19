@@ -1,0 +1,168 @@
+{
+  "n": 1,
+  "kind": "case-study",
+  "statisticalInference": "not-supported",
+  "armComparison": "not-permitted",
+  "successCriterion": "the locating trace answers whether expand was used and what it saw; VALID_REPRODUCTION is not the success criterion",
+  "caseId": "st-tu-dresden-salespoint-85a764f892aa",
+  "runPurpose": "AGENT_BENCHMARK",
+  "modelProvider": "ollama",
+  "modelName": "glm-5.2",
+  "reruns": [],
+  "protocolSha256": "e272e17f8cbcd885d85754a0d63942503adff68bb758bbd11db092ad680cca03",
+  "candidatesSha256": "f517451e0267450909335a343ddfb0fd5befe08e55c30299798a853f89c1335f",
+  "evidenceAsymmetryApplied": "expandUnused",
+  "groundTruthProductionJava": [
+    "src/main/java/org/salespointframework/accountancy/PersistentAccountancy.java"
+  ],
+  "coverageComputedAfterTerminal": true,
+  "coverageNotWrittenToLocatingTrace": true,
+  "expand": {
+    "callCount": 0,
+    "used": false,
+    "entities": [],
+    "edgeTypes": [],
+    "confidence": [],
+    "enteredSubmit": null,
+    "graphBuild": {
+      "durationMs": 883,
+      "cacheHit": false
+    },
+    "findQueries": [
+      {"query": "Accountancy", "hits": 50, "truncated": true},
+      {"query": "AccountancyEntryRepository", "hits": 6, "truncated": false},
+      {"query": "AccountancyEntry", "hits": 35, "truncated": false}
+    ],
+    "toolsUsedInstead": [
+      {"kind": "FIND", "count": 3},
+      {"kind": "READ", "count": 8},
+      {"kind": "SUBMIT", "count": 1, "paths": 8}
+    ]
+  },
+  "arms": [
+    {
+      "origin": "HEURISTIC",
+      "runId": "3ff65971-a74b-47f7-b73e-252caa7fbfd4",
+      "state": "FAILED",
+      "verdict": null,
+      "failureStage": "GENERATION",
+      "failureCategory": "GENERATION_EXHAUSTED",
+      "generationAttemptCount": 3,
+      "coverage": {
+        "anyHit": false,
+        "recall": 0.0,
+        "precision": 0.0,
+        "selectedCount": 12
+      },
+      "selectedPaths": [
+        "src/main/java/org/salespointframework/Salespoint.java",
+        "src/main/java/org/salespointframework/accountancy/Accountancy.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntry.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntryRepository.java",
+        "src/test/java/example/ExampleControllerIntegrationTests.java",
+        "src/test/java/org/salespointframework/AbstractIntegrationTests.java",
+        "src/test/java/org/salespointframework/SalespointApplicationConfigurationTests.java",
+        "src/test/java/org/salespointframework/SalespointAutoConfigurationTests.java",
+        "src/test/java/org/salespointframework/SalespointSecurityConfigurationIntegrationTests.java",
+        "src/test/java/org/salespointframework/SalespointWebApplicationConfigurationTests.java",
+        "src/test/java/org/salespointframework/TestSalespoint.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyOrderEventListenerTests.java"
+      ],
+      "locatingTrace": {
+        "SELECTION": 12,
+        "EXCLUSION": 3
+      },
+      "locatingTokens": "NONE",
+      "generationInputTokens": 21711,
+      "generationOutputTokens": 4436,
+      "generationTotalTokens": 26147,
+      "wallSeconds": 685.753622
+    },
+    {
+      "origin": "TEXT_TOOLS",
+      "runId": "34e5b750-b1f9-46d3-a396-31a433dac544",
+      "state": "FAILED",
+      "verdict": null,
+      "failureStage": "GENERATION",
+      "failureCategory": "GENERATION_EXHAUSTED",
+      "generationAttemptCount": 3,
+      "coverage": {
+        "anyHit": true,
+        "recall": 1.0,
+        "precision": 0.0833,
+        "selectedCount": 12
+      },
+      "selectedPaths": [
+        "src/main/java/org/salespointframework/accountancy/Accountancy.java",
+        "src/main/java/org/salespointframework/accountancy/PersistentAccountancy.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntry.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntryRepository.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyOrderEventListener.java",
+        "src/main/java/org/salespointframework/accountancy/ProductPaymentEntry.java",
+        "src/main/java/org/salespointframework/core/SalespointRepository.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyTests.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyRepositoryTests.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyPeriodTests.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyOrderEventListenerTests.java",
+        "src/main/asciidoc/salespoint-reference.adoc"
+      ],
+      "locatingTrace": {
+        "SEARCH": 9,
+        "READ": 12,
+        "SUBMIT": 1
+      },
+      "searchPatterns": [
+        "class Accountancy",
+        "AccountancyEntryRepository",
+        "class AccountancyEntry",
+        "interface Accountancy\\b",
+        "ProductPaymentEntry",
+        "\\.add\\(",
+        "SalespointRepository",
+        "accountancy\\.add"
+      ],
+      "locatingTokens": "UNKNOWN",
+      "generationInputTokens": 55508,
+      "generationOutputTokens": 2940,
+      "generationTotalTokens": 58448,
+      "wallSeconds": 94.219357
+    },
+    {
+      "origin": "GRAPH_TOOLS",
+      "runId": "a0f6d468-fc7b-4237-9cb3-65be0ad84528",
+      "state": "FAILED",
+      "verdict": null,
+      "failureStage": "GENERATION",
+      "failureCategory": "GENERATION_EXHAUSTED",
+      "generationAttemptCount": 3,
+      "coverage": {
+        "anyHit": true,
+        "recall": 1.0,
+        "precision": 0.125,
+        "selectedCount": 8
+      },
+      "selectedPaths": [
+        "src/main/java/org/salespointframework/accountancy/Accountancy.java",
+        "src/main/java/org/salespointframework/accountancy/PersistentAccountancy.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntryRepository.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyEntry.java",
+        "src/main/java/org/salespointframework/accountancy/ProductPaymentEntry.java",
+        "src/main/java/org/salespointframework/accountancy/AccountancyOrderEventListener.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyTests.java",
+        "src/test/java/org/salespointframework/accountancy/AccountancyRepositoryTests.java"
+      ],
+      "locatingTrace": {
+        "GRAPH_BUILD": 1,
+        "FIND": 3,
+        "READ": 8,
+        "EXPAND": 0,
+        "SUBMIT": 1
+      },
+      "locatingTokens": "UNKNOWN",
+      "generationInputTokens": 20369,
+      "generationOutputTokens": 6788,
+      "generationTotalTokens": 27157,
+      "wallSeconds": 78.635398
+    }
+  ]
+}
