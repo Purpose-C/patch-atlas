@@ -77,7 +77,7 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
         inputTokens = safeAdd(inputTokens, usage.inputTokens());
         outputTokens = safeAdd(outputTokens, usage.outputTokens());
         totalTokens = safeAdd(totalTokens, usage.totalTokens());
-        claim = bump(claim);
+        claim = bump(claim, diagnostics);
         RunEvents.generationUsageRecorded(
                 claim.runId(),
                 usage.inputTokens(),
@@ -132,7 +132,8 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
                 claim.lease(),
                 claim.recoveryCount(),
                 claim.replayRound(),
-                Optional.of(gated.patch()));
+                Optional.of(gated.patch()),
+                claim.completionDiagnostics());
         RunEvents.candidateCommitted(claim.runId());
         return claim;
     }
@@ -200,7 +201,8 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
                 claim.lease(),
                 claim.recoveryCount(),
                 claim.replayRound(),
-                Optional.empty());
+                Optional.empty(),
+                claim.completionDiagnostics());
         // mark terminal by nulling lease shape - store FAIL clears lease; keep claim unusable
         RunEvents.runFailed(terminal.runId(), terminal.mode(), failure);
         return terminal;
@@ -213,6 +215,10 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
     }
 
     private ClaimedRun bump(ClaimedRun c) {
+        return bump(c, c.completionDiagnostics());
+    }
+
+    private ClaimedRun bump(ClaimedRun c, CompletionDiagnostics diagnostics) {
         long v = version.incrementAndGet();
         return new ClaimedRun(
                 c.runId(),
@@ -222,7 +228,8 @@ public final class InMemoryGenerationRunSession implements GenerationRunSession 
                 c.lease(),
                 c.recoveryCount(),
                 c.replayRound(),
-                c.candidate());
+                c.candidate(),
+                diagnostics);
     }
 
     private static long safeAdd(long a, long b) {

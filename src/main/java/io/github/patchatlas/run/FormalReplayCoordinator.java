@@ -5,6 +5,7 @@ import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.agent.PatchPreparationResult;
 import io.github.patchatlas.agent.PatchRejectionCategory;
+import io.github.patchatlas.agent.ResponseTruncationGuard;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.sandbox.MavenTestCommand;
 import java.util.ArrayList;
@@ -96,7 +97,7 @@ public final class FormalReplayCoordinator {
                         live.executionPolicy());
                 sessions.add(session);
                 warmDependencies(session, draft);
-                applyCandidate(session, draft, candidate.provenance());
+                applyCandidate(session, draft, claimed.completionDiagnostics());
                 yield new PreparedReplayWorkspace.Live(
                         session.workspace(), session.modulePath(), session.executionPolicy());
             }
@@ -117,11 +118,11 @@ public final class FormalReplayCoordinator {
                 sessions.add(fixed);
                 warmDependencies(buggy, draft);
                 warmDependencies(fixed, draft);
-                applyCandidate(buggy, draft, candidate.provenance());
+                applyCandidate(buggy, draft, claimed.completionDiagnostics());
                 if (candidate.provenance() == TestPatchProvenance.KNOWN_TRIGGER) {
                     verifyCandidateAlreadyApplied(fixed, draft);
                 } else {
-                    applyCandidate(fixed, draft, candidate.provenance());
+                    applyCandidate(fixed, draft, claimed.completionDiagnostics());
                 }
                 yield new PreparedReplayWorkspace.Historical(
                         buggy.workspace(),
@@ -135,13 +136,11 @@ public final class FormalReplayCoordinator {
     private void applyCandidate(
             CandidateWorkspaceFactory.WorkspaceSession session,
             CandidateDraft draft,
-            TestPatchProvenance provenance) {
-        CompletionDiagnostics diagnostics;
-        if (provenance == TestPatchProvenance.AGENT_GENERATED) {
-            diagnostics = CompletionDiagnostics.of(
-                    "stop", CompletionDiagnostics.UNKNOWN, CompletionDiagnostics.UNKNOWN);
-        } else {
-            diagnostics = CompletionDiagnostics.unknown();
+            CompletionDiagnostics diagnostics) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
+        if (ResponseTruncationGuard.truncated(diagnostics)) {
+            PatchPreparationResult.RejectedCandidate truncated = ResponseTruncationGuard.rejection();
+            throw new PatchGateRejectedException(toPatchGateFailure(truncated));
         }
         PatchPreparationResult prepared = patchGate.prepare(
                 session.workspace(),

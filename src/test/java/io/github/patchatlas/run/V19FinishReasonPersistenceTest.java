@@ -116,12 +116,51 @@ class V19FinishReasonPersistenceTest {
                 Duration.ofSeconds(30))) {
             GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
             session.reserveGenerationAttempt("fake", "fixture-v1");
-            session.recordModelUsage(new ModelUsage(1, 2, 3), CompletionDiagnostics.of("length", "0", "2"));
+            ClaimedRun afterLength = session.recordModelUsage(
+                    new ModelUsage(1, 2, 3), CompletionDiagnostics.of("length", "0", "2"));
             assertThat(finishReason(claimed.runId())).isEqualTo("length");
+            assertThat(afterLength.completionDiagnostics().finishReason()).isEqualTo("length");
+            assertThat(afterLength.completionDiagnostics().reasoningTokens())
+                    .isEqualTo(CompletionDiagnostics.UNKNOWN);
 
             session.reserveGenerationAttempt("fake", "fixture-v1");
             session.recordModelUsage(new ModelUsage(1, 2, 3));
             assertThat(finishReason(claimed.runId())).isEqualTo("unknown");
+        }
+    }
+
+    @Test
+    void commitCandidateReloadReadsFinishReasonColumnNotProvenance() throws Exception {
+        migrateLatest();
+        PostgresRunStore store = new PostgresRunStore(dataSource());
+        store.submit(live("reload-finish"));
+        ClaimedRun claimed = LocatingTestSupport.commitPinned(
+                store, store.claimNext("w1", Duration.ofMinutes(5)).orElseThrow());
+        try (LeaseHeartbeat beat = LeaseHeartbeat.start(
+                store,
+                ClaimHandle.from(claimed),
+                "w1",
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(30))) {
+            GenerationRunSession session = new LeaseHeartbeatGenerationRunSession(beat, RunPurpose.STANDARD);
+            session.reserveGenerationAttempt("fake", "fixture-v1");
+            session.recordModelUsage(new ModelUsage(1, 2, 3), CompletionDiagnostics.of("stop", "0", "4"));
+            ClaimedRun replaying = session.commitCandidate(GatedCandidateTestHelper.gated(
+                    PersistedCandidatePatch.fromAccepted(
+                            """
+                            diff --git a/src/test/java/c/T.java b/src/test/java/c/T.java
+                            new file mode 100644
+                            --- /dev/null
+                            +++ b/src/test/java/c/T.java
+                            @@ -0,0 +1,3 @@
+                            +package c;
+                            +class T { void m() {} }
+                            """,
+                            new io.github.patchatlas.replay.TargetTest("c.T", "m"))));
+            assertThat(replaying.candidate().orElseThrow().provenance())
+                    .isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+            assertThat(replaying.completionDiagnostics().finishReason()).isEqualTo("stop");
+            assertThat(finishReason(claimed.runId())).isEqualTo("stop");
         }
     }
 

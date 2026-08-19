@@ -1,5 +1,6 @@
 package io.github.patchatlas.run;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.replay.VerificationMode;
 import java.util.Objects;
 import java.util.Optional;
@@ -7,6 +8,9 @@ import java.util.UUID;
 
 /**
  * 短事务领取成功后的运行态句柄：持有 lease token + version，供后续续租/提交。
+ *
+ * <p>{@code completionDiagnostics} 只来自持久化的 {@code model_finish_reason}；
+ * 取不到或字面量为 unknown 时为 {@link CompletionDiagnostics#unknown()}，不得从 provenance 推导。
  */
 public record ClaimedRun(
         UUID runId,
@@ -16,7 +20,8 @@ public record ClaimedRun(
         RunLease lease,
         int recoveryCount,
         int replayRound,
-        Optional<PersistedCandidatePatch> candidate) {
+        Optional<PersistedCandidatePatch> candidate,
+        CompletionDiagnostics completionDiagnostics) {
 
     public ClaimedRun {
         Objects.requireNonNull(runId, "runId");
@@ -24,6 +29,7 @@ public record ClaimedRun(
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(lease, "lease");
         Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(completionDiagnostics, "completionDiagnostics");
         if (!state.holdsLease()) {
             throw new IllegalArgumentException("ClaimedRun must be in a lease-holding state");
         }
@@ -43,5 +49,26 @@ public record ClaimedRun(
             throw new IllegalArgumentException(state + " claim must not carry a candidate");
         }
         RunLeaseRules.requireLeaseShape(state, lease);
+    }
+
+    public ClaimedRun(
+            UUID runId,
+            VerificationMode mode,
+            RunState state,
+            long version,
+            RunLease lease,
+            int recoveryCount,
+            int replayRound,
+            Optional<PersistedCandidatePatch> candidate) {
+        this(
+                runId,
+                mode,
+                state,
+                version,
+                lease,
+                recoveryCount,
+                replayRound,
+                candidate,
+                CompletionDiagnostics.unknown());
     }
 }

@@ -79,7 +79,8 @@ public final class InMemoryLocatingRunSession implements LocatingRunSession {
                 claim.lease(),
                 claim.recoveryCount(),
                 claim.replayRound(),
-                Optional.empty());
+                Optional.empty(),
+                claim.completionDiagnostics());
         return claim;
     }
 

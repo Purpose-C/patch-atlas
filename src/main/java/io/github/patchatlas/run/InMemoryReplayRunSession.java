@@ -44,7 +44,8 @@ public final class InMemoryReplayRunSession implements ReplayRunSession {
                 claim.lease(),
                 claim.recoveryCount(),
                 nextRound,
-                claim.candidate());
+                claim.candidate(),
+                claim.completionDiagnostics());
         openRoundCount++;
         RunEvents.replayStarted(claim.runId(), claim.replayRound());
         return new Opened(claim, projection, purpose);

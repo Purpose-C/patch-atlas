@@ -1492,7 +1492,7 @@ public final class PostgresRunStore {
         return jdbc.sql(
                         """
                         SELECT r.id, r.mode, r.state, r.version, r.recovery_count, r.replay_round,
-                               r.lease_owner, r.lease_expires_at,
+                               r.lease_owner, r.lease_expires_at, r.model_finish_reason,
                                c.patch_text, c.patch_sha256, c.target_class, c.target_method,
                                c.patch_provenance
                           FROM verification_run r
@@ -1528,9 +1528,19 @@ public final class PostgresRunStore {
                                     rs.getTimestamp("lease_expires_at").toInstant()),
                             rs.getInt("recovery_count"),
                             rs.getInt("replay_round"),
-                            candidate);
+                            candidate,
+                            storedFinishReason(rs.getString("model_finish_reason")));
                 })
                 .optional();
+    }
+
+    /** 只读 {@code model_finish_reason} 字面量；不得从 provenance 或 token 列推导。 */
+    static CompletionDiagnostics storedFinishReason(String stored) {
+        if (stored == null || stored.isBlank() || CompletionDiagnostics.UNKNOWN.equals(stored)) {
+            return CompletionDiagnostics.unknown();
+        }
+        return CompletionDiagnostics.of(
+                stored, CompletionDiagnostics.UNKNOWN, CompletionDiagnostics.UNKNOWN);
     }
 
     private ClaimRow loadClaimRow(UUID id) {

@@ -3,6 +3,7 @@ package io.github.patchatlas.run;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.patchatlas.agent.CompletionDiagnostics;
 import io.github.patchatlas.agent.PatchGate;
 import io.github.patchatlas.replay.AttemptRecord;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
@@ -49,6 +50,19 @@ class FormalReplayCoordinatorTest {
             @@ -0,0 +1,3 @@
             +package fixtures;
             +class Foo {}
+            """;
+
+    private static final String WRONG_HEADER_COUNTS_PATCH =
+            """
+            diff --git a/src/test/java/fixtures/OldTest.java b/src/test/java/fixtures/OldTest.java
+            --- a/src/test/java/fixtures/OldTest.java
+            +++ b/src/test/java/fixtures/OldTest.java
+            @@ -6,99 +6,99 @@
+               @Test
+               void already() {}
+            +
+            +  @Test
+            +  void added() {}
             """;
 
     @TempDir
@@ -220,6 +234,136 @@ class FormalReplayCoordinatorTest {
         assertThat(details.verdict()).contains(ReplayVerdict.VALID_REPRODUCTION);
     }
 
+    @Test
+    void storedLengthRejectsAgentGeneratedAsTruncatedNotRecount() throws Exception {
+        ClaimedRun claimed = liveClaim(
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET),
+                CompletionDiagnostics.of("length", "0", "10"));
+        InMemoryReplayRunSession session = liveSession(claimed);
+        AtomicReplayer replayer = new AtomicReplayer();
+        FormalReplayCoordinator coordinator =
+                coordinator(factory(liveFixture), successfulWarmup(), replayer);
+
+        RunDetails details = coordinator.run(claimed, session);
+
+        assertThat(details.state()).isEqualTo(RunState.FAILED);
+        assertThat(details.failure().orElseThrow().stage()).isEqualTo(FailureStage.PATCH_GATE);
+        assertThat(details.failure().orElseThrow().summary()).contains("响应被截断");
+        assertThat(details.failure().orElseThrow().summary()).doesNotContain("hunk");
+        assertThat(replayer.calls).isZero();
+    }
+
+    @Test
+    void storedUnknownDoesNotRelaxAgentGeneratedHeaderMismatch() throws Exception {
+        ClaimedRun claimed = liveClaim(
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET),
+                CompletionDiagnostics.unknown());
+        InMemoryReplayRunSession session = liveSession(claimed);
+        AtomicReplayer replayer = new AtomicReplayer();
+        FormalReplayCoordinator coordinator =
+                coordinator(factory(liveFixture), successfulWarmup(), replayer);
+
+        RunDetails details = coordinator.run(claimed, session);
+
+        assertThat(details.state()).isEqualTo(RunState.FAILED);
+        assertThat(details.failure().orElseThrow().summary()).contains("hunk");
+        assertThat(details.failure().orElseThrow().summary()).doesNotContain("响应被截断");
+        assertThat(replayer.calls).isZero();
+    }
+
+    @Test
+    void storedStopRecountsAgentGeneratedWrongHeader() throws Exception {
+        ClaimedRun claimed = liveClaim(
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET),
+                CompletionDiagnostics.of("stop", "0", "10"));
+        InMemoryReplayRunSession session = liveSession(claimed);
+        FormalReplayCoordinator coordinator = coordinator(
+                factory(liveFixture), successfulWarmup(), FormalReplayCoordinatorTest::liveReplay);
+
+        RunDetails details = coordinator.run(claimed, session);
+
+        assertThat(details.state()).isEqualTo(RunState.COMPLETED);
+        assertThat(details.verdict()).contains(ReplayVerdict.REPRODUCTION_CANDIDATE);
+    }
+
+    @Test
+    void sameAgentGeneratedLengthAndStopBehaveDifferently() throws Exception {
+        PersistedCandidatePatch agent =
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET);
+        FormalReplayCoordinator coordinator = coordinator(
+                factory(liveFixture), successfulWarmup(), FormalReplayCoordinatorTest::liveReplay);
+
+        RunDetails length = coordinator.run(
+                liveClaim(agent, CompletionDiagnostics.of("length", "0", "10")),
+                liveSession(liveClaim(agent, CompletionDiagnostics.of("length", "0", "10"))));
+        RunDetails stop = coordinator.run(
+                liveClaim(agent, CompletionDiagnostics.of("stop", "0", "10")),
+                liveSession(liveClaim(agent, CompletionDiagnostics.of("stop", "0", "10"))));
+
+        assertThat(agent.provenance()).isEqualTo(TestPatchProvenance.AGENT_GENERATED);
+        assertThat(length.state()).isEqualTo(RunState.FAILED);
+        assertThat(length.failure().orElseThrow().summary()).contains("响应被截断");
+        assertThat(stop.state()).isEqualTo(RunState.COMPLETED);
+        assertThat(stop.verdict()).contains(ReplayVerdict.REPRODUCTION_CANDIDATE);
+    }
+
+    @Test
+    void knownTriggerWrongHeaderStaysStrictWithExplicitUnknown() throws Exception {
+        ClaimedRun claimed = liveClaim(
+                PersistedCandidatePatch.fromKnownTrigger(WRONG_HEADER_COUNTS_PATCH, TARGET),
+                CompletionDiagnostics.unknown());
+        InMemoryReplayRunSession session = liveSession(claimed);
+        AtomicReplayer replayer = new AtomicReplayer();
+        FormalReplayCoordinator coordinator =
+                coordinator(factory(liveFixture), successfulWarmup(), replayer);
+
+        RunDetails details = coordinator.run(claimed, session);
+
+        assertThat(details.state()).isEqualTo(RunState.FAILED);
+        assertThat(details.failure().orElseThrow().summary()).contains("hunk");
+        assertThat(replayer.calls).isZero();
+    }
+
+    @Test
+    void storedToolCallsRecountsAgentGeneratedWrongHeader() throws Exception {
+        ClaimedRun claimed = liveClaim(
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET),
+                CompletionDiagnostics.of("tool_calls", "0", "10"));
+        InMemoryReplayRunSession session = liveSession(claimed);
+        FormalReplayCoordinator coordinator = coordinator(
+                factory(liveFixture), successfulWarmup(), FormalReplayCoordinatorTest::liveReplay);
+
+        RunDetails details = coordinator.run(claimed, session);
+
+        assertThat(details.state()).isEqualTo(RunState.COMPLETED);
+        assertThat(details.verdict()).contains(ReplayVerdict.REPRODUCTION_CANDIDATE);
+    }
+
+    @Test
+    void inMemoryGenerationCommitKeepsRecordedDiagnostics() {
+        ClaimedRun generating = new ClaimedRun(
+                UUID.randomUUID(),
+                VerificationMode.LIVE,
+                RunState.GENERATING,
+                1L,
+                new RunLease(UUID.randomUUID(), "owner", Instant.now().plusSeconds(60)),
+                0,
+                0,
+                Optional.empty(),
+                CompletionDiagnostics.unknown());
+        InMemoryGenerationRunSession generation = new InMemoryGenerationRunSession(generating);
+        generation.reserveGenerationAttempt("fake", "fixture-v1");
+        generation.recordModelUsage(
+                new io.github.patchatlas.agent.ModelUsage(1, 2, 3),
+                CompletionDiagnostics.of("length", "0", "2"));
+        ClaimedRun replaying = generation.commitCandidate(GatedCandidateTestHelper.gated(
+                PersistedCandidatePatch.fromAccepted(WRONG_HEADER_COUNTS_PATCH, TARGET)));
+        assertThat(replaying.completionDiagnostics().finishReason()).isEqualTo("length");
+
+        InMemoryReplayRunSession replay = liveSession(replaying);
+        assertThat(replay.openRound().claim().completionDiagnostics().finishReason()).isEqualTo("length");
+    }
+
     private FormalReplayCoordinator coordinator(
             CandidateWorkspaceFactory workspaces,
             DependencyWarmupRunner warmup,
@@ -275,6 +419,11 @@ class FormalReplayCoordinatorTest {
     }
 
     private static ClaimedRun liveClaim(PersistedCandidatePatch candidate) {
+        return liveClaim(candidate, CompletionDiagnostics.unknown());
+    }
+
+    private static ClaimedRun liveClaim(
+            PersistedCandidatePatch candidate, CompletionDiagnostics diagnostics) {
         return new ClaimedRun(
                 UUID.randomUUID(),
                 VerificationMode.LIVE,
@@ -283,7 +432,8 @@ class FormalReplayCoordinatorTest {
                 new RunLease(UUID.randomUUID(), "owner", Instant.now().plusSeconds(60)),
                 0,
                 0,
-                Optional.of(candidate));
+                Optional.of(candidate),
+                diagnostics);
     }
 
     private static ClaimedRun historicalClaim(PersistedCandidatePatch candidate) {
