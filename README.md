@@ -68,6 +68,7 @@ Calibration 的 3/3 用的是已知触发测试，用来校准 Replay Engine，*
 - [Spring 案例导读](benchmark-cases/spring-case-study/reading-guide.md) → 原文 [`evidence-report.md`](benchmark-cases/spring-case-study/evidence-report.md)
 - 架构图（每个图元都有类）：[docs/architecture-diagram.md](docs/architecture-diagram.md)
 - 演示脚本：[docs/demo-script.md](docs/demo-script.md)
+- 演示录制：[docs/demo-recording.md](docs/demo-recording.md)（Tag `demo`）
 
 ## 技术栈
 
