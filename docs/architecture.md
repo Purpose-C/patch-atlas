@@ -27,9 +27,11 @@ PatchAtlas 是面向 Java 开源仓库的 Issue-to-Test 验证平台。它不把
 
 尚未修复的 Issue 没有 Fixed Revision。候选测试在当前版本产生目标断言失败时，系统只能输出 `REPRODUCTION_CANDIDATE`，等待修复版本完成最终验证。
 
-### PR 影响分析
+### PR 影响分析（🔴 未实现）
 
-Issue 定位与影响分析共用同一张代码关系图。前者服务于候选测试的上下文选择；后者作为独立流程输出改动方法、直接调用方、相关入口、测试关联以及分级证据。
+设计意图是：Issue 定位与影响分析共用同一张代码关系图，前者服务于候选测试的上下文选择，后者作为独立流程输出改动方法、直接调用方、相关入口、测试关联以及分级证据。
+
+🔴 **当前代码里没有 `impact` 包，`Impact Report` 的表与端点都不存在。** 共用的代码关系图（`analysis` 包）已实现并用于 Issue 定位，影响分析出口未实现。它在剩余范围里排最后。
 
 ## 总体结构
 
@@ -165,7 +167,24 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - Run 聚合指标、沙箱执行遥测、结构化领域日志与估算费用；
 - 受控校准案例和一个真实 Spring 历史案例；
 - 冻结队列上的正式 Agent Benchmark。3 个 Calibration 案例全部 `VALID_REPRODUCTION`，3 个 Agent 案例全部未复现（`GENERATION_EXHAUSTED`）。失败集中在统一 diff 的输出契约层而非测试设计层：9 次拒绝中 6 次为 `trailing non-patch text`、3 次为 `hunk new count mismatch`。完整证据见 `benchmark-cases/task018/`。
+- `LOCATING` 阶段与 `ContextOrigin` 三分（`HEURISTIC` / `TEXT_TOOLS` / `GRAPH_TOOLS`）、自控工具循环、双上限预算与 `locating_trace` 落库；
+- JavaParser 代码关系图（仅源码内解析、Spring 语义边按注解名识别、三级置信度、四元组键缓存）与图工具 `find` / `expand`；
+- Oracle 隔离的 Issue 定位覆盖率评估器（地面真值由 buggy..fixed 现算并排除测试源；结果只进 Evidence Report）；
+- 生成契约经 tool calling 承载、`targetTest` 由补丁机械推导、`finish_reason` 入库并作为判定输入（截断与表头计数错误分属不同拒绝类别）；
+- 三臂评测：036 与 5b 两批并列报告、均不作废。5b `VALID_REPRODUCTION` 为 HEURISTIC 1/6、TEXT_TOOLS 0/6、GRAPH_TOOLS 0/6，走到 Docker Replay 4/18。证据见 `benchmark-cases/batch5b-three-arm/`；
+- 手挖 Spring 案例定性研究：三臂 0/3，`expand` 使用 0 次。证据见 `benchmark-cases/spring-case-study/`。🔴 **图工具在代码里存在，评测中模型从未调用 `expand`**，不得据此声称图引导定位已成立；
 - 一条命令启动只读控制台（PostgreSQL + API + Vue）。命令与干净目录验证见 [`docs/up.md`](up.md)。该命令不启动 Issue2Test Worker，也不调用模型。
 - 演示录制见 [`docs/demo-recording.md`](demo-recording.md)。Tag `demo` 在录制时运行的 `4b77189`；该说明提交引用该 Tag，不改定位、生成、Gate 或阈值。
 
-本文件不再把「演示 Tag」列为未交付项。其它未做的能力见 [`VISION.md`](VISION.md)，不在本次交付范围内。
+本文件不再把「演示 Tag」列为未交付项。
+
+未实现（2026-08-20 范围定稿后仍在计划内的，按优先级）：
+
+1. 🔴 **宿主上跑 Worker 的文档化路径** —— `scripts/up.sh` 的 `--worker` 无条件退出 2，一条命令拉起的是只读控制台与空库，**外部使用者无法自己产生一次 Run**；
+2. springdoc / OpenAPI；
+3. RestAssured 的 API 层契约测试（`RunController` 目前只有 MVC 测试）；
+4. 覆盖率增量门禁；
+5. Playwright E2E、Prometheus 指标暴露、token 鉴权（API 当前无鉴权）；
+6. PR 影响分析出口（见上文，`impact` 包不存在）。
+
+上表之外的能力已放弃或属于 [`VISION.md`](VISION.md) 的既有非目标，不在计划内。

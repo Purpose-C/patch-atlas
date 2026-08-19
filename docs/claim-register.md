@@ -1,6 +1,8 @@
 # 声明对照表
 
-对外物料里的能力声明必须落在 A（测试）、B（数字+分母+证据文件）或 C（显式未测量）之一。本表覆盖 [`README.md`](../README.md)、[`architecture-diagram.md`](architecture-diagram.md)、[`demo-script.md`](demo-script.md)。落不进三格的句子已删或改写。
+对外物料里的能力声明必须落在 A（测试）、B（数字+分母+证据文件）或 C（显式未测量）之一。本表覆盖 [`README.md`](../README.md)、[`architecture.md`](architecture.md)、[`architecture-diagram.md`](architecture-diagram.md)、[`demo-script.md`](demo-script.md)。落不进三格的句子已删或改写。
+
+⚠️ 2026-08-20 补入 `architecture.md`：此前它不在覆盖范围内，「PR 影响分析」一节因此以现在时描述了一个**不存在的**能力（无 `impact` 包）。已改为显式标注未实现。**闸门只在它覆盖的文件上有效**——新增对外文档必须同时纳入本表。
 
 | ID | 声明 | 出现位置 | 格 | 证据 |
 | --- | --- | --- | --- | --- |
@@ -24,6 +26,7 @@
 | B07 | 5b 启发式臂那次真实成功是 18 次里的 1 次 | 演示脚本 | B | `batch5b-three-arm/evidence-report.md` Run `6d7dd641-b730-45d7-890c-3fcdd3559f42` |
 | C01 | 所用模型对 GitBug-Java 案例的训练数据污染边界 | README | C | 未测量。5b 协议写明训练数据构成与知识截止时间未公开 |
 | C02 | 同一模型标识下权重长期不变 | README | C | 未测量。5b 协议写明供应商可在不改名的前提下更换权重 |
+| C03 | PR 影响分析出口（`Impact Report` 表与端点） | architecture.md | C | 未测量/未实现。`impact` 包不存在；该节已显式标注未实现 |
 
 未作为能力声明（因此不进本表）的句子：技术栈版本、目录结构、许可证、单用户无认证的安全提示、一条命令**不**启动 Worker。这些是限制或事实，不是卖点。
 
