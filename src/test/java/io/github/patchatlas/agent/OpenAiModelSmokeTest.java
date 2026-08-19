@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.patchatlas.repository.CaseManifest;
-import io.github.patchatlas.replay.HistoricalReplayEngine;
-import io.github.patchatlas.replay.HistoricalReplayRequest;
 import io.github.patchatlas.replay.DependencyWarmupRunner;
 import io.github.patchatlas.replay.ReplayResult;
 import io.github.patchatlas.replay.ReplayVerdict;
@@ -14,9 +12,14 @@ import io.github.patchatlas.replay.SideReplayRunner;
 import io.github.patchatlas.replay.StableSideEvidence;
 import io.github.patchatlas.run.CandidateGenerationCoordinator;
 import io.github.patchatlas.run.ClaimedRun;
+import io.github.patchatlas.run.EngineRunReplayer;
+import io.github.patchatlas.run.FormalReplayCoordinator;
 import io.github.patchatlas.run.InMemoryGenerationRunSession;
+import io.github.patchatlas.run.InMemoryReplayRunSession;
 import io.github.patchatlas.run.LocalGitFixture;
 import io.github.patchatlas.run.PersistedCandidatePatch;
+import io.github.patchatlas.run.ReplayWorkspaceProjection;
+import io.github.patchatlas.run.RunDetails;
 import io.github.patchatlas.run.RunLease;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.TempCandidateWorkspaceFactory;
@@ -24,8 +27,6 @@ import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.sandbox.DockerSandboxConfig;
 import io.github.patchatlas.sandbox.DockerSandboxRunner;
 import io.github.patchatlas.sandbox.MavenDependencyWarmupCommand;
-import io.github.patchatlas.sandbox.MavenNetworkMode;
-import io.github.patchatlas.sandbox.MavenTestCommand;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import io.github.patchatlas.sandbox.SandboxLimits;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +37,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.PersonIdent;
@@ -55,7 +57,8 @@ import org.springframework.ai.chat.model.ChatModel;
  *   <li>可选 {@code PATCHATLAS_OPENAI_BASE_URL}（OpenAI 兼容端点；生成走 {@code submit_draft} 工具调用）</li>
  * </ul>
  * 链路：真实 Spring AI 生成 → Patch Gate → <strong>真实 Docker</strong> Buggy 预验证 →
- * 候选提交 → <strong>真实 Docker</strong> Historical Replay（Buggy fail → Fixed pass）。
+ * 候选提交 → {@link FormalReplayCoordinator} → <strong>真实 Docker</strong> Historical Replay
+ * （Buggy fail → Fixed pass）。正式阶段不手搓 {@code PatchGate.prepare}。
  *
  * <p>禁止 ScriptedSandboxRunner 伪造执行证据。认证/结构/Gate/预验证失败会使测试失败；
  * 仅缺环境变量或 Docker 不可用时 skip。手工记录：日期、模型、尝试数、token 汇总、verdict。
@@ -135,9 +138,9 @@ class OpenAiModelSmokeTest {
                         hist.fixedSha(),
                         workspaceRoot,
                         "warmup");
-        var warmup = docker.execute(
+        var warmupExec = docker.execute(
                 warmupWs, new MavenDependencyWarmupCommand("", "fixtures.StringUtilsTest"));
-        assertThat(warmup.status()).isEqualTo(SandboxExecutionStatus.COMPLETED);
+        assertThat(warmupExec.status()).isEqualTo(SandboxExecutionStatus.COMPLETED);
 
         ChatModel chatModel = OpenAiChatModelFactory.create(key, model, baseUrl);
         SpringAiTestGenerator generator =
@@ -170,17 +173,14 @@ class OpenAiModelSmokeTest {
                         new SourceSnapshot(
                                 "src/test/java/fixtures/StringUtilsTest.java", EMPTY_TEST)));
 
+        PatchGate gate = new PatchGate(workspaceRoot);
         var factory = new TempCandidateWorkspaceFactory(
                 workspaceRoot,
                 LocalGitFixture.fetcher(hist.originDir()));
         SideReplayRunner side = new SideReplayRunner(docker, workspaceRoot);
+        DependencyWarmupRunner warmupRunner = new DependencyWarmupRunner(docker, workspaceRoot);
         CandidateGenerationCoordinator coordinator =
-                new CandidateGenerationCoordinator(
-                        generator,
-                        new PatchGate(workspaceRoot),
-                        factory,
-                        new DependencyWarmupRunner(docker, workspaceRoot),
-                        side);
+                new CandidateGenerationCoordinator(generator, gate, factory, warmupRunner, side);
 
         ClaimedRun claim = new ClaimedRun(
                 UUID.randomUUID(),
@@ -208,29 +208,33 @@ class OpenAiModelSmokeTest {
         // 不得把空方法冒充回归；目标方法名应非空
         assertThat(candidate.targetTest().methodName()).isNotBlank();
 
-        // 正式 Historical：新 workspace + 同一候选 + 真实 Docker（同样必须在 workspaceRoot 下）
-        Path formalRoot = Files.createDirectories(workspaceRoot.resolve("formal"));
-        Path buggy = LocalGitFixture.fetcher(hist.originDir())
-                .materialize("file://" + hist.originDir(), hist.buggySha(), formalRoot, "buggy");
-        Path fixed = LocalGitFixture.fetcher(hist.originDir())
-                .materialize("file://" + hist.originDir(), hist.fixedSha(), formalRoot, "fixed");
-        CandidateDraft draft = new CandidateDraft(candidate.patchText(), candidate.targetTest());
-        PatchGate gate = new PatchGate(workspaceRoot);
-        assertThat(gate.prepare(
-                        buggy, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
-                .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
-        assertThat(gate.prepare(
-                        fixed, "", draft, MavenNetworkMode.OFFLINE, CompletionDiagnostics.unknown()))
-                .isInstanceOf(PatchPreparationResult.PreparedCandidate.class);
+        AtomicReference<ReplayResult> captured = new AtomicReference<>();
+        EngineRunReplayer engineReplayer = new EngineRunReplayer(side);
+        FormalReplayCoordinator formalCoordinator = new FormalReplayCoordinator(
+                gate,
+                factory,
+                warmupRunner,
+                (claimed, committed, workspace) -> {
+                    ReplayResult replayed = engineReplayer.replay(claimed, committed, workspace);
+                    captured.set(replayed);
+                    return replayed;
+                });
+        ReplayWorkspaceProjection projection = new ReplayWorkspaceProjection.Historical(
+                "https://github.com/ex/repo.git", hist.buggySha(), hist.fixedSha(), "");
+        RunDetails completed;
+        try (InMemoryReplayRunSession replaySession = new InMemoryReplayRunSession(replaying, projection)) {
+            completed = formalCoordinator.run(replaying, replaySession);
+        }
 
-        HistoricalReplayEngine engine = new HistoricalReplayEngine(docker, workspaceRoot);
-        MavenTestCommand command = new MavenTestCommand(
-                "",
-                candidate.targetTest().className() + "#" + candidate.targetTest().methodName(),
-                MavenNetworkMode.OFFLINE);
-        ReplayResult formal =
-                engine.verify(new HistoricalReplayRequest(buggy, fixed, command, candidate.targetTest()));
-
+        assertThat(completed.state())
+                .withFailMessage(
+                        "FormalReplayCoordinator stopped: state=%s failure=%s",
+                        completed.state(),
+                        completed.failure())
+                .isEqualTo(RunState.COMPLETED);
+        ReplayResult formal = captured.get();
+        assertThat(formal).isNotNull();
+        assertThat(completed.verdict()).contains(ReplayVerdict.VALID_REPRODUCTION);
         assertThat(formal.verdict())
                 .withFailMessage(
                         "real docker historical verdict=%s buggy=%s fixed=%s",
