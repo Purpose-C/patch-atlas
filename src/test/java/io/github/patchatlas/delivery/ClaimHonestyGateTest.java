@@ -14,6 +14,7 @@ class ClaimHonestyGateTest {
 
     private static final Path README = Path.of("README.md");
     private static final Path REGISTER = Path.of("docs/claim-register.md");
+    private static final Path ARCHITECTURE = Path.of("docs/architecture.md");
     private static final Path DIAGRAM = Path.of("docs/architecture-diagram.md");
     private static final Path DEMO = Path.of("docs/demo-script.md");
 
@@ -21,6 +22,7 @@ class ClaimHonestyGateTest {
     void publicMaterialsCarryDenominatorsAndNoRankingClaims() throws Exception {
         String readme = Files.readString(README);
         String register = Files.readString(REGISTER);
+        String architecture = Files.readString(ARCHITECTURE);
         String diagram = Files.readString(DIAGRAM);
         String demo = Files.readString(DEMO);
         String fiveB = Files.readString(Path.of("benchmark-cases/batch5b-three-arm/reading-guide.md"));
@@ -43,7 +45,7 @@ class ClaimHonestyGateTest {
         assertThat(spring).contains("0/3");
         assertThat(spring).contains("原因不再是队列性质");
 
-        for (String text : List.of(readme, register, diagram, demo, fiveB, spring)) {
+        for (String text : List.of(readme, register, architecture, diagram, demo, fiveB, spring)) {
             assertThat(text).doesNotContain("语义图引导");
             assertThat(text).doesNotContain("图更好");
             assertThat(text).doesNotContain("文本更好");
@@ -72,7 +74,7 @@ class ClaimHonestyGateTest {
             cells.add(cols[4].trim());
         }
         assertThat(cells).containsOnly("A", "B", "C");
-        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(11);
+        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(12);
         assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(7);
         assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }

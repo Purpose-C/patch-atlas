@@ -17,6 +17,7 @@
 | A09 | 图发现工具在代码中提供 `find` 与 `expand` | 架构图 | A | `GraphDiscoveryTools`；`GraphDiscoveryToolsTest` |
 | A10 | `./scripts/up.sh` 拉起 PostgreSQL + API + Vue，不读 `.env` | README, 演示脚本 | A | `DeliveryUpScriptTest` |
 | A11 | `--worker` 在缺凭据时退出并列出 missing 变量 | README, 演示脚本 | A | `DeliveryUpScriptTest.workerFlagListsMissingCredentialsAndDoesNotStartCompose` |
+| A12 | Run 详情只读展示定位轨迹（来源、预算事件、逐步步骤、截断与空态） | architecture.md | A | `RunDetailView.test.ts`；`LocatingTraceProjectionTest`；`RunControllerTest` |
 | B01 | 5b 三臂 `VALID_REPRODUCTION` 为 1/6、0/6、0/6 | README, 演示脚本, 导读 | B | [`benchmark-cases/batch5b-three-arm/evidence-report.md`](../benchmark-cases/batch5b-three-arm/evidence-report.md) 各臂 Reproduction rate |
 | B02 | 5b 走到 Docker Replay 为 4/18 | README, 演示脚本, 导读 | B | 同上 Run inventory：4 条 `COMPLETED`，其余 14 条未进入 Replay |
 | B03 | Spring 案例研究 0/3，三次全 `GENERATION_EXHAUSTED` | README, 演示脚本, 导读 | B | [`benchmark-cases/spring-case-study/evidence-report.md`](../benchmark-cases/spring-case-study/evidence-report.md) |
@@ -30,4 +31,4 @@
 
 未作为能力声明（因此不进本表）的句子：技术栈版本、目录结构、许可证、单用户无认证的安全提示、一条命令**不**启动 Worker。这些是限制或事实，不是卖点。
 
-明确未声称：图引导定位已经成立、臂间谁更好、Calibration 3/3 等于 Agent 复现率、只展示成功路径。
+明确未声称：图引导定位已经成立、臂间谁更好、Calibration 3/3 等于 Agent 复现率、只展示成功路径。Run 详情能列出 `EXPAND` 步骤，只说明轨迹被记录了，不构成图引导定位成立。
