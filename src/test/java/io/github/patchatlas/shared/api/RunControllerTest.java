@@ -94,6 +94,27 @@ class RunControllerTest {
     }
 
     @Test
+    void reusedIdempotencyKeyWithDifferentBodyIs409() throws Exception {
+        UUID existing = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        when(store.submitIdempotent(any(), any(), any()))
+                .thenReturn(new IdempotentSubmitResult.Conflict(existing));
+
+        mockMvc.perform(post("/api/runs")
+                        .header("Idempotency-Key", "demo-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validBody()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void missingRunIs404() throws Exception {
+        UUID id = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        when(store.findRunDetail(id)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/runs/" + id)).andExpect(status().isNotFound());
+    }
+
+    @Test
     void missingModulePathIs400() throws Exception {
         String body =
                 """

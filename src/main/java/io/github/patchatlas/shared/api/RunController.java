@@ -13,6 +13,9 @@ import io.github.patchatlas.run.RunListCursor;
 import io.github.patchatlas.run.RunListPage;
 import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.run.SubmissionFingerprint;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +48,11 @@ public class RunController {
     }
 
     @PostMapping
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", headers = @Header(name = "Location")),
+        @ApiResponse(responseCode = "409"),
+        @ApiResponse(responseCode = "503")
+    })
     public ResponseEntity<RunCreateResponse> create(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody(required = false) RunCreateRequest body) {
@@ -71,6 +79,10 @@ public class RunController {
     }
 
     @GetMapping
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "503")
+    })
     public RunListResponse list(
             @RequestParam(name = "limit", defaultValue = "20") int limit,
             @RequestParam(name = "cursor", required = false) String cursor) {
@@ -87,6 +99,11 @@ public class RunController {
     }
 
     @GetMapping("/{runId}")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "404"),
+        @ApiResponse(responseCode = "503")
+    })
     public RunDetailResponse get(@PathVariable("runId") UUID runId) {
         PostgresRunStore store = requireStore();
         RunDetailView detail = store.findRunDetail(runId)
