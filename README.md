@@ -66,6 +66,8 @@ Calibration 的 3/3 用的是已知触发测试，用来校准 Replay Engine，*
 
 对着打包控制台的 Chromium 用例见 [docs/e2e.md](docs/e2e.md)。覆盖的是那里列出的行为，不是 UI 质量总括。
 
+四个端点的契约由代码生成并被测试钉住，见 [docs/openapi.md](docs/openapi.md)。swagger-ui 随应用进程暴露，且 API 无认证，这是限制，不要据此当成可公开部署。
+
 ## 怎么读报告
 
 - [5b 导读](benchmark-cases/batch5b-three-arm/reading-guide.md) → 原文 [`evidence-report.md`](benchmark-cases/batch5b-three-arm/evidence-report.md)

@@ -30,6 +30,7 @@ class ClaimHonestyGateTest {
         String hostWorker = Files.readString(Path.of("docs/host-worker.md"));
         String hostWorkerVerification = Files.readString(Path.of("docs/host-worker-verification.md"));
         String e2e = Files.readString(Path.of("docs/e2e.md"));
+        String openapi = Files.readString(Path.of("docs/openapi.md"));
 
         assertThat(readme).contains("1/6");
         assertThat(readme).contains("0/6");
@@ -51,7 +52,14 @@ class ClaimHonestyGateTest {
         assertThat(architecture).doesNotContain("外部使用者无法自己产生一次 Run");
         assertThat(architecture).contains("./scripts/worker.sh");
         assertThat(architecture).contains("e2e.md");
+        assertThat(architecture).contains("openapi.md");
         assertThat(architecture).doesNotContain("Playwright E2E、Prometheus");
+        assertThat(architecture).doesNotContain("1. springdoc / OpenAPI");
+        assertThat(openapi).contains("四个端点的契约由代码生成并被测试钉住");
+        assertThat(openapi).contains("无鉴权");
+        assertThat(openapi).contains("/v3/api-docs");
+        assertThat(openapi).contains("swagger-ui");
+        assertThat(readme).contains("四个端点的契约由代码生成并被测试钉住");
         assertThat(e2e).contains("无定位记录");
         assertThat(e2e).contains("截断可见");
         assertThat(e2e).contains("测试自身不启停栈");
@@ -76,7 +84,8 @@ class ClaimHonestyGateTest {
                 spring,
                 hostWorker,
                 hostWorkerVerification,
-                e2e)) {
+                e2e,
+                openapi)) {
             assertThat(text).doesNotContain("语义图引导");
             assertThat(text).doesNotContain("图更好");
             assertThat(text).doesNotContain("文本更好");
@@ -84,6 +93,8 @@ class ClaimHonestyGateTest {
             assertThat(text).doesNotContain("优于");
             assertThat(text).doesNotContain("/Users/");
             assertThat(text).doesNotContain("Task 0");
+            assertThat(text).doesNotContain("API 文档完整");
+            assertThat(text).doesNotContain("生产就绪");
         }
 
         assertThat(sha256("benchmark-cases/batch5b-three-arm/evidence-report.md"))
@@ -105,7 +116,7 @@ class ClaimHonestyGateTest {
             cells.add(cols[4].trim());
         }
         assertThat(cells).containsOnly("A", "B", "C");
-        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(14);
+        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(15);
         assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(9);
         assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }
