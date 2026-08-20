@@ -5,6 +5,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +48,25 @@ public class ApiExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ProblemDetail> notFound(NoResourceFoundException ex, WebRequest request) {
         return problem(HttpStatus.NOT_FOUND, "Not Found", "resource not found", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> unsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex, WebRequest request) {
+        return problem(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type", "unsupported content type", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ProblemDetail> notAcceptable(
+            HttpMediaTypeNotAcceptableException ex, WebRequest request) {
+        return problem(HttpStatus.NOT_ACCEPTABLE, "Not Acceptable", "not acceptable", request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> methodNotAllowed(
+            HttpRequestMethodNotSupportedException ex, WebRequest request) {
+        return problem(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed", "method not allowed", request);
     }
 
     @ExceptionHandler(Exception.class)

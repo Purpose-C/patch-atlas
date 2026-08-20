@@ -44,19 +44,23 @@ class RestAssuredDefaultStackTest {
     }
 
     @Test
-    void unsupportedContentTypeAndAcceptBecome500ProblemJson() {
+    void unsupportedContentTypeAndAcceptAre415And406ProblemJson() {
         Response textPlain = given().contentType("text/plain").body("not-json").post("/api/runs");
-        textPlain.then().statusCode(500);
+        textPlain.then().statusCode(415);
         assertThat(textPlain.getContentType()).contains("application/problem+json");
         JsonNode textBody = JsonMapper.shared().readTree(textPlain.asString());
-        assertThat(textBody.get("status").asInt()).isEqualTo(500);
-        assertThat(textBody.get("title").asString()).isEqualTo("Internal Server Error");
+        assertThat(textBody.get("status").asInt()).isEqualTo(415);
+        assertThat(textBody.get("title").asString()).isEqualTo("Unsupported Media Type");
+        assertThat(textBody.get("detail").asString()).isEqualTo("unsupported content type");
+        assertThat(textPlain.asString()).doesNotContain("text/plain");
 
         Response xmlAccept = given().accept("application/xml").get("/api/v1/health");
-        xmlAccept.then().statusCode(500);
+        xmlAccept.then().statusCode(406);
         assertThat(xmlAccept.getContentType()).contains("application/problem+json");
         JsonNode xmlBody = JsonMapper.shared().readTree(xmlAccept.asString());
-        assertThat(xmlBody.get("status").asInt()).isEqualTo(500);
-        assertThat(xmlBody.get("title").asString()).isEqualTo("Internal Server Error");
+        assertThat(xmlBody.get("status").asInt()).isEqualTo(406);
+        assertThat(xmlBody.get("title").asString()).isEqualTo("Not Acceptable");
+        assertThat(xmlBody.get("detail").asString()).isEqualTo("not acceptable");
+        assertThat(xmlAccept.asString()).doesNotContain("application/xml");
     }
 }

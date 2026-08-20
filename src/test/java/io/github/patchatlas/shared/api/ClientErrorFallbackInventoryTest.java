@@ -23,46 +23,48 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 测量现有四个端点上落入通用 {@code Exception} 处理器的异常类型与实际状态码。
+ * 现有四个端点上，曾落入通用 {@code Exception} 处理器的客户端错误现返回 415 / 406 / 405。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class ClientErrorFallbackInventoryTest {
 
-    private static final String FALLBACK_DETAIL = "an unexpected error occurred";
-
     @Autowired
     private MockMvc mockMvc;
 
     @Test
-    void clientErrorsThatHitTheFallbackAreCurrently500() throws Exception {
+    void measuredClientErrorsReturn415Or406Or405InsteadOf500() throws Exception {
         List<Map<String, String>> rows = probes();
-        List<String> fallback = rows.stream()
-                .filter(row -> FALLBACK_DETAIL.equals(row.get("detail")))
-                .map(row -> row.get("exception") + " -> " + row.get("status") + " | " + row.get("probe"))
+        List<String> measured = rows.stream()
+                .filter(row -> row.get("exception").contains("HttpMediaType")
+                        || row.get("exception").contains("HttpRequestMethodNotSupported"))
+                .map(row -> row.get("exception") + " -> " + row.get("status") + " | " + row.get("probe")
+                        + " | " + row.get("detail"))
                 .distinct()
                 .toList();
-        assertThat(fallback)
+        assertThat(measured)
                 .as("full probe dump:%n%s", dump(rows))
                 .containsExactly(
-                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 500 | POST /api/runs text/plain",
-                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 500 | POST /api/runs application/xml",
-                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 500 | POST /api/runs application/octet-stream",
-                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 500 | POST /api/runs missing Content-Type",
-                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 500 | GET /api/v1/health Accept application/xml",
-                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 500 | GET /api/v1/health Accept text/html",
-                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 500 | GET /api/v1/health Accept text/plain",
-                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 500 | DELETE /api/runs",
-                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 500 | PUT /api/runs",
-                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 500 | PATCH /api/v1/health",
-                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 500 | POST /api/v1/health");
+                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 415 | POST /api/runs text/plain | unsupported content type",
+                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 415 | POST /api/runs application/xml | unsupported content type",
+                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 415 | POST /api/runs application/octet-stream | unsupported content type",
+                        "org.springframework.web.HttpMediaTypeNotSupportedException -> 415 | POST /api/runs missing Content-Type | unsupported content type",
+                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 406 | GET /api/v1/health Accept application/xml | not acceptable",
+                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 406 | GET /api/v1/health Accept text/html | not acceptable",
+                        "org.springframework.web.HttpMediaTypeNotAcceptableException -> 406 | GET /api/v1/health Accept text/plain | not acceptable",
+                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 405 | DELETE /api/runs | method not allowed",
+                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 405 | PUT /api/runs | method not allowed",
+                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 405 | PATCH /api/v1/health | method not allowed",
+                        "org.springframework.web.HttpRequestMethodNotSupportedException -> 405 | POST /api/v1/health | method not allowed");
+        assertThat(dump(rows)).doesNotContain("an unexpected error occurred");
     }
 
     @Test
     void alreadyHandledExceptionsDoNotHitTheFallback() throws Exception {
         List<Map<String, String>> rows = probes();
         List<String> handled = rows.stream()
-                .filter(row -> !FALLBACK_DETAIL.equals(row.get("detail")))
+                .filter(row -> !row.get("exception").contains("HttpMediaType")
+                        && !row.get("exception").contains("HttpRequestMethodNotSupported"))
                 .map(row -> row.get("exception") + " -> " + row.get("status") + " | " + row.get("probe"))
                 .toList();
         assertThat(handled)
@@ -84,14 +86,16 @@ class ClientErrorFallbackInventoryTest {
         assertThat(resolved).isNotNull();
         assertThat(resolved.getClass().getName())
                 .isEqualTo("org.springframework.web.HttpMediaTypeNotAcceptableException");
-        assertThat(result.getResponse().getStatus()).isEqualTo(500);
+        assertThat(result.getResponse().getStatus()).isEqualTo(406);
         assertThat(result.getResponse().getContentType()).contains("application/problem+json");
         assertThat(body).isNotBlank();
         assertThat(json.get("type").asString()).isEqualTo("about:blank");
-        assertThat(json.get("title").asString()).isEqualTo("Internal Server Error");
-        assertThat(json.get("status").asInt()).isEqualTo(500);
-        assertThat(json.get("detail").asString()).isEqualTo(FALLBACK_DETAIL);
+        assertThat(json.get("title").asString()).isEqualTo("Not Acceptable");
+        assertThat(json.get("status").asInt()).isEqualTo(406);
+        assertThat(json.get("detail").asString()).isEqualTo("not acceptable");
         assertThat(json.get("instance").asString()).isEqualTo("http://localhost/api/v1/health");
+        assertThat(body).doesNotContain("xml");
+        assertThat(body).doesNotContain("Exception");
     }
 
     private List<Map<String, String>> probes() throws Exception {
