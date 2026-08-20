@@ -4,13 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,16 +19,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 class OpenApiContractTest {
-
-    private static final Pattern STATUS_IS_NUMBER = Pattern.compile("status\\(\\)\\.is\\((\\d+)\\)");
-    private static final Pattern JSON_STATUS = Pattern.compile("jsonPath\\(\"\\$\\.status\"\\)\\.value\\((\\d+)\\)");
-    private static final Map<String, Integer> MVC_STATUS_MATCHERS = Map.of(
-            "status().isOk()", 200,
-            "status().isAccepted()", 202,
-            "status().isBadRequest()", 400,
-            "status().isNotFound()", 404,
-            "status().isConflict()", 409,
-            "status().isServiceUnavailable()", 503);
 
     @Autowired
     private MockMvc mockMvc;
@@ -86,7 +72,7 @@ class OpenApiContractTest {
     @Test
     void documentedStatusCodesWereObservedByMvcTests() throws Exception {
         Set<Integer> documented = documentedProductStatusCodes();
-        Set<Integer> observed = observedMvcStatusCodes();
+        Set<Integer> observed = ObservedHttpStatusCodes.fromTestTree(Path.of("src/test/java"));
         assertThat(documented).isNotEmpty();
         assertThat(observed).containsAll(documented);
     }
@@ -108,29 +94,4 @@ class OpenApiContractTest {
         }
     }
 
-    private static Set<Integer> observedMvcStatusCodes() throws Exception {
-        Set<Integer> codes = new TreeSet<>();
-        try (var walk = Files.walk(Path.of("src/test/java"))) {
-            for (Path path : walk.filter(candidate -> candidate.toString().endsWith("Test.java")).toList()) {
-                String text = Files.readString(path);
-                if (!text.contains("status().")) {
-                    continue;
-                }
-                for (Map.Entry<String, Integer> matcher : MVC_STATUS_MATCHERS.entrySet()) {
-                    if (text.contains(matcher.getKey())) {
-                        codes.add(matcher.getValue());
-                    }
-                }
-                Matcher numbered = STATUS_IS_NUMBER.matcher(text);
-                while (numbered.find()) {
-                    codes.add(Integer.parseInt(numbered.group(1)));
-                }
-                Matcher jsonStatus = JSON_STATUS.matcher(text);
-                while (jsonStatus.find()) {
-                    codes.add(Integer.parseInt(jsonStatus.group(1)));
-                }
-            }
-        }
-        return codes;
-    }
 }
