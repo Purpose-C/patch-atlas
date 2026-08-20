@@ -53,9 +53,13 @@ class ClaimHonestyGateTest {
         assertThat(architecture).contains("./scripts/worker.sh");
         assertThat(architecture).contains("e2e.md");
         assertThat(architecture).contains("openapi.md");
+        assertThat(architecture).contains("7 条端点行为在真实 HTTP 栈上被钉住");
         assertThat(architecture).doesNotContain("Playwright E2E、Prometheus");
         assertThat(architecture).doesNotContain("1. springdoc / OpenAPI");
+        assertThat(architecture).doesNotContain("1. RestAssured");
         assertThat(openapi).contains("四个端点的契约由代码生成并被测试钉住");
+        assertThat(openapi).contains("7 条端点行为在真实 HTTP 栈上被钉住");
+        assertThat(readme).contains("7 条端点行为在真实 HTTP 栈上被钉住");
         assertThat(openapi).contains("无鉴权");
         assertThat(openapi).contains("/v3/api-docs");
         assertThat(openapi).contains("swagger-ui");
@@ -94,6 +98,7 @@ class ClaimHonestyGateTest {
             assertThat(text).doesNotContain("/Users/");
             assertThat(text).doesNotContain("Task 0");
             assertThat(text).doesNotContain("API 文档完整");
+            assertThat(text).doesNotContain("API 测试完备");
             assertThat(text).doesNotContain("生产就绪");
         }
 
@@ -116,7 +121,7 @@ class ClaimHonestyGateTest {
             cells.add(cols[4].trim());
         }
         assertThat(cells).containsOnly("A", "B", "C");
-        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(15);
+        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(16);
         assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(9);
         assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }

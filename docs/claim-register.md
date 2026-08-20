@@ -21,6 +21,7 @@
 | A13 | `./scripts/worker.sh` 缺凭据时列出 `missing:` 并以退出码 2 拒绝，不读 `.env`、不回落 FAKE | host-worker.md, README | A | `DeliveryWorkerScriptTest` |
 | A14 | Chromium 浏览器用例覆盖 `docs/e2e.md` 列出的 12 条行为，不是 UI 质量总括 | e2e.md, architecture.md, README | A | `frontend/e2e/*.spec.ts`；`DeliveryE2ePackagingTest` |
 | A15 | 四个端点的契约由代码生成并被测试钉住 | openapi.md, architecture.md, README | A | `OpenApiContractTest`；`OpenApiDocsAvailableTest` |
+| A16 | 7 条端点行为在真实 HTTP 栈上被钉住 | openapi.md, architecture.md, README | A | `RestAssuredDefaultStackTest`；`RestAssuredPersistenceStackTest` |
 | B01 | 5b 三臂 `VALID_REPRODUCTION` 为 1/6、0/6、0/6 | README, 演示脚本, 导读 | B | [`benchmark-cases/batch5b-three-arm/evidence-report.md`](../benchmark-cases/batch5b-three-arm/evidence-report.md) 各臂 Reproduction rate |
 | B02 | 5b 走到 Docker Replay 为 4/18 | README, 演示脚本, 导读 | B | 同上 Run inventory：4 条 `COMPLETED`，其余 14 条未进入 Replay |
 | B03 | Spring 案例研究 0/3，三次全 `GENERATION_EXHAUSTED` | README, 演示脚本, 导读 | B | [`benchmark-cases/spring-case-study/evidence-report.md`](../benchmark-cases/spring-case-study/evidence-report.md) |
@@ -36,4 +37,4 @@
 
 未作为能力声明（因此不进本表）的句子：技术栈版本、目录结构、许可证、单用户无认证的安全提示、一条命令**不**启动 Worker。这些是限制或事实，不是卖点。
 
-明确未声称：图引导定位已经成立、臂间谁更好、Calibration 3/3 等于 Agent 复现率、只展示成功路径、宿主路径 A 的 `REPLAY OK` 等于 Agent 复现率、有浏览器用例等于界面质量总括、有 swagger-ui 等于可公开部署。Run 详情能列出 `EXPAND` 步骤，只说明轨迹被记录了，不构成图引导定位成立。
+明确未声称：图引导定位已经成立、臂间谁更好、Calibration 3/3 等于 Agent 复现率、只展示成功路径、宿主路径 A 的 `REPLAY OK` 等于 Agent 复现率、有浏览器用例等于界面质量总括、有 swagger-ui 等于可公开部署、有真实 HTTP 栈用例等于接口语义穷尽。Run 详情能列出 `EXPAND` 步骤，只说明轨迹被记录了，不构成图引导定位成立。
