@@ -123,6 +123,8 @@ EOF
 - 不把某次终态当成模型排名；
 - 不把路径 A 的 `REPLAY OK` 加进这里的分母。
 
+干净目录验证见 [`host-worker-verification.md`](host-worker-verification.md)。
+
 停止控制台：
 
 ```bash

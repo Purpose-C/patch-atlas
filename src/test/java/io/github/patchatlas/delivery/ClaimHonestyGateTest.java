@@ -27,6 +27,8 @@ class ClaimHonestyGateTest {
         String demo = Files.readString(DEMO);
         String fiveB = Files.readString(Path.of("benchmark-cases/batch5b-three-arm/reading-guide.md"));
         String spring = Files.readString(Path.of("benchmark-cases/spring-case-study/reading-guide.md"));
+        String hostWorker = Files.readString(Path.of("docs/host-worker.md"));
+        String hostWorkerVerification = Files.readString(Path.of("docs/host-worker-verification.md"));
 
         assertThat(readme).contains("1/6");
         assertThat(readme).contains("0/6");
@@ -45,7 +47,18 @@ class ClaimHonestyGateTest {
         assertThat(spring).contains("0/3");
         assertThat(spring).contains("原因不再是队列性质");
 
-        for (String text : List.of(readme, register, architecture, diagram, demo, fiveB, spring)) {
+        assertThat(architecture).doesNotContain("外部使用者无法自己产生一次 Run");
+        assertThat(architecture).contains("./scripts/worker.sh");
+        assertThat(hostWorker.indexOf("## 路径 A")).isGreaterThanOrEqualTo(0);
+        assertThat(hostWorker.indexOf("## 路径 B")).isGreaterThan(hostWorker.indexOf("## 路径 A"));
+        assertThat(hostWorkerVerification).contains("REPLAY OK");
+        assertThat(hostWorkerVerification).contains("9a205591-2eb9-4a57-bc82-269e41a300e0");
+        assertThat(hostWorkerVerification).contains("GENERATION_EXHAUSTED");
+        assertThat(hostWorkerVerification).contains("不是 Agent 成绩");
+        assertThat(hostWorkerVerification).doesNotContain("_待填_");
+
+        for (String text : List.of(
+                readme, register, architecture, diagram, demo, fiveB, spring, hostWorker, hostWorkerVerification)) {
             assertThat(text).doesNotContain("语义图引导");
             assertThat(text).doesNotContain("图更好");
             assertThat(text).doesNotContain("文本更好");
@@ -74,8 +87,8 @@ class ClaimHonestyGateTest {
             cells.add(cols[4].trim());
         }
         assertThat(cells).containsOnly("A", "B", "C");
-        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(12);
-        assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(7);
+        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(13);
+        assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(9);
         assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }
 

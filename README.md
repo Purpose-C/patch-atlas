@@ -60,6 +60,8 @@ Calibration 的 3/3 用的是已知触发测试，用来校准 Replay Engine，*
 
 会退出并列出 `missing:` 的变量，不会改成 FAKE 假装成功。
 
+要在没有模型凭据时校准 Replay Engine，或在宿主 JVM 上启动 Worker 并创建一次 Run，见 [docs/host-worker.md](docs/host-worker.md)。`./scripts/up.sh --worker` 仍然拒绝。干净目录验证见 [docs/host-worker-verification.md](docs/host-worker-verification.md)。
+
 开发时仍可用 `./mvnw spring-boot:run` 与 `frontend` 下的 Vite；那不是一条命令路径。
 
 ## 怎么读报告

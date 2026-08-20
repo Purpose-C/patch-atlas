@@ -175,17 +175,17 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 三臂评测：036 与 5b 两批并列报告、均不作废。5b `VALID_REPRODUCTION` 为 HEURISTIC 1/6、TEXT_TOOLS 0/6、GRAPH_TOOLS 0/6，走到 Docker Replay 4/18。证据见 `benchmark-cases/batch5b-three-arm/`；
 - 手挖 Spring 案例定性研究：三臂 0/3，`expand` 使用 0 次。证据见 `benchmark-cases/spring-case-study/`。🔴 **图工具在代码里存在，评测中模型从未调用 `expand`**，不得据此声称图引导定位已成立；
 - 一条命令启动只读控制台（PostgreSQL + API + Vue）。命令与干净目录验证见 [`docs/up.md`](up.md)。该命令不启动 Issue2Test Worker，也不调用模型。
+- 宿主 JVM 上的 Issue2Test Worker：`./scripts/worker.sh` 连 Compose 的 PostgreSQL，用宿主 Docker 跑沙箱。文档与干净目录验证见 [`host-worker.md`](host-worker.md)。`./scripts/up.sh --worker` 仍然拒绝。无凭据的 Replay 校准与带凭据的 Issue2Test 分开陈述；校准成功不是 Agent 复现率。
 - 演示录制见 [`docs/demo-recording.md`](demo-recording.md)。Tag `demo` 在录制时运行的 `4b77189`；该说明提交引用该 Tag，不改定位、生成、Gate 或阈值。
 
-本文件不再把「演示 Tag」列为未交付项。
+本文件不再把「演示 Tag」或「宿主上跑 Worker 的文档化路径」列为未交付项。
 
 未实现（2026-08-20 范围定稿后仍在计划内的，按优先级）：
 
-1. 🔴 **宿主上跑 Worker 的文档化路径** —— `scripts/up.sh` 的 `--worker` 无条件退出 2，一条命令拉起的是只读控制台与空库，**外部使用者无法自己产生一次 Run**；
-2. springdoc / OpenAPI；
-3. RestAssured 的 API 层契约测试（`RunController` 目前只有 MVC 测试）；
-4. 覆盖率增量门禁；
-5. Playwright E2E、Prometheus 指标暴露、token 鉴权（API 当前无鉴权）；
-6. PR 影响分析出口（见上文，`impact` 包不存在）。
+1. springdoc / OpenAPI；
+2. RestAssured 的 API 层契约测试（`RunController` 目前只有 MVC 测试）；
+3. 覆盖率增量门禁；
+4. Playwright E2E、Prometheus 指标暴露、token 鉴权（API 当前无鉴权）；
+5. PR 影响分析出口（见上文，`impact` 包不存在）。
 
 上表之外的能力已放弃或属于 [`VISION.md`](VISION.md) 的既有非目标，不在计划内。

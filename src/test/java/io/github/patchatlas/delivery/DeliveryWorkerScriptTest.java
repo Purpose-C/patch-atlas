@@ -38,6 +38,15 @@ class DeliveryWorkerScriptTest {
         assertThat(hostWorker).contains("source .env");
         assertThat(hostWorker).doesNotContain("语义图引导");
         assertThat(hostWorker).doesNotContain("/Users/");
+        String verification = Files.readString(Path.of("docs/host-worker-verification.md"));
+        assertThat(verification).contains("missing: OPENAI_API_KEY");
+        assertThat(verification).contains("REPLAY OK");
+        assertThat(verification).contains("GENERATION_EXHAUSTED");
+        assertThat(verification).contains("9a205591-2eb9-4a57-bc82-269e41a300e0");
+        assertThat(verification).contains("HEURISTIC");
+        assertThat(verification).doesNotContain("_待填_");
+        assertThat(verification).doesNotContain("/Users/");
+        assertThat(verification).doesNotContain("语义图引导");
     }
 
     @Test
