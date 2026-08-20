@@ -177,15 +177,16 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 一条命令启动只读控制台（PostgreSQL + API + Vue）。命令与干净目录验证见 [`docs/up.md`](up.md)。该命令不启动 Issue2Test Worker，也不调用模型。
 - 宿主 JVM 上的 Issue2Test Worker：`./scripts/worker.sh` 连 Compose 的 PostgreSQL，用宿主 Docker 跑沙箱。文档与干净目录验证见 [`host-worker.md`](host-worker.md)。`./scripts/up.sh --worker` 仍然拒绝。无凭据的 Replay 校准与带凭据的 Issue2Test 分开陈述；校准成功不是 Agent 复现率。
 - 演示录制见 [`docs/demo-recording.md`](demo-recording.md)。Tag `demo` 在录制时运行的 `4b77189`；该说明提交引用该 Tag，不改定位、生成、Gate 或阈值。
+- Chromium 浏览器用例覆盖 [`e2e.md`](e2e.md) 列出的空库冒烟与拦截形态（含未知不显示 0、截断可见、无定位记录）。这不是对全部界面质量的保证。
 
-本文件不再把「演示 Tag」或「宿主上跑 Worker 的文档化路径」列为未交付项。
+本文件不再把「演示 Tag」、「宿主上跑 Worker 的文档化路径」或 Playwright 浏览器用例列为未交付项。
 
 未实现（2026-08-20 范围定稿后仍在计划内的，按优先级）：
 
 1. springdoc / OpenAPI；
 2. RestAssured 的 API 层契约测试（`RunController` 目前只有 MVC 测试）；
 3. 覆盖率增量门禁；
-4. Playwright E2E、Prometheus 指标暴露、token 鉴权（API 当前无鉴权）；
+4. Prometheus 指标暴露、token 鉴权（API 当前无鉴权）；
 5. PR 影响分析出口（见上文，`impact` 包不存在）。
 
 上表之外的能力已放弃或属于 [`VISION.md`](VISION.md) 的既有非目标，不在计划内。

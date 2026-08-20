@@ -29,6 +29,7 @@ class ClaimHonestyGateTest {
         String spring = Files.readString(Path.of("benchmark-cases/spring-case-study/reading-guide.md"));
         String hostWorker = Files.readString(Path.of("docs/host-worker.md"));
         String hostWorkerVerification = Files.readString(Path.of("docs/host-worker-verification.md"));
+        String e2e = Files.readString(Path.of("docs/e2e.md"));
 
         assertThat(readme).contains("1/6");
         assertThat(readme).contains("0/6");
@@ -49,6 +50,14 @@ class ClaimHonestyGateTest {
 
         assertThat(architecture).doesNotContain("外部使用者无法自己产生一次 Run");
         assertThat(architecture).contains("./scripts/worker.sh");
+        assertThat(architecture).contains("e2e.md");
+        assertThat(architecture).doesNotContain("Playwright E2E、Prometheus");
+        assertThat(e2e).contains("无定位记录");
+        assertThat(e2e).contains("截断可见");
+        assertThat(e2e).contains("测试自身不启停栈");
+        assertThat(e2e).doesNotContain("UI 质量有保障");
+        assertThat(readme).doesNotContain("UI 质量有保障");
+        assertThat(architecture).doesNotContain("UI 质量有保障");
         assertThat(hostWorker.indexOf("## 路径 A")).isGreaterThanOrEqualTo(0);
         assertThat(hostWorker.indexOf("## 路径 B")).isGreaterThan(hostWorker.indexOf("## 路径 A"));
         assertThat(hostWorkerVerification).contains("REPLAY OK");
@@ -58,7 +67,16 @@ class ClaimHonestyGateTest {
         assertThat(hostWorkerVerification).doesNotContain("_待填_");
 
         for (String text : List.of(
-                readme, register, architecture, diagram, demo, fiveB, spring, hostWorker, hostWorkerVerification)) {
+                readme,
+                register,
+                architecture,
+                diagram,
+                demo,
+                fiveB,
+                spring,
+                hostWorker,
+                hostWorkerVerification,
+                e2e)) {
             assertThat(text).doesNotContain("语义图引导");
             assertThat(text).doesNotContain("图更好");
             assertThat(text).doesNotContain("文本更好");
@@ -87,7 +105,7 @@ class ClaimHonestyGateTest {
             cells.add(cols[4].trim());
         }
         assertThat(cells).containsOnly("A", "B", "C");
-        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(13);
+        assertThat(cells.stream().filter("A"::equals).count()).isEqualTo(14);
         assertThat(cells.stream().filter("B"::equals).count()).isEqualTo(9);
         assertThat(cells.stream().filter("C"::equals).count()).isEqualTo(3);
     }

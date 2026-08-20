@@ -64,6 +64,8 @@ Calibration 的 3/3 用的是已知触发测试，用来校准 Replay Engine，*
 
 开发时仍可用 `./mvnw spring-boot:run` 与 `frontend` 下的 Vite；那不是一条命令路径。
 
+对着打包控制台的 Chromium 用例见 [docs/e2e.md](docs/e2e.md)。覆盖的是那里列出的行为，不是 UI 质量总括。
+
 ## 怎么读报告
 
 - [5b 导读](benchmark-cases/batch5b-three-arm/reading-guide.md) → 原文 [`evidence-report.md`](benchmark-cases/batch5b-three-arm/evidence-report.md)
