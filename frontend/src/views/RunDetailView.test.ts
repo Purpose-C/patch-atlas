@@ -51,6 +51,7 @@ function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
     updatedAt: '2026-08-12T10:05:00Z',
     completedAt: '2026-08-12T10:05:00Z',
     locating: emptyLocating(),
+    generatorSourcePaths: [],
     input: {
       repositoryUrl: 'https://github.com/ex/repo.git',
       issueUrl: 'https://github.com/ex/repo/issues/1',
@@ -520,6 +521,8 @@ describe('RunDetailView', () => {
     const wrapper = await mountDetail()
     expect(wrapper.text()).toContain('定位')
     expect(wrapper.text()).toContain('无定位记录')
+    expect(wrapper.text()).toContain('提交给生成器的文件')
+    expect(wrapper.text()).toContain('—')
     expect(wrapper.text()).not.toContain('逐步轨迹')
     wrapper.unmount()
   })
@@ -724,6 +727,84 @@ describe('RunDetailView', () => {
     expect(wrapper.text()).toContain('12 ms')
     expect(wrapper.text()).toContain('缓存 未知')
     expect(wrapper.text()).not.toContain('缓存 未命中')
+    wrapper.unmount()
+  })
+
+  it('shows generator source paths instead of locating selectedPaths', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generatorSourcePaths: ['src/B.java', 'src/A.java'],
+        locating: {
+          ...emptyLocating(),
+          recorded: true,
+          contextOrigin: 'TEXT_TOOLS',
+          selectedPaths: ['decoy-from-submit-subject.java'],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('提交给生成器的文件')
+    expect(text).toContain('src/B.java')
+    expect(text).toContain('src/A.java')
+    expect(text).not.toContain('decoy-from-submit-subject.java')
+    expect(text).not.toContain('最终选中')
+    expect(text).not.toContain('模型选择')
+    wrapper.unmount()
+  })
+
+  it('shows heuristic generator files without a SUBMIT step', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        generatorSourcePaths: ['src/Main.java'],
+        locating: {
+          ...emptyLocating(),
+          recorded: true,
+          contextOrigin: 'HEURISTIC',
+          toolCallsApplicable: false,
+          toolCallCount: null,
+          stepKindCounts: { SELECTION: 1, EXCLUSION: 1 },
+          steps: [
+            {
+              seq: 0,
+              kind: 'SELECTION',
+              subject: 'src/A.java',
+              reason: 'PINNED',
+              outcome: 'OK',
+              detail: {},
+            },
+            {
+              seq: 1,
+              kind: 'EXCLUSION',
+              subject: 'src/ATest.java',
+              reason: 'TEST_SOURCE',
+              outcome: 'OK',
+              detail: {},
+            },
+          ],
+          selectedPaths: [],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('HEURISTIC')
+    expect(text).not.toContain('SUBMIT')
+    expect(text).toContain('提交给生成器的文件')
+    expect(text).toContain('src/Main.java')
+    expect(text).not.toContain('模型选择')
+    wrapper.unmount()
+  })
+
+  it('shows a dash for empty generator source paths instead of zero', async () => {
+    fetchRun.mockResolvedValue(sampleDetail({ generatorSourcePaths: [] }))
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('提交给生成器的文件')
+    expect(text).toContain('—')
+    expect(text).not.toContain('提交给生成器的文件0')
+    expect(text).not.toMatch(/提交给生成器的文件\s*0/)
+    expect(wrapper.text()).not.toContain('最终选中')
     wrapper.unmount()
   })
 

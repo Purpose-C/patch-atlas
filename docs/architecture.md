@@ -165,6 +165,7 @@ Vue 控制台使用同源 `/api`、稳定的 `/runs` 与 `/runs/:runId` 路由�
 - 生产 Worker、可恢复 Maven 执行策略与安全依赖预热；
 - Verification Run 的 REST API 与 Vue 列表/详情；
 - Run 详情只读展示 `locating_trace`：定位来源、工具调用数（启发式臂为「—」而非 0）、预算事件、逐步步骤、截断标记与空态「无定位记录」。覆盖率与任何 Oracle 衍生量仍只进 Evidence Report。界面能显示 `EXPAND` 行不表示图引导定位已成立（评测中 `expand` 使用 0 次）；
+- 详情列出提交给生成器的文件路径（空集为「—」）。启发式臂同样有这份列表；
 - Run 聚合指标、沙箱执行遥测、结构化领域日志与估算费用；
 - 受控校准案例和一个真实 Spring 历史案例；
 - 冻结队列上的正式 Agent Benchmark。3 个 Calibration 案例全部 `VALID_REPRODUCTION`，3 个 Agent 案例全部未复现（`GENERATION_EXHAUSTED`）。失败集中在统一 diff 的输出契约层而非测试设计层：9 次拒绝中 6 次为 `trailing non-patch text`、3 次为 `hunk new count mismatch`。完整证据见 `benchmark-cases/task018/`。

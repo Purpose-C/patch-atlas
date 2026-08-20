@@ -164,6 +164,7 @@ export interface RunDetail {
     } | null
     evidenceSchemaVersion: number
   }>
+  generatorSourcePaths: string[]
 }
 
 const TERMINAL: RunState[] = ['COMPLETED', 'FAILED']

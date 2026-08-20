@@ -429,13 +429,16 @@ function locatingDetailText(step: LocatingStep): string {
               </tbody>
             </table>
           </div>
-          <template v-if="detail.locating.selectedPaths.length > 0">
-            <h3>最终选中</h3>
-            <p v-for="(path, idx) in detail.locating.selectedPaths" :key="'sel-' + idx" class="mono">
-              {{ path }}
-            </p>
-          </template>
         </template>
+        <h3>提交给生成器的文件</h3>
+        <p v-if="detail.generatorSourcePaths.length === 0" class="status-copy">—</p>
+        <p
+          v-for="(path, idx) in detail.generatorSourcePaths"
+          :key="'src-' + idx"
+          class="mono"
+        >
+          {{ path }}
+        </p>
       </section>
 
       <section v-if="detail.result" class="status-panel">

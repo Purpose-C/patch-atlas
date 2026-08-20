@@ -48,6 +48,7 @@ export function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
     updatedAt: '2026-08-12T10:05:00Z',
     completedAt: '2026-08-12T10:05:00Z',
     locating: emptyLocating(),
+    generatorSourcePaths: [],
     input: {
       repositoryUrl: 'https://github.com/ex/repo.git',
       issueUrl: 'https://github.com/ex/repo/issues/1',
