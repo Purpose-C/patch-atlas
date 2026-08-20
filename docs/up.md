@@ -35,6 +35,8 @@
 
 要在**没有模型凭据**的情况下校准 Replay Engine，或在宿主 JVM 上启动 Worker，见 [`host-worker.md`](host-worker.md)。
 
+对着这条命令拉起的空库做浏览器冒烟，见 [`e2e.md`](e2e.md)。测试不启停栈。
+
 ## 干净目录验证
 
 见 [`up-verification.md`](up-verification.md)。
