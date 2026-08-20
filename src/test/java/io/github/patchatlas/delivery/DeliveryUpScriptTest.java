@@ -36,6 +36,7 @@ class DeliveryUpScriptTest {
         assertThat(compose).contains("PATCHATLAS_WORKER_ENABLED: \"false\"");
         assertThat(compose).contains("PATCHATLAS_GENERATOR_TYPE: FAKE");
         assertThat(compose).doesNotContain("/var/run/docker.sock");
+        assertThat(compose).contains("127.0.0.1:5432:5432");
         assertThat(dockerignore).contains(".env");
         assertThat(Files.readString(Path.of("docs/up.md"))).contains("./scripts/up.sh");
         String verification = Files.readString(Path.of("docs/up-verification.md"));
