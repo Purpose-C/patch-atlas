@@ -52,7 +52,76 @@ REPLAY OK: 同一测试在 buggy 失败、在 fixed 通过。
 - 不证明某条真实 GitHub Issue 被复现；
 - 不把校准成功算进 Agent 复现率。
 
-Issue2Test 需要模型凭据，走另一条路：`./scripts/worker.sh` 在宿主 JVM 启动 Worker，连本页已经拉起的 PostgreSQL。不要用 `./scripts/up.sh --worker` 启动 Worker，那条命令会拒绝。缺凭据时 `worker.sh` 打印 `missing:` 并非零退出，不读 `.env`，不回落 FAKE。
+## 路径 B：带凭据的 Issue2Test
+
+需要本机 JDK 21、Docker，以及模型凭据。Worker 跑在**宿主 JVM** 上，连路径 A 已经拉起的 PostgreSQL（`127.0.0.1:5432`），用宿主 Docker 跑沙箱。不新起第二个数据库，否则控制台看不到这次 Run。
+
+创建 Run 仍走 REST，前端没有写入口。
+
+### 1. 自己把凭据放进当前 shell
+
+脚本**不**读 `.env`。若凭据写在该文件里，由读者自己导入：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+然后：
+
+```bash
+export PATCHATLAS_WORKER_WORKSPACE_ROOT="$PWD/var/worker-workspaces"
+mkdir -p "$PATCHATLAS_WORKER_WORKSPACE_ROOT"
+./scripts/worker.sh
+```
+
+必需环境变量：`OPENAI_API_KEY`、`PATCHATLAS_OPENAI_MODEL`、`PATCHATLAS_WORKER_WORKSPACE_ROOT`。缺任一则打印 `missing:` 列表并以退出码 2 结束，不回落 FAKE，也不把 key 写进日志。`./scripts/up.sh --worker` 仍然拒绝启动 Worker。
+
+Worker 进程占用 `127.0.0.1:8081`（只为不和控制台的 8080 抢端口）。看 Run 请用控制台 http://127.0.0.1:8080/runs，不要用 8081。
+
+### 2. 用公开案例创建一个 Run
+
+下面的仓库、完整 SHA 和 Issue 正文来自公开 GitHub，不依赖本机 GitBug 数据源。这不是为了「容易成功」挑的：Issue2Test 经常走不到 `VALID_REPRODUCTION`（5b 启发式臂是 1/6）。**不复现同样合格。** 不要为了绿而换案例或重跑。
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/api/runs \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: host-worker-salespoint-412' \
+  -d @- <<'EOF'
+{
+  "mode": "HISTORICAL",
+  "repositoryUrl": "https://github.com/st-tu-dresden/salespoint.git",
+  "license": "Apache-2.0",
+  "issueUrl": "https://github.com/st-tu-dresden/salespoint/issues/412",
+  "issueTitle": "Make it clear how to persist updated AccountancyEntrys",
+  "issueBody": "In Accountancy, the add(…) method currently has two purposes: 1) adding a new entry and 2) updating/saving an existing entry. However, the latter purpose isn't clear to Salespoint framework users, neither from the method name (i.e., something like save(…) would be better) nor from the javadoc. The AccountancyEntryRepository, which has a save(…) method, is package private.",
+  "buggyRevision": "e9c2fe5efee8ad76bf73738f46f911c18eb078b8",
+  "fixedRevision": "85a764f892aaca4cfcb6749e55f3131a23cc8f66",
+  "modulePath": "",
+  "javaVersion": "17",
+  "networkMode": "ONLINE"
+}
+EOF
+```
+
+期望：HTTP 202，JSON 含 `runId` 与 `QUEUED`。然后打开 http://127.0.0.1:8080/runs/{runId}，等到 `COMPLETED` 或 `FAILED`。
+
+该看什么（复现与否都看这些）：
+
+- 终态：`state`、`result.verdict` 或 `failureStage` / `failureCategory` / `failureSummary`
+- 定位区块：来源、步骤、预算事件、截断；启发式臂工具调用为「—」
+- Attempt 明细：sandbox、exit、耗时、超时
+- 若生成被拒绝：拒绝原因分布，而不是「再跑一次直到成功」
+
+路径 B 的成功标准是：**产生了一次终态 Run，控制台能看见它和定位轨迹。** 不是 `VALID_REPRODUCTION`。
+
+2026-08-20 按本节命令实测：`POST /api/runs` 返回 202，`runId=040e908e-1f7b-4b27-8e15-6b1d0653e3f5`。终态 `FAILED`，`GENERATION` / `GENERATION_EXHAUSTED`，「generation attempts exhausted」，生成 3 次。定位来源 `HEURISTIC`，轨迹含 `SELECTION` 与 `EXCLUSION`，`toolCallCount` 为空（界面为「—」）。没有 Attempt。不重跑、不换案例。
+
+### 路径 B 不证明什么
+
+- 不把某次终态当成模型排名；
+- 不把路径 A 的 `REPLAY OK` 加进这里的分母。
 
 停止控制台：
 

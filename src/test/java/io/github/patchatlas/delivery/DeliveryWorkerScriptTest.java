@@ -29,6 +29,15 @@ class DeliveryWorkerScriptTest {
         assertThat(worker).contains("does not silently switch to FAKE");
         assertThat(worker).contains("./scripts/up.sh");
         assertThat(worker).doesNotContain("OPENAI_API_KEY=");
+        String hostWorker = Files.readString(Path.of("docs/host-worker.md"));
+        assertThat(hostWorker.indexOf("## 路径 A")).isGreaterThanOrEqualTo(0);
+        assertThat(hostWorker.indexOf("## 路径 B")).isGreaterThan(hostWorker.indexOf("## 路径 A"));
+        assertThat(hostWorker).contains("REPLAY OK");
+        assertThat(hostWorker).contains("./scripts/worker.sh");
+        assertThat(hostWorker).contains("set -a");
+        assertThat(hostWorker).contains("source .env");
+        assertThat(hostWorker).doesNotContain("语义图引导");
+        assertThat(hostWorker).doesNotContain("/Users/");
     }
 
     @Test

@@ -21,6 +21,9 @@ graphify-out/
 # 第三方仓库源码只保存在本地工作区，公开仓库仅提交案例元数据。
 samples/
 
+# 宿主 Worker 工作区（clone / 沙箱 checkout），不入库。
+var/
+
 # 本地协作上下文不进公开仓库。
 # 对外工程说明统一放在 docs/；源码、测试、fixtures、benchmark 等照常入库。
 tasks/
