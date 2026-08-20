@@ -33,6 +33,8 @@
 
 历史评测证据在 `benchmark-cases/`，不在这次拉起的空库里。
 
+要在**没有模型凭据**的情况下校准 Replay Engine，或在宿主 JVM 上启动 Worker，见 [`host-worker.md`](host-worker.md)。
+
 ## 干净目录验证
 
 见 [`up-verification.md`](up-verification.md)。
