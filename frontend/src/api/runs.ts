@@ -52,6 +52,47 @@ export interface EstimatedCost {
   pricingSource: string
 }
 
+export interface LocatingStep {
+  seq: number
+  kind: string
+  subject: string
+  reason: string
+  outcome: string
+  detail: Record<string, unknown>
+}
+
+export interface LocatingBudgetEvent {
+  seq: number
+  kind: string
+  limit: string | null
+  used: number | null
+  maxCalls: number | null
+}
+
+export interface LocatingGraphBuild {
+  durationMs: number | null
+  cacheHit: boolean | null
+}
+
+export interface Locating {
+  contextOrigin: string | null
+  recorded: boolean
+  toolCallsApplicable: boolean
+  toolCallCount: number | null
+  stepKindCounts: Record<string, number>
+  errorCount: number
+  usageStatus: RecordedUsageStatus
+  inputTokens: number | null
+  outputTokens: number | null
+  totalTokens: number | null
+  budgetEvents: LocatingBudgetEvent[]
+  graphBuild: LocatingGraphBuild | null
+  steps: LocatingStep[]
+  selectedPaths: string[]
+  truncated: boolean
+  stepLimit: number
+}
+
 export interface RunDetail {
   runId: string
   mode: string
@@ -61,6 +102,7 @@ export interface RunDetail {
   createdAt: string
   updatedAt: string
   completedAt: string | null
+  locating: Locating
   input: {
     repositoryUrl: string
     issueUrl: string | null

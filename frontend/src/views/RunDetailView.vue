@@ -4,9 +4,44 @@ import { RouterLink } from 'vue-router'
 import {
   fetchRun,
   isTerminalState,
+  type Locating,
+  type LocatingStep,
   type RecordedUsageStatus,
   type RunDetail,
 } from '../api/runs'
+
+const LOCATING_DETAIL_KEYS = [
+  'pattern',
+  'pathGlob',
+  'path',
+  'query',
+  'entity',
+  'errorType',
+  'message',
+  'rule',
+  'reason',
+  'tool',
+  'limit',
+  'hits',
+  'entries',
+  'startLine',
+  'lines',
+  'bytes',
+  'paths',
+  'submittedNotRead',
+  'readNotSubmitted',
+  'used',
+  'maxCalls',
+  'neighbors',
+  'repeatOf',
+  'durationMs',
+  'truncated',
+  'rejected',
+  'accepted',
+  'cacheHit',
+  'edgeKinds',
+  'confidences',
+] as const
 
 const POLL_MS = 3000
 
@@ -149,6 +184,35 @@ function usageStatusLabel(status: RecordedUsageStatus): string {
       return '全部尝试已记录用量'
   }
 }
+
+function toolCallLabel(locating: Locating): string {
+  if (!locating.toolCallsApplicable) return '—'
+  return String(locating.toolCallCount)
+}
+
+function cacheHitLabel(hit: boolean | null): string {
+  if (hit == null) return '未知'
+  return hit ? '命中' : '未命中'
+}
+
+function kindCountsText(counts: Record<string, number>): string {
+  const parts = Object.entries(counts).map(([kind, n]) => `${kind} ${n}`)
+  return parts.length === 0 ? '—' : parts.join(' · ')
+}
+
+function locatingDetailText(step: LocatingStep): string {
+  const parts: string[] = []
+  for (const key of LOCATING_DETAIL_KEYS) {
+    const value = step.detail[key]
+    if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      parts.push(`${key}=${value.map(String).join(',')}`)
+    } else {
+      parts.push(`${key}=${String(value)}`)
+    }
+  }
+  return parts.join(' · ')
+}
 </script>
 
 <template>
@@ -276,6 +340,102 @@ function usageStatusLabel(status: RecordedUsageStatus): string {
         </dl>
         <h3>Issue 正文</h3>
         <pre class="plain">{{ detail.input.issueBody }}</pre>
+      </section>
+
+      <section class="status-panel" aria-live="polite">
+        <h2>定位</h2>
+        <p v-if="!detail.locating.recorded" class="status-copy">无定位记录</p>
+        <template v-else>
+          <p v-if="detail.locating.truncated" class="status-error" role="status">
+            轨迹已截断，最多显示 {{ detail.locating.stepLimit }} 行
+          </p>
+          <dl class="status-grid">
+            <div>
+              <dt>来源</dt>
+              <dd>{{ detail.locating.contextOrigin ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>工具调用</dt>
+              <dd>{{ toolCallLabel(detail.locating) }}</dd>
+            </div>
+            <div>
+              <dt>步骤种类</dt>
+              <dd>{{ kindCountsText(detail.locating.stepKindCounts) }}</dd>
+            </div>
+            <div>
+              <dt>ERROR</dt>
+              <dd>{{ detail.locating.errorCount }}</dd>
+            </div>
+            <div>
+              <dt>用量记录</dt>
+              <dd>{{ usageStatusLabel(detail.locating.usageStatus) }}</dd>
+            </div>
+            <div>
+              <dt>Token</dt>
+              <dd v-if="detail.locating.totalTokens != null">
+                in={{ detail.locating.inputTokens }} out={{ detail.locating.outputTokens }} total={{
+                  detail.locating.totalTokens
+                }}
+              </dd>
+              <dd v-else>—</dd>
+            </div>
+            <div v-if="detail.locating.graphBuild">
+              <dt>建图</dt>
+              <dd>
+                {{
+                  detail.locating.graphBuild.durationMs != null
+                    ? detail.locating.graphBuild.durationMs + ' ms'
+                    : '—'
+                }}
+                · 缓存 {{ cacheHitLabel(detail.locating.graphBuild.cacheHit) }}
+              </dd>
+            </div>
+          </dl>
+          <div v-if="detail.locating.budgetEvents.length > 0" class="status-error" role="status">
+            <p>预算事件</p>
+            <small v-for="event in detail.locating.budgetEvents" :key="'budget-' + event.seq">
+              {{ event.kind }} · {{ event.limit ?? '—' }} · used={{ event.used ?? '—' }} / max={{
+                event.maxCalls ?? '—'
+              }}
+            </small>
+          </div>
+          <h3>逐步轨迹</h3>
+          <p v-if="detail.locating.steps.length === 0" class="status-copy">无步骤。</p>
+          <div v-else class="table-wrap">
+            <table class="runs-table">
+              <thead>
+                <tr>
+                  <th>seq</th>
+                  <th>kind</th>
+                  <th>subject</th>
+                  <th>reason</th>
+                  <th>outcome</th>
+                  <th>detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(step, idx) in detail.locating.steps"
+                  :key="step.seq + '-' + idx"
+                  :class="{ 'status-error': step.outcome === 'ERROR' }"
+                >
+                  <td class="mono">{{ step.seq }}</td>
+                  <td>{{ step.kind }}</td>
+                  <td class="mono">{{ step.subject }}</td>
+                  <td>{{ step.reason }}</td>
+                  <td>{{ step.outcome }}</td>
+                  <td>{{ locatingDetailText(step) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <template v-if="detail.locating.selectedPaths.length > 0">
+            <h3>最终选中</h3>
+            <p v-for="(path, idx) in detail.locating.selectedPaths" :key="'sel-' + idx" class="mono">
+              {{ path }}
+            </p>
+          </template>
+        </template>
       </section>
 
       <section v-if="detail.result" class="status-panel">

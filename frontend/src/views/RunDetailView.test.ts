@@ -1,7 +1,10 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RunDetail } from '../api/runs'
+import type { Locating, RunDetail } from '../api/runs'
 import { ApiError } from '../api/runs'
 import * as runsApi from '../api/runs'
 import RunDetailView from './RunDetailView.vue'
@@ -16,6 +19,27 @@ vi.mock('../api/runs', async () => {
 
 const fetchRun = vi.mocked(runsApi.fetchRun)
 
+function emptyLocating(): Locating {
+  return {
+    contextOrigin: null,
+    recorded: false,
+    toolCallsApplicable: false,
+    toolCallCount: null,
+    stepKindCounts: {},
+    errorCount: 0,
+    usageStatus: 'NONE_RECORDED',
+    inputTokens: null,
+    outputTokens: null,
+    totalTokens: null,
+    budgetEvents: [],
+    graphBuild: null,
+    steps: [],
+    selectedPaths: [],
+    truncated: false,
+    stepLimit: 200,
+  }
+}
+
 function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
   return {
     runId: '11111111-1111-1111-1111-111111111111',
@@ -26,6 +50,7 @@ function sampleDetail(overrides: Partial<RunDetail> = {}): RunDetail {
     createdAt: '2026-08-12T10:00:00Z',
     updatedAt: '2026-08-12T10:05:00Z',
     completedAt: '2026-08-12T10:05:00Z',
+    locating: emptyLocating(),
     input: {
       repositoryUrl: 'https://github.com/ex/repo.git',
       issueUrl: 'https://github.com/ex/repo/issues/1',
@@ -488,5 +513,238 @@ describe('RunDetailView', () => {
     wrapper.unmount()
     await flushPromises()
     expect(aborted).toBe(true)
+  })
+
+  it('renders empty locating as 无定位记录', async () => {
+    fetchRun.mockResolvedValue(sampleDetail())
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain('定位')
+    expect(wrapper.text()).toContain('无定位记录')
+    expect(wrapper.text()).not.toContain('逐步轨迹')
+    wrapper.unmount()
+  })
+
+  it('renders locating overview for the heuristic arm with a dash instead of zero tools', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        locating: {
+          ...emptyLocating(),
+          contextOrigin: 'HEURISTIC',
+          recorded: true,
+          toolCallsApplicable: false,
+          toolCallCount: null,
+          stepKindCounts: { SELECTION: 1, EXCLUSION: 1 },
+          usageStatus: 'NONE_RECORDED',
+          steps: [
+            {
+              seq: 0,
+              kind: 'SELECTION',
+              subject: 'src/A.java',
+              reason: 'PINNED',
+              outcome: 'OK',
+              detail: {},
+            },
+            {
+              seq: 1,
+              kind: 'EXCLUSION',
+              subject: 'src/ATest.java',
+              reason: 'TEST_SOURCE',
+              outcome: 'OK',
+              detail: {},
+            },
+          ],
+          selectedPaths: ['src/A.java'],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('HEURISTIC')
+    expect(text).toContain('工具调用')
+    expect(text).toContain('—')
+    expect(text).toContain('SELECTION 1')
+    expect(text).toContain('EXCLUSION 1')
+    expect(text).toContain('未记录用量')
+    expect(text).toContain('src/A.java')
+    expect(text).not.toContain('工具调用0')
+    expect(text).not.toContain('in=0')
+    wrapper.unmount()
+  })
+
+  it('renders budget events distinctly from ordinary steps', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        locating: {
+          ...emptyLocating(),
+          contextOrigin: 'TEXT_TOOLS',
+          recorded: true,
+          toolCallsApplicable: true,
+          toolCallCount: 1,
+          stepKindCounts: { SEARCH: 1, BUDGET_EXHAUSTED: 1 },
+          usageStatus: 'RECORDED_FOR_ALL_ATTEMPTS',
+          inputTokens: 4,
+          outputTokens: 5,
+          totalTokens: 9,
+          budgetEvents: [
+            { seq: 1, kind: 'BUDGET_EXHAUSTED', limit: 'CALLS', used: 35, maxCalls: 35 },
+          ],
+          steps: [
+            {
+              seq: 0,
+              kind: 'SEARCH',
+              subject: 'Foo',
+              reason: 'search',
+              outcome: 'OK',
+              detail: { hits: 1, pattern: 'Foo' },
+            },
+            {
+              seq: 1,
+              kind: 'BUDGET_EXHAUSTED',
+              subject: '.',
+              reason: 'CALLS',
+              outcome: 'OK',
+              detail: { limit: 'CALLS', used: 35, maxCalls: 35 },
+            },
+          ],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('预算事件')
+    expect(text).toContain('BUDGET_EXHAUSTED')
+    expect(text).toContain('CALLS')
+    expect(text).toContain('used=35')
+    expect(text).toContain('in=4')
+    expect(wrapper.find('.status-error').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('renders locating steps and ERROR rows without dumping unknown detail keys', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        locating: {
+          ...emptyLocating(),
+          contextOrigin: 'TEXT_TOOLS',
+          recorded: true,
+          toolCallsApplicable: true,
+          toolCallCount: 1,
+          stepKindCounts: { READ: 1 },
+          errorCount: 1,
+          usageStatus: 'PARTIALLY_RECORDED',
+          inputTokens: 8,
+          outputTokens: 1,
+          totalTokens: 9,
+          steps: [
+            {
+              seq: 0,
+              kind: 'READ',
+              subject: 'src/<img src=x onerror=alert(1)>',
+              reason: 'read',
+              outcome: 'ERROR',
+              detail: {
+                errorType: 'IllegalArgumentException',
+                message: 'path rejected',
+                anyHit: true,
+                recall: 0.5,
+                precision: 1,
+              },
+            },
+          ],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    const text = wrapper.text()
+    expect(text).toContain('逐步轨迹')
+    expect(text).toContain('READ')
+    expect(text).toContain('src/<img src=x onerror=alert(1)>')
+    expect(text).toContain('ERROR')
+    expect(text).toContain('errorType=IllegalArgumentException')
+    expect(text).not.toContain('anyHit')
+    expect(text).not.toContain('recall')
+    expect(text).not.toContain('precision')
+    expect(wrapper.html()).not.toMatch(/<img[^>]*onerror/i)
+    expect(wrapper.find('tr.status-error').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('marks truncation instead of dropping rows quietly', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        locating: {
+          ...emptyLocating(),
+          contextOrigin: 'HEURISTIC',
+          recorded: true,
+          stepKindCounts: { SELECTION: 201 },
+          truncated: true,
+          stepLimit: 200,
+          steps: [
+            {
+              seq: 0,
+              kind: 'SELECTION',
+              subject: 'src/A.java',
+              reason: 'PINNED',
+              outcome: 'OK',
+              detail: {},
+            },
+          ],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain('轨迹已截断，最多显示 200 行')
+    wrapper.unmount()
+  })
+
+  it('shows unknown graph cache hit instead of false', async () => {
+    fetchRun.mockResolvedValue(
+      sampleDetail({
+        locating: {
+          ...emptyLocating(),
+          contextOrigin: 'GRAPH_TOOLS',
+          recorded: true,
+          toolCallsApplicable: true,
+          toolCallCount: 0,
+          graphBuild: { durationMs: 12, cacheHit: null },
+          steps: [
+            {
+              seq: 0,
+              kind: 'GRAPH_BUILD',
+              subject: 'graph',
+              reason: 'GRAPH_BUILD',
+              outcome: 'OK',
+              detail: { durationMs: 12 },
+            },
+          ],
+        },
+      }),
+    )
+    const wrapper = await mountDetail()
+    expect(wrapper.text()).toContain('12 ms')
+    expect(wrapper.text()).toContain('缓存 未知')
+    expect(wrapper.text()).not.toContain('缓存 未命中')
+    wrapper.unmount()
+  })
+
+  it('does not use v-html in any frontend source file', () => {
+    const srcRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+    const hits: string[] = []
+    const stack = [srcRoot]
+    while (stack.length > 0) {
+      const dir = stack.pop() as string
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) {
+          stack.push(path)
+          continue
+        }
+        if (name.includes('.test.')) continue
+        if (!/\.(vue|ts|js|css)$/.test(name)) continue
+        const text = readFileSync(path, 'utf8')
+        if (text.includes('v-html')) hits.push(path)
+      }
+    }
+    expect(hits).toEqual([])
   })
 })
