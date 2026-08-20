@@ -2,6 +2,8 @@ package io.github.patchatlas.shared.api;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 public record RunDetailResponse(
@@ -18,10 +20,12 @@ public record RunDetailResponse(
         Generation generation,
         Candidate candidate,
         Result result,
-        List<Attempt> attempts) {
+        List<Attempt> attempts,
+        Locating locating) {
 
     public RunDetailResponse {
         attempts = attempts == null ? List.of() : List.copyOf(attempts);
+        locating = Objects.requireNonNull(locating, "locating");
     }
 
     @Override
@@ -91,4 +95,42 @@ public record RunDetailResponse(
             String message,
             Long elapsedMs,
             String exceptionType) {}
+
+    public record Locating(
+            String contextOrigin,
+            boolean recorded,
+            boolean toolCallsApplicable,
+            Integer toolCallCount,
+            Map<String, Integer> stepKindCounts,
+            int errorCount,
+            String usageStatus,
+            Long inputTokens,
+            Long outputTokens,
+            Long totalTokens,
+            List<BudgetEvent> budgetEvents,
+            GraphBuild graphBuild,
+            List<LocatingStep> steps,
+            List<String> selectedPaths,
+            boolean truncated,
+            int stepLimit) {
+
+        public Locating {
+            stepKindCounts = Map.copyOf(Objects.requireNonNull(stepKindCounts, "stepKindCounts"));
+            budgetEvents = List.copyOf(Objects.requireNonNull(budgetEvents, "budgetEvents"));
+            steps = List.copyOf(Objects.requireNonNull(steps, "steps"));
+            selectedPaths = List.copyOf(Objects.requireNonNull(selectedPaths, "selectedPaths"));
+        }
+    }
+
+    public record LocatingStep(
+            int seq, String kind, String subject, String reason, String outcome, Map<String, Object> detail) {
+
+        public LocatingStep {
+            detail = Map.copyOf(Objects.requireNonNull(detail, "detail"));
+        }
+    }
+
+    public record BudgetEvent(int seq, String kind, String limit, Integer used, Integer maxCalls) {}
+
+    public record GraphBuild(Long durationMs, Boolean cacheHit) {}
 }

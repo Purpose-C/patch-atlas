@@ -182,6 +182,8 @@ class RunControllerTest {
                         Optional.empty(),
                         Optional.empty(),
                         List.of())));
+        when(store.loadLocatingTrace(id)).thenReturn(List.of());
+        when(store.loadContextOrigin(id)).thenReturn(Optional.of(io.github.patchatlas.run.ContextOrigin.HEURISTIC));
 
         mockMvc.perform(get("/api/runs/" + id))
                 .andExpect(status().isOk())
@@ -189,7 +191,73 @@ class RunControllerTest {
                 .andExpect(jsonPath("$.generation.usageRecordCount").value(1))
                 .andExpect(jsonPath("$.generation.usageStatus").value("PARTIALLY_RECORDED"))
                 .andExpect(jsonPath("$.generation.estimatedCost").value(org.hamcrest.Matchers.nullValue()))
-                .andExpect(jsonPath("$.generation.inputTokens").value(10));
+                .andExpect(jsonPath("$.generation.inputTokens").value(10))
+                .andExpect(jsonPath("$.runId").value(id.toString()))
+                .andExpect(jsonPath("$.mode").value("LIVE"))
+                .andExpect(jsonPath("$.attempts").isArray())
+                .andExpect(jsonPath("$.locating.contextOrigin").value("HEURISTIC"))
+                .andExpect(jsonPath("$.locating.toolCallCount").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void detailIncludesLocatingTraceInSeqOrderWithoutOracleFields() throws Exception {
+        UUID id = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        Instant now = Instant.parse("2026-08-13T00:00:00Z");
+        when(store.findRunDetail(id))
+                .thenReturn(Optional.of(new RunDetailView(
+                        id,
+                        VerificationMode.LIVE,
+                        RunPurpose.STANDARD,
+                        RunState.GENERATING,
+                        "case-1",
+                        now,
+                        now,
+                        null,
+                        new RunDetailView.InputSummary(
+                                "https://github.com/ex/repo.git",
+                                null,
+                                "t",
+                                "b",
+                                "a".repeat(40),
+                                null,
+                                ""),
+                        new MavenExecutionPolicy("21", MavenNetworkMode.OFFLINE),
+                        new RunDetailView.GenerationMeta(0, "openai", "gpt-4.1-mini", 0, 0, 0, 0),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        List.of(),
+                        new io.github.patchatlas.run.LocatingUsage(2, 2, 4, 5, 9))));
+        when(store.loadContextOrigin(id)).thenReturn(Optional.of(io.github.patchatlas.run.ContextOrigin.TEXT_TOOLS));
+        when(store.loadLocatingTrace(id))
+                .thenReturn(List.of(
+                        io.github.patchatlas.run.LocatingTraceStep.of(
+                                1,
+                                io.github.patchatlas.run.LocatingStepKind.READ,
+                                "src/B.java",
+                                "read",
+                                "{\"lines\":4}"),
+                        io.github.patchatlas.run.LocatingTraceStep.of(
+                                0,
+                                io.github.patchatlas.run.LocatingStepKind.SEARCH,
+                                "Foo",
+                                "search",
+                                "{\"hits\":2}")));
+
+        String body = mockMvc.perform(get("/api/runs/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generation.attemptCount").value(0))
+                .andExpect(jsonPath("$.locating.contextOrigin").value("TEXT_TOOLS"))
+                .andExpect(jsonPath("$.locating.steps[0].seq").value(0))
+                .andExpect(jsonPath("$.locating.steps[0].kind").value("SEARCH"))
+                .andExpect(jsonPath("$.locating.steps[1].seq").value(1))
+                .andExpect(jsonPath("$.locating.truncated").value(false))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(body).doesNotContain("anyHit");
+        assertThat(body).doesNotContain("recall");
+        assertThat(body).doesNotContain("precision");
     }
 
     private static String validBody() {

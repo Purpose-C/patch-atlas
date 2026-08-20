@@ -4,15 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.patchatlas.observability.PricingFields;
 import io.github.patchatlas.observability.PricingReference;
+import io.github.patchatlas.replay.AttemptPhase;
+import io.github.patchatlas.replay.ReplayVerdict;
+import io.github.patchatlas.replay.RunOutcome;
+import io.github.patchatlas.replay.SingleAttemptEvidence;
+import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.FailureCategory;
+import io.github.patchatlas.run.FailureStage;
 import io.github.patchatlas.run.RecordedUsageStatus;
+import io.github.patchatlas.run.ReplaySide;
+import io.github.patchatlas.run.RunAttemptView;
 import io.github.patchatlas.run.RunDetailView;
+import io.github.patchatlas.run.RunFailure;
 import io.github.patchatlas.run.RunPurpose;
 import io.github.patchatlas.run.RunState;
 import io.github.patchatlas.run.TestPatchProvenance;
-import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
+import io.github.patchatlas.sandbox.SandboxExecutionStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +76,96 @@ class RunDetailResponseMappingTest {
 
         assertThat(response.runPurpose()).isEqualTo("AGENT_BENCHMARK");
         assertThat(response.candidate().patchProvenance()).isEqualTo("AGENT_GENERATED");
+        assertThat(response.locating().recorded()).isFalse();
+    }
+
+    @Test
+    void existingResultAndAttemptFieldsStillMapBesideLocating() {
+        RunDetailView base = detail(1, "openai", "gpt-test", 1, 2, 3, 1);
+        RunAttemptView attempt = new RunAttemptView(
+                1,
+                ReplaySide.PRIMARY,
+                1,
+                AttemptPhase.EXECUTED,
+                Optional.of(RunOutcome.ASSERTION_FAILURE),
+                SingleAttemptEvidence.TARGET_ASSERTION_FAILURE,
+                Optional.of("diag"),
+                Optional.of(SandboxExecutionStatus.COMPLETED),
+                Optional.of(1),
+                Optional.of(40L),
+                Optional.of(false),
+                Optional.of("[\"mvn\"]"),
+                Optional.of("maven:3.9"),
+                Optional.of("{}"),
+                Optional.of("OFFLINE"),
+                Optional.of("log"),
+                Optional.of(new RunAttemptView.TargetTestCaseView(
+                        "c.T", "m", "FAILED", Optional.of("msg"), Optional.of(12L), Optional.of("E"))),
+                1);
+        RunAttemptView withoutTarget = new RunAttemptView(
+                1,
+                ReplaySide.FIXED,
+                2,
+                AttemptPhase.EXECUTED,
+                Optional.empty(),
+                SingleAttemptEvidence.INVALID,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                1);
+
+        RunDetailResponse failed = RunDtos.toDetailResponse(new RunDetailView(
+                base.runId(),
+                base.mode(),
+                base.purpose(),
+                RunState.FAILED,
+                base.caseId(),
+                base.createdAt(),
+                base.updatedAt(),
+                base.completedAt(),
+                base.input(),
+                base.executionPolicy(),
+                base.generation(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new RunFailure(
+                        FailureStage.GENERATION, FailureCategory.GENERATION_FAILURE, "gen failed")),
+                List.of(attempt, withoutTarget)));
+        assertThat(failed.result().failureStage()).isEqualTo("GENERATION");
+        assertThat(failed.result().failureCategory()).isEqualTo("GENERATION_FAILURE");
+        assertThat(failed.attempts()).hasSize(2);
+        assertThat(failed.attempts().getFirst().targetTestCase().className()).isEqualTo("c.T");
+        assertThat(failed.attempts().get(1).targetTestCase()).isNull();
+        assertThat(failed.locating().recorded()).isFalse();
+        assertThat(failed.mode()).isEqualTo("LIVE");
+        assertThat(failed.input().repositoryUrl()).isEqualTo("https://github.com/ex/repo.git");
+
+        RunDetailResponse completed = RunDtos.toDetailResponse(new RunDetailView(
+                base.runId(),
+                base.mode(),
+                base.purpose(),
+                RunState.COMPLETED,
+                base.caseId(),
+                base.createdAt(),
+                base.updatedAt(),
+                base.completedAt(),
+                base.input(),
+                base.executionPolicy(),
+                base.generation(),
+                Optional.empty(),
+                Optional.of(ReplayVerdict.VALID_REPRODUCTION),
+                Optional.empty(),
+                List.of()));
+        assertThat(completed.result().verdict()).isEqualTo("VALID_REPRODUCTION");
+        assertThat(completed.locating().steps()).isEmpty();
     }
 
     @Test

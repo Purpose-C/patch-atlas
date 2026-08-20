@@ -2,6 +2,8 @@ package io.github.patchatlas.shared.api;
 
 import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.observability.PricingSettings;
+import io.github.patchatlas.run.ContextOrigin;
+import io.github.patchatlas.run.LocatingTraceStep;
 import io.github.patchatlas.run.RunEvents;
 import io.github.patchatlas.run.IdempotencyKey;
 import io.github.patchatlas.run.IdempotentSubmitResult;
@@ -12,6 +14,7 @@ import io.github.patchatlas.run.RunListPage;
 import io.github.patchatlas.run.RunSubmission;
 import io.github.patchatlas.run.SubmissionFingerprint;
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
@@ -88,9 +91,11 @@ public class RunController {
         PostgresRunStore store = requireStore();
         RunDetailView detail = store.findRunDetail(runId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "run not found"));
+        List<LocatingTraceStep> traces = store.loadLocatingTrace(runId);
+        ContextOrigin origin = store.loadContextOrigin(runId).orElse(null);
         Optional<PricingReference> pricing =
                 Optional.ofNullable(pricingSettings.getIfAvailable()).flatMap(PricingSettings::reference);
-        return RunDtos.toDetailResponse(detail, pricing);
+        return RunDtos.toDetailResponse(detail, traces, origin, pricing);
     }
 
     private PostgresRunStore requireStore() {

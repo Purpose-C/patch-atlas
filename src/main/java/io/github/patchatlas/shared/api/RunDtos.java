@@ -4,6 +4,8 @@ import io.github.patchatlas.observability.EstimatedModelCost;
 import io.github.patchatlas.observability.EstimatedModelCostCalculator;
 import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.ContextOrigin;
+import io.github.patchatlas.run.LocatingTraceStep;
 import io.github.patchatlas.run.RunAttemptView;
 import io.github.patchatlas.run.RunDetailView;
 import io.github.patchatlas.run.RunFailure;
@@ -79,6 +81,14 @@ final class RunDtos {
     }
 
     static RunDetailResponse toDetailResponse(RunDetailView d, Optional<PricingReference> pricing) {
+        return toDetailResponse(d, List.of(), null, pricing);
+    }
+
+    static RunDetailResponse toDetailResponse(
+            RunDetailView d,
+            List<LocatingTraceStep> traces,
+            ContextOrigin origin,
+            Optional<PricingReference> pricing) {
         Optional<RunDetailView.CandidateView> candidate = d.candidate();
         RunDetailResponse.Result result = null;
         if (d.state() == RunState.COMPLETED) {
@@ -128,7 +138,8 @@ final class RunDtos {
                                 c.provenance().name()))
                         .orElse(null),
                 result,
-                d.attempts().stream().map(RunDtos::toAttempt).toList());
+                d.attempts().stream().map(RunDtos::toAttempt).toList(),
+                LocatingTraceProjector.project(origin, d.locatingUsage(), traces));
     }
 
     private static RunDetailResponse.EstimatedCost estimatedCost(
