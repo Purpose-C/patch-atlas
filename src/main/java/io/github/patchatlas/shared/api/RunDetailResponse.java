@@ -21,16 +21,23 @@ public record RunDetailResponse(
         Candidate candidate,
         Result result,
         List<Attempt> attempts,
-        Locating locating) {
+        Locating locating,
+        List<String> generatorSourcePaths) {
 
     public RunDetailResponse {
         attempts = attempts == null ? List.of() : List.copyOf(attempts);
         locating = Objects.requireNonNull(locating, "locating");
+        generatorSourcePaths = List.copyOf(generatorSourcePaths);
     }
 
     @Override
     public List<Attempt> attempts() {
         return List.copyOf(attempts);
+    }
+
+    @Override
+    public List<String> generatorSourcePaths() {
+        return List.copyOf(generatorSourcePaths);
     }
 
     public record Input(

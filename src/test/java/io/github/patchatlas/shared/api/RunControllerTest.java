@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.patchatlas.agent.GenerationInput;
+import io.github.patchatlas.agent.SourceSnapshot;
+import io.github.patchatlas.repository.CaseManifest;
 import io.github.patchatlas.replay.VerificationMode;
 import io.github.patchatlas.run.IdempotencyKey;
 import io.github.patchatlas.run.IdempotentSubmitResult;
@@ -205,6 +208,7 @@ class RunControllerTest {
                         List.of())));
         when(store.loadLocatingTrace(id)).thenReturn(List.of());
         when(store.loadContextOrigin(id)).thenReturn(Optional.of(io.github.patchatlas.run.ContextOrigin.HEURISTIC));
+        when(store.loadGenerationInput(id)).thenReturn(generationInput(List.of()));
 
         mockMvc.perform(get("/api/runs/" + id))
                 .andExpect(status().isOk())
@@ -217,7 +221,9 @@ class RunControllerTest {
                 .andExpect(jsonPath("$.mode").value("LIVE"))
                 .andExpect(jsonPath("$.attempts").isArray())
                 .andExpect(jsonPath("$.locating.contextOrigin").value("HEURISTIC"))
-                .andExpect(jsonPath("$.locating.toolCallCount").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("$.locating.toolCallCount").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.generatorSourcePaths").isArray())
+                .andExpect(jsonPath("$.generatorSourcePaths").isEmpty());
     }
 
     @Test
@@ -264,6 +270,7 @@ class RunControllerTest {
                                 "Foo",
                                 "search",
                                 "{\"hits\":2}")));
+        when(store.loadGenerationInput(id)).thenReturn(generationInput(List.of()));
 
         String body = mockMvc.perform(get("/api/runs/" + id))
                 .andExpect(status().isOk())
@@ -279,6 +286,67 @@ class RunControllerTest {
         assertThat(body).doesNotContain("anyHit");
         assertThat(body).doesNotContain("recall");
         assertThat(body).doesNotContain("precision");
+    }
+
+    @Test
+    void detailProjectsSnapshotPathsWithoutContent() throws Exception {
+        UUID id = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        Instant now = Instant.parse("2026-08-13T00:00:00Z");
+        String secret = "HTTP_BODY_MUST_NOT_CONTAIN_THIS_SNAPSHOT";
+        when(store.findRunDetail(id))
+                .thenReturn(Optional.of(new RunDetailView(
+                        id,
+                        VerificationMode.LIVE,
+                        RunPurpose.STANDARD,
+                        RunState.GENERATING,
+                        "case-1",
+                        now,
+                        now,
+                        null,
+                        new RunDetailView.InputSummary(
+                                "https://github.com/ex/repo.git",
+                                null,
+                                "t",
+                                "b",
+                                "a".repeat(40),
+                                null,
+                                ""),
+                        new MavenExecutionPolicy("21", MavenNetworkMode.OFFLINE),
+                        new RunDetailView.GenerationMeta(0, "openai", "gpt-4.1-mini", 0, 0, 0, 0),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        List.of())));
+        when(store.loadLocatingTrace(id)).thenReturn(List.of());
+        when(store.loadContextOrigin(id)).thenReturn(Optional.of(io.github.patchatlas.run.ContextOrigin.HEURISTIC));
+        when(store.loadGenerationInput(id))
+                .thenReturn(generationInput(List.of(new SourceSnapshot("src/Main.java", secret))));
+
+        String body = mockMvc.perform(get("/api/runs/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.runId").value(id.toString()))
+                .andExpect(jsonPath("$.mode").value("LIVE"))
+                .andExpect(jsonPath("$.generatorSourcePaths[0]").value("src/Main.java"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(body).doesNotContain(secret);
+        assertThat(body).doesNotContain("\"content\"");
+    }
+
+    private static GenerationInput generationInput(List<SourceSnapshot> snapshots) {
+        return new GenerationInput(
+                new CaseManifest.GeneratorContext(
+                        "live",
+                        "https://github.com/ex/repo.git",
+                        null,
+                        null,
+                        "a".repeat(40),
+                        "",
+                        "21"),
+                "t",
+                "b",
+                snapshots);
     }
 
     private static String validBody() {

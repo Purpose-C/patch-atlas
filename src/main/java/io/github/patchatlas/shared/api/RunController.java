@@ -1,5 +1,6 @@
 package io.github.patchatlas.shared.api;
 
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.observability.PricingSettings;
 import io.github.patchatlas.run.ContextOrigin;
@@ -110,9 +111,10 @@ public class RunController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "run not found"));
         List<LocatingTraceStep> traces = store.loadLocatingTrace(runId);
         ContextOrigin origin = store.loadContextOrigin(runId).orElse(null);
+        List<SourceSnapshot> snapshots = store.loadGenerationInput(runId).sourceSnapshots();
         Optional<PricingReference> pricing =
                 Optional.ofNullable(pricingSettings.getIfAvailable()).flatMap(PricingSettings::reference);
-        return RunDtos.toDetailResponse(detail, traces, origin, pricing);
+        return RunDtos.toDetailResponse(detail, traces, origin, pricing, snapshots);
     }
 
     private PostgresRunStore requireStore() {

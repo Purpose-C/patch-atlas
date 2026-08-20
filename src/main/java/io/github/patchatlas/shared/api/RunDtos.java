@@ -1,5 +1,6 @@
 package io.github.patchatlas.shared.api;
 
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.observability.EstimatedModelCost;
 import io.github.patchatlas.observability.EstimatedModelCostCalculator;
 import io.github.patchatlas.observability.PricingReference;
@@ -89,6 +90,15 @@ final class RunDtos {
             List<LocatingTraceStep> traces,
             ContextOrigin origin,
             Optional<PricingReference> pricing) {
+        return toDetailResponse(d, traces, origin, pricing, List.of());
+    }
+
+    static RunDetailResponse toDetailResponse(
+            RunDetailView d,
+            List<LocatingTraceStep> traces,
+            ContextOrigin origin,
+            Optional<PricingReference> pricing,
+            List<SourceSnapshot> snapshots) {
         Optional<RunDetailView.CandidateView> candidate = d.candidate();
         RunDetailResponse.Result result = null;
         if (d.state() == RunState.COMPLETED) {
@@ -139,7 +149,8 @@ final class RunDtos {
                         .orElse(null),
                 result,
                 d.attempts().stream().map(RunDtos::toAttempt).toList(),
-                LocatingTraceProjector.project(origin, d.locatingUsage(), traces));
+                LocatingTraceProjector.project(origin, d.locatingUsage(), traces),
+                snapshots.stream().map(SourceSnapshot::relativePath).toList());
     }
 
     private static RunDetailResponse.EstimatedCost estimatedCost(

@@ -2,6 +2,7 @@ package io.github.patchatlas.shared.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.patchatlas.agent.SourceSnapshot;
 import io.github.patchatlas.observability.PricingFields;
 import io.github.patchatlas.observability.PricingReference;
 import io.github.patchatlas.replay.AttemptPhase;
@@ -10,8 +11,11 @@ import io.github.patchatlas.replay.RunOutcome;
 import io.github.patchatlas.replay.SingleAttemptEvidence;
 import io.github.patchatlas.replay.TargetTest;
 import io.github.patchatlas.replay.VerificationMode;
+import io.github.patchatlas.run.ContextOrigin;
 import io.github.patchatlas.run.FailureCategory;
 import io.github.patchatlas.run.FailureStage;
+import io.github.patchatlas.run.LocatingStepKind;
+import io.github.patchatlas.run.LocatingTraceStep;
 import io.github.patchatlas.run.RecordedUsageStatus;
 import io.github.patchatlas.run.ReplaySide;
 import io.github.patchatlas.run.RunAttemptView;
@@ -23,11 +27,15 @@ import io.github.patchatlas.run.TestPatchProvenance;
 import io.github.patchatlas.sandbox.MavenExecutionPolicy;
 import io.github.patchatlas.sandbox.MavenNetworkMode;
 import io.github.patchatlas.sandbox.SandboxExecutionStatus;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /** 详情 DTO 向后兼容增加 usage 四态与估算费用。 */
 class RunDetailResponseMappingTest {
@@ -239,6 +247,89 @@ class RunDetailResponseMappingTest {
         assertThat(response.generation().usageStatus()).isEqualTo("NONE_RECORDED");
         assertThat(response.generation().estimatedCost()).isNotNull();
         assertThat(response.generation().estimatedCost().amount()).isEqualTo("0.00000000");
+    }
+
+    @Test
+    void projectsSnapshotRelativePathsInStoredOrder() {
+        List<SourceSnapshot> snapshots = List.of(
+                new SourceSnapshot("src/B.java", "class B {}"),
+                new SourceSnapshot("src/A.java", "class A {}"));
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, null, null, 0, 0, 0, null),
+                List.of(),
+                ContextOrigin.HEURISTIC,
+                Optional.empty(),
+                snapshots);
+        assertThat(response.generatorSourcePaths()).containsExactly("src/B.java", "src/A.java");
+    }
+
+    @Test
+    void serializedDetailDoesNotCarrySnapshotContent() {
+        String secret = "SNAPSHOT_CONTENT_MUST_NOT_LEAVE_THE_SERVER";
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, null, null, 0, 0, 0, null),
+                List.of(),
+                ContextOrigin.HEURISTIC,
+                Optional.empty(),
+                List.of(new SourceSnapshot("src/Secret.java", secret)));
+        String json = JsonMapper.shared().writeValueAsString(response);
+        assertThat(json).doesNotContain(secret);
+        JsonNode paths = JsonMapper.shared().readTree(json).get("generatorSourcePaths");
+        assertThat(paths.isArray()).isTrue();
+        assertThat(paths.get(0).isString()).isTrue();
+        assertThat(paths.get(0).asString()).isEqualTo("src/Secret.java");
+        assertThat(json).doesNotContain("\"content\"");
+    }
+
+    @Test
+    void heuristicWithoutSubmitStillProjectsSnapshotPaths() {
+        List<LocatingTraceStep> heuristic = List.of(
+                LocatingTraceStep.of(0, LocatingStepKind.SELECTION, "src/A.java", "PINNED", "{}"),
+                LocatingTraceStep.of(1, LocatingStepKind.EXCLUSION, "src/ATest.java", "TEST_SOURCE", "{}"));
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, null, null, 0, 0, 0, null),
+                heuristic,
+                ContextOrigin.HEURISTIC,
+                Optional.empty(),
+                List.of(new SourceSnapshot("src/Main.java", "class Main {}")));
+        assertThat(response.locating().steps())
+                .extracting(RunDetailResponse.LocatingStep::kind)
+                .doesNotContain("SUBMIT");
+        assertThat(response.generatorSourcePaths()).containsExactly("src/Main.java");
+    }
+
+    @Test
+    void emptySnapshotsProjectToEmptyPathList() {
+        RunDetailResponse response = RunDtos.toDetailResponse(
+                detail(0, null, null, 0, 0, 0, null),
+                List.of(),
+                ContextOrigin.HEURISTIC,
+                Optional.empty(),
+                List.of());
+        assertThat(response.generatorSourcePaths()).isEmpty();
+        assertThat(JsonMapper.shared().writeValueAsString(response)).doesNotContain("\"generatorSourcePaths\":0");
+    }
+
+    @Test
+    void existingDetailFieldsRemainBesideGeneratorSourcePaths() {
+        assertThat(Arrays.stream(RunDetailResponse.class.getRecordComponents()).map(RecordComponent::getName))
+                .containsExactly(
+                        "runId",
+                        "mode",
+                        "runPurpose",
+                        "state",
+                        "caseId",
+                        "createdAt",
+                        "updatedAt",
+                        "completedAt",
+                        "input",
+                        "executionPolicy",
+                        "generation",
+                        "candidate",
+                        "result",
+                        "attempts",
+                        "locating",
+                        "generatorSourcePaths");
     }
 
     private static String status(int attempts, Integer records) {
