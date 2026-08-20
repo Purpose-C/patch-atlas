@@ -11,7 +11,7 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- CI 的 maven 缓存只包含主项目构建拉取过的构件。junit / surefire 必须与 spring-boot-starter-parent 实际解析值一致，否则宿主离线构建会失败。 -->
+        <!-- CI 的 maven 缓存只包含主项目构建拉取过的构件。本 pom 不继承 spring-boot-starter-parent：即使 junit / surefire 已与主项目解析值一致，Maven 默认的 compiler / resources 插件版本仍可能不在缓存里。宿主离线构建依赖 CI 先联网解析本 pom。 -->
         <junit.version>6.0.3</junit.version>
         <surefire.version>3.5.6</surefire.version>
     </properties>

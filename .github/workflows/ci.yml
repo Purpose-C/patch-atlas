@@ -18,6 +18,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - run: ./mvnw -B -f fixtures/weekend-surcharge/pom.xml test
       - run: ./mvnw test
       - run: ./mvnw spotbugs:check checkstyle:check
       - uses: actions/upload-artifact@v4
